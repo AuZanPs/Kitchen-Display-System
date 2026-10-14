@@ -1,0 +1,60 @@
+:root {
+  font-family: system-ui, sans-serif;
+  color: #1f1f1f;
+  background: #f8fafd;
+}
+
+body {
+  margin: 0;
+}
+
+.home,
+.waiter,
+.dev-gate {
+  display: grid;
+  gap: 12px;
+  max-width: 360px;
+  padding: 24px;
+}
+
+.tv {
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: 32px;
+  color: #f8fafd;
+  background: #1f1f1f;
+  font-size: 24px;
+}
+
+.tv-banner {
+  margin: 0 0 24px;
+  padding: 16px 24px;
+  border-radius: 12px;
+  color: #1f1f1f;
+  background: #d3e3fd;
+  font-weight: 700;
+}
+
+.tv-clock {
+  font-size: 64px;
+  margin: 0;
+}
+
+.tv-rev {
+  font-size: 40px;
+  margin: 0;
+}
+
+.tv-checks {
+  margin-top: 48px;
+  font-size: 18px;
+}
+
+.tv-checks dt {
+  font-weight: 700;
+}
+
+.tv-checks dd {
+  margin: 0 0 8px;
+  overflow-wrap: anywhere;
+}

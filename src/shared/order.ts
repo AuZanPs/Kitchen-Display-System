@@ -6,8 +6,10 @@ export const createOrderSchema = z.object({
 
 export type CreateOrder = z.infer<typeof createOrderSchema>
 
-export type CreateOrderResult = {
-  orderId: string
-  ticketNo: number
-  rev: number
-}
+export const createOrderResultSchema = z.object({
+  orderId: z.string(),
+  ticketNo: z.number().int(),
+  rev: z.number().int(),
+})
+
+export type CreateOrderResult = z.infer<typeof createOrderResultSchema>
