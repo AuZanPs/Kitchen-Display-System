@@ -6,6 +6,8 @@
     "module": "esnext",
     "types": ["./worker-configuration.d.ts"],
     "skipLibCheck": true,
+    "allowJs": true,
+    "resolveJsonModule": true,
 
     /* Bundler mode */
     "moduleResolution": "bundler",
