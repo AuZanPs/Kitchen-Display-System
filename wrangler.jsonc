@@ -11,9 +11,6 @@
     "bindings": [{ "name": "VENUE_ROOM", "class_name": "VenueRoom" }]
   },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["VenueRoom"] }],
-  "vars": {
-    "ENVIRONMENT": "development"
-  },
   "observability": {
     "enabled": true
   }
