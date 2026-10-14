@@ -1,4 +1,6 @@
+import { zValidator } from '@hono/zod-validator'
 import { Hono } from 'hono'
+import { createOrderSchema } from '../shared/order'
 
 export { VenueRoom } from './venue-room'
 
@@ -24,5 +26,18 @@ app.get('/api/ws', (c) => {
   }
   return venueRoom(c.env).fetch(c.req.raw)
 })
+
+app.post(
+  '/api/orders',
+  zValidator('json', createOrderSchema, (result, c) => {
+    if (!result.success) {
+      return c.json({ error: 'invalid_body', issues: result.error.issues }, 422)
+    }
+  }),
+  async (c) => {
+    const result = await venueRoom(c.env).createOrder(c.req.valid('json'))
+    return c.json(result, 201)
+  },
+)
 
 export default app
