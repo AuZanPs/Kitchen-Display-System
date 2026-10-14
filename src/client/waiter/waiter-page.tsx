@@ -12,13 +12,26 @@ export function WaiterPage() {
 
   async function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault()
-    const tableLabel = new FormData(event.currentTarget).get('tableLabel')
+    const tableId = new FormData(event.currentTarget).get('tableId')
     setSend({ status: 'sending' })
     try {
       const res = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ tableLabel }),
+        body: JSON.stringify({
+          operationId: crypto.randomUUID(),
+          destination: { type: 'table', tableId },
+          lines: [
+            {
+              menuItemId: 'nasi-goreng-kampung',
+              qty: 1,
+              optionIds: ['tidak-pedas'],
+              note: '',
+              allergy: '',
+            },
+          ],
+          orderNote: '',
+        }),
       })
       if (!res.ok) {
         setSend({ status: 'failed', message: `Server said ${res.status}` })
@@ -38,13 +51,8 @@ export function WaiterPage() {
     <main className="waiter">
       <h1>Send a test order</h1>
       <form onSubmit={handleSubmit}>
-        <label htmlFor="table-label">Table</label>
-        <input
-          id="table-label"
-          name="tableLabel"
-          defaultValue="Meja 07"
-          required
-        />
+        <label htmlFor="table-id">Table id</label>
+        <input id="table-id" name="tableId" defaultValue="t07" required />
         <button type="submit" disabled={send.status === 'sending'}>
           {send.status === 'sending' ? 'Sending…' : 'Send dummy order'}
         </button>
