@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs'
+import AxeBuilder from '@axe-core/playwright'
 import { type Browser, expect, type Page, test } from '@playwright/test'
 
 // The dev server reads the same file, so the test uses the owner's local password.
@@ -6,6 +7,31 @@ const ADMIN_PASSWORD =
   /^ADMIN_PASSWORD=(.*)$/m
     .exec(readFileSync('.dev.vars', 'utf8'))?.[1]
     ?.trim() ?? ''
+
+/** WCAG 2.1 A/AA checks on what is on screen now. */
+async function expectAccessible(page: Page, screen: string) {
+  // Entrance fades would read as low contrast mid-way; spinners never end.
+  await page.waitForFunction(() =>
+    document
+      .getAnimations()
+      .every(
+        (a) =>
+          a.playState !== 'running' ||
+          a.effect?.getTiming().iterations === Number.POSITIVE_INFINITY,
+      ),
+  )
+  const { violations } = await new AxeBuilder({ page })
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+    .analyze()
+  // Soft, so one run reports every screen.
+  expect
+    .soft(
+      violations.map(
+        (v) => `${screen}: ${v.id} x${v.nodes.length} ${v.nodes[0]?.target}`,
+      ),
+    )
+    .toEqual([])
+}
 
 async function signInAdmin(browser: Browser) {
   const admin = await (await browser.newContext()).newPage()
@@ -28,6 +54,7 @@ async function pair(
   await page.goto('/')
   await expect(page).toHaveURL(/\/enroll/)
   await page.screenshot({ path: 'test-results/enroll.png' })
+  await expectAccessible(page, 'enroll')
   const spoken = await page.getByText(/^\d \d \d \d \d \d$/).textContent()
   const code = (spoken ?? '').replaceAll(' ', '')
   await admin.getByLabel('Kode').fill(code)
@@ -70,6 +97,7 @@ test('a paired tablet sends an order that appears on the paired TV without reloa
     path: 'test-results/admin-devices.png',
     fullPage: true,
   })
+  await expectAccessible(admin, 'admin-devices')
 
   await expect(tablet).toHaveURL(/\/waiter/)
   await expect(tv).toHaveURL(/\/tv/)
@@ -84,6 +112,7 @@ test('a paired tablet sends an order that appears on the paired TV without reloa
   await tablet.getByLabel('Alergi').fill(allergy)
   await tablet.getByRole('button', { name: /Tambah ke pesanan/ }).click()
   await tablet.screenshot({ path: 'test-results/composer.png' })
+  await expectAccessible(tablet, 'composer')
   await tablet.getByRole('button', { name: 'Periksa pesanan' }).click()
   // The review shows the same ticket the kitchen will read.
   await expect(tablet.getByRole('dialog').getByText(allergy)).toBeVisible()
@@ -103,6 +132,7 @@ test('a paired tablet sends an order that appears on the paired TV without reloa
 
   await tablet.screenshot({ path: 'test-results/waiter.png' })
   await tv.screenshot({ path: 'test-results/tv.png' })
+  await expectAccessible(tv, 'tv')
 
   // Kitchen accepts (allergy must be confirmed), then marks it ready.
   const card = kitchen
@@ -118,6 +148,7 @@ test('a paired tablet sends an order that appears on the paired TV without reloa
       .filter({ hasText: allergy }),
   ).toBeVisible()
   await kitchen.screenshot({ path: 'test-results/kitchen.png', fullPage: true })
+  await expectAccessible(kitchen, 'kitchen')
   await card.getByRole('button', { name: 'Siap' }).click()
   await expect(
     tv
@@ -165,6 +196,7 @@ test('a paired tablet sends an order that appears on the paired TV without reloa
     tablet.getByText('Menunggu dapur mengonfirmasi pembatalan'),
   ).toBeVisible()
   await tablet.screenshot({ path: 'test-results/service.png' })
+  await expectAccessible(tablet, 'service')
 
   // The kitchen sees the request on top and confirms it; the TV drops it.
   await kitchen.getByRole('button', { name: 'Konfirmasi pembatalan' }).click()
@@ -201,6 +233,7 @@ test('a paired tablet sends an order that appears on the paired TV without reloa
     path: 'test-results/admin-menu.png',
     fullPage: true,
   })
+  await expectAccessible(admin, 'admin-menu')
 
   // History: today's orders with totals, and each order's timeline.
   await admin.getByRole('button', { name: 'Riwayat' }).click()
@@ -210,6 +243,7 @@ test('a paired tablet sends an order that appears on the paired TV without reloa
     admin.getByRole('dialog').getByText('Diterima dapur'),
   ).toBeVisible()
   await admin.screenshot({ path: 'test-results/admin-history.png' })
+  await expectAccessible(admin, 'history')
   await admin.keyboard.press('Escape')
 
   // Staff PINs: once the admin turns them on, the tablet asks who is working.
@@ -230,6 +264,7 @@ test('a paired tablet sends an order that appears on the paired TV without reloa
   }
   await expect(tablet.getByRole('button', { name: 'Masuk' })).toBeEnabled()
   await tablet.screenshot({ path: 'test-results/pin.png' })
+  await expectAccessible(tablet, 'pin')
   await tablet.getByRole('button', { name: 'Masuk' }).click()
   await expect(tablet.getByRole('button', { name: 'Rina' })).toBeVisible()
 })
