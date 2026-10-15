@@ -6,6 +6,7 @@ import { z } from 'zod'
 import {
   type BoardMessage,
   renderedMessageSchema,
+  type Settings,
   type TvControl,
 } from '../shared/board'
 import type { Command, CommandResult } from '../shared/commands'
@@ -27,6 +28,7 @@ import {
   jakartaDate,
   schema,
   setMeta,
+  setSettings,
 } from './db'
 import migrations from './db/migrations/migrations'
 import {
@@ -374,6 +376,17 @@ export class VenueRoom extends DurableObject<Env> {
           rev: bumpRev(this.db),
         },
       }
+    })
+  }
+
+  updateSettings(
+    credentials: Credentials,
+    settings: Settings,
+  ): Result<{ settings: Settings; rev: number }> {
+    if (credentials.kind !== 'admin') return unauthenticated()
+    return this.write(() => {
+      setSettings(this.db, settings)
+      return ok({ settings, rev: bumpRev(this.db) })
     })
   }
 

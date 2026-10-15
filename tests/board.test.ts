@@ -156,3 +156,24 @@ describe('kitchen TV', () => {
     expect((await getBoard()).tvControl).toEqual({ paused: false, page: 2 })
   })
 })
+
+describe('venue settings', () => {
+  it('start clean, then follow the admin and reach open sockets', async () => {
+    expect((await getBoard()).settings).toEqual({
+      allergy: false,
+      lineNotes: true,
+      orderNote: true,
+    })
+    const { ws, nextBoard } = await openBoardSocket()
+    await nextBoard()
+    const detailed = { allergy: true, lineNotes: true, orderNote: false }
+    expect((await postJson('/api/admin/settings', detailed)).status).toBe(200)
+    expect((await nextBoard()).settings).toEqual(detailed)
+    ws.close()
+  })
+
+  it('rejects a partial settings body', async () => {
+    const res = await postJson('/api/admin/settings', { allergy: true })
+    expect(res.status).toBe(422)
+  })
+})

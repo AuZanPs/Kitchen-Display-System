@@ -60,6 +60,21 @@ export const tvControlSchema = z.object({
   page: z.number().int().min(0),
 })
 
+/** What the waiter is asked per order; each venue picks how detailed. */
+export const settingsSchema = z.object({
+  allergy: z.boolean(),
+  lineNotes: z.boolean(),
+  orderNote: z.boolean(),
+})
+export type Settings = z.infer<typeof settingsSchema>
+
+// The owner asked for a clean default: no allergy field until a venue turns it on.
+export const DEFAULT_SETTINGS: Settings = {
+  allergy: false,
+  lineNotes: true,
+  orderNote: true,
+}
+
 export const boardMessageSchema = z.object({
   type: z.literal('board'),
   rev: z.number().int().nonnegative(),
@@ -69,6 +84,7 @@ export const boardMessageSchema = z.object({
   instanceStartedAt: z.number(),
   tvCount: z.number().int(),
   tvControl: tvControlSchema,
+  settings: settingsSchema,
   orders: z.array(boardOrderSchema),
 })
 

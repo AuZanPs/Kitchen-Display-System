@@ -60,6 +60,11 @@ const adminRoutes: Call[] = [
   },
   { name: 'POST open day', path: '/api/manager/service-day/open', body: {} },
   {
+    name: 'POST settings',
+    path: '/api/admin/settings',
+    body: { allergy: true, lineNotes: true, orderNote: true },
+  },
+  {
     name: 'POST close day',
     path: '/api/manager/service-day/close',
     body: { force: false },
@@ -334,7 +339,9 @@ describe('revoking a device', () => {
     if (!ws) throw new Error('no socket')
     const messages: string[] = []
     const closed = new Promise<number>((resolve) => {
-      ws.addEventListener('message', (e) => messages.push(String(e.data)))
+      ws.addEventListener('message', (e) => {
+        messages.push(String(e.data))
+      })
       ws.addEventListener('close', (e) => resolve(e.code))
     })
     ws.accept()

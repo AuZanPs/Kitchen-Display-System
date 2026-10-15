@@ -1,5 +1,10 @@
 import { eq, sql } from 'drizzle-orm'
 import type { DrizzleSqliteDODatabase } from 'drizzle-orm/durable-sqlite'
+import {
+  DEFAULT_SETTINGS,
+  type Settings,
+  settingsSchema,
+} from '../../shared/board'
 import * as schema from './schema'
 
 export { schema }
@@ -49,4 +54,20 @@ export function recordMetric(db: Db, name: string, value: number, at: number) {
       },
     })
     .run()
+}
+
+/** Venue settings, with defaults for anything never saved. */
+export function getSettings(db: Db): Settings {
+  let stored: unknown = {}
+  try {
+    stored = JSON.parse(getMeta(db, 'settings') ?? '{}')
+  } catch {
+    // A corrupt row falls back to the defaults.
+  }
+  const parsed = settingsSchema.partial().safeParse(stored)
+  return { ...DEFAULT_SETTINGS, ...(parsed.success ? parsed.data : {}) }
+}
+
+export function setSettings(db: Db, settings: Settings) {
+  setMeta(db, 'settings', JSON.stringify(settings))
 }

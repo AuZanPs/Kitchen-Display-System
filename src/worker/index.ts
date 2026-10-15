@@ -2,7 +2,7 @@ import { zValidator } from '@hono/zod-validator'
 import { type Context, Hono, type MiddlewareHandler } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
 import { z } from 'zod'
-import { tvControlSchema } from '../shared/board'
+import { settingsSchema, tvControlSchema } from '../shared/board'
 import { commandSchema } from '../shared/commands'
 import { createOrderSchema } from '../shared/order'
 import {
@@ -305,6 +305,20 @@ app.post(
     )
     return reply(c, await room.controlTv(await credentials(c), next))
   },
+)
+
+app.post(
+  '/api/admin/settings',
+  requireAdmin,
+  invalidInput('json', settingsSchema),
+  async (c) =>
+    reply(
+      c,
+      await venueRoom(c.env).updateSettings(
+        { kind: 'admin' },
+        c.req.valid('json'),
+      ),
+    ),
 )
 
 app.post('/api/manager/service-day/open', requireAdmin, async (c) =>

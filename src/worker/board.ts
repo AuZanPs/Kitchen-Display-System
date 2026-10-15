@@ -17,7 +17,7 @@ import {
   type BoardOrder,
   type TvControl,
 } from '../shared/board'
-import { type Db, getMeta, getRev, schema } from './db'
+import { type Db, getMeta, getRev, getSettings, schema } from './db'
 
 const BOARD_LIMIT = 50
 const RECENTLY_CLOSED_MS = 2 * 60 * 1000
@@ -194,6 +194,7 @@ export function buildBoard(db: Db, live: Live, now: number): BoardMessage {
     instanceStartedAt: live.instanceStartedAt,
     tvCount: live.tvCount,
     tvControl: live.tvControl,
+    settings: getSettings(db),
     orders: toBoardOrders(
       db,
       rows.filter((r) => keep.has(r)),
