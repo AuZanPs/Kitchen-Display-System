@@ -1,5 +1,10 @@
-import { useEffect, useState } from 'react'
-import { type BoardMessage, boardMessageSchema } from '../../shared/board'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import {
+  type BoardMessage,
+  type RenderedMessage,
+  type ServerMessage,
+  serverMessageSchema,
+} from '../../shared/board'
 
 export const STALE_AFTER_MS = 10_000
 const PING_EVERY_MS = 4_000
@@ -13,12 +18,14 @@ export type BoardSocket = {
   startedAt: number
   /** Server clock minus device clock, from the latest board. */
   serverOffsetMs: number
+  /** Sends a TV render receipt; false (and dropped) while disconnected. */
+  send: (message: RenderedMessage) => boolean
 }
 
-function parseBoardMessage(data: unknown): BoardMessage | null {
+function parseServerMessage(data: unknown): ServerMessage | null {
   if (typeof data !== 'string') return null
   try {
-    const result = boardMessageSchema.safeParse(JSON.parse(data))
+    const result = serverMessageSchema.safeParse(JSON.parse(data))
     return result.success ? result.data : null
   } catch {
     // Not JSON at all; treated the same as a message that fails the schema.
@@ -31,6 +38,7 @@ export function useBoardSocket(): BoardSocket {
   const [board, setBoard] = useState<BoardMessage | null>(null)
   const [lastMessageAt, setLastMessageAt] = useState<number | null>(null)
   const [serverOffsetMs, setServerOffsetMs] = useState(0)
+  const socketRef = useRef<WebSocket | null>(null)
 
   useEffect(() => {
     let socket: WebSocket | null = null
@@ -64,6 +72,7 @@ export function useBoardSocket(): BoardSocket {
       lastSeen = Date.now()
       const ws = new WebSocket(url)
       socket = ws
+      socketRef.current = ws
       ws.onopen = () => {
         attempt = 0
         pingTimer = setInterval(() => {
@@ -77,9 +86,15 @@ export function useBoardSocket(): BoardSocket {
         lastSeen = now
         setLastMessageAt(now)
         if (event.data === 'pong') return
-        const message = parseBoardMessage(event.data)
+        const message = parseServerMessage(event.data)
         if (!message) {
           console.warn('Ignored a malformed board message')
+          return
+        }
+        if (message.type === 'revoked') {
+          teardown()
+          clearTimeout(retryTimer)
+          window.location.assign('/enroll?revoked=1')
           return
         }
         setServerOffsetMs(message.serverTime - now)
@@ -90,12 +105,30 @@ export function useBoardSocket(): BoardSocket {
       ws.onclose = reconnectLater
     }
 
+    // Back on the network: try now instead of waiting out the backoff.
+    function reconnectNow() {
+      if (socket?.readyState === WebSocket.OPEN) return
+      clearTimeout(retryTimer)
+      attempt = 0
+      teardown()
+      connect()
+    }
+    window.addEventListener('online', reconnectNow)
+
     connect()
     return () => {
+      window.removeEventListener('online', reconnectNow)
       clearTimeout(retryTimer)
       teardown()
     }
   }, [])
 
-  return { board, lastMessageAt, startedAt, serverOffsetMs }
+  const send = useCallback((message: RenderedMessage) => {
+    const ws = socketRef.current
+    if (ws?.readyState !== WebSocket.OPEN) return false
+    ws.send(JSON.stringify(message))
+    return true
+  }, [])
+
+  return { board, lastMessageAt, startedAt, serverOffsetMs, send }
 }

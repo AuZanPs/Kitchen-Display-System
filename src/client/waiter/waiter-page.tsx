@@ -1,67 +1,181 @@
-import { type SubmitEvent, useState } from 'react'
-import { createOrderResultSchema } from '../../shared/order'
+import { ClipboardList, ConciergeBell, WifiOff } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { DEFAULT_SETTINGS } from '../../shared/board'
+import {
+  type MenuItem,
+  menuSchema,
+  type Table,
+  tablesSchema,
+} from '../../shared/menu'
+import { AppBar } from '../app-bar'
+import { formatTime, useI18n } from '../i18n'
+import { api } from '../lib/api'
+import { RequireRole } from '../lib/session'
+import { STALE_AFTER_MS, useBoardSocket } from '../lib/use-board-socket'
+import { useNow } from '../lib/use-now'
+import { Button } from '../ui/button'
+import { useSnackbar } from '../ui/snackbar'
+import { Composer } from './composer'
+import { useDraft } from './draft'
+import { ServiceList } from './service-list'
 
-type SendState =
-  | { status: 'idle' }
-  | { status: 'sending' }
-  | { status: 'sent'; ticketNo: number; rev: number }
-  | { status: 'failed'; message: string }
+type Tab = 'order' | 'service'
 
 export function WaiterPage() {
-  const [send, setSend] = useState<SendState>({ status: 'idle' })
+  return (
+    <RequireRole allow="waiter">
+      {(session) => <Waiter device={session.label} />}
+    </RequireRole>
+  )
+}
 
-  async function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const tableId = new FormData(event.currentTarget).get('tableId')
-    setSend({ status: 'sending' })
-    try {
-      const res = await fetch('/api/orders', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          operationId: crypto.randomUUID(),
-          destination: { type: 'table', tableId },
-          lines: [
-            {
-              menuItemId: 'nasi-goreng-kampung',
-              qty: 1,
-              optionIds: ['tidak-pedas'],
-              note: '',
-              allergy: '',
-            },
-          ],
-          orderNote: '',
-        }),
-      })
-      if (!res.ok) {
-        setSend({ status: 'failed', message: `Server said ${res.status}` })
-        return
-      }
-      const body = createOrderResultSchema.parse(await res.json())
-      setSend({ status: 'sent', ticketNo: body.ticketNo, rev: body.rev })
-    } catch (err) {
-      setSend({
-        status: 'failed',
-        message: err instanceof Error ? err.message : 'Network error',
-      })
-    }
-  }
+function Waiter({ device }: { device: string }) {
+  const { t } = useI18n()
+  const [tab, setTab] = useState<Tab>('order')
+  const [menu, setMenu] = useState<MenuItem[] | null>(null)
+  const [tables, setTables] = useState<Table[] | null>(null)
+  const [loadFailed, setLoadFailed] = useState(false)
+  const [loadAttempt, setLoadAttempt] = useState(0)
+  const drafts = useDraft()
+  // A draft whose send was never confirmed reopens its review after a reload.
+  const [reviewOpen, setReviewOpen] = useState(drafts.draft.attempted)
+  const socket = useBoardSocket()
+  const now = useNow(1000)
+  const snackbar = useSnackbar()
+  const disconnected =
+    now - (socket.lastMessageAt ?? socket.startedAt) > STALE_AFTER_MS
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `loadAttempt` re-runs the load on retry
+  useEffect(() => {
+    setLoadFailed(false)
+    void Promise.all([
+      api('/api/menu', menuSchema),
+      api('/api/tables', tablesSchema),
+    ]).then(([m, tb]) => {
+      if (m.ok) setMenu(m.data.items)
+      if (tb.ok) setTables(tb.data.tables)
+      setLoadFailed(!m.ok || !tb.ok)
+    })
+  }, [loadAttempt])
+
+  const readyCount =
+    socket.board?.orders.filter((o) => o.status === 'ready').length ?? 0
+  const tvOnline = (socket.board?.tvCount ?? 0) > 0
+
+  const nav = [
+    { id: 'order', label: t('navOrder'), icon: ClipboardList, badge: 0 },
+    {
+      id: 'service',
+      label: t('navService'),
+      icon: ConciergeBell,
+      badge: readyCount,
+    },
+  ] as const
 
   return (
-    <main className="waiter">
-      <h1>Send a test order</h1>
-      <form onSubmit={handleSubmit}>
-        <label htmlFor="table-id">Table id</label>
-        <input id="table-id" name="tableId" defaultValue="t07" required />
-        <button type="submit" disabled={send.status === 'sending'}>
-          {send.status === 'sending' ? 'Sending…' : 'Send dummy order'}
-        </button>
-      </form>
-      <p role="status">
-        {send.status === 'sent' &&
-          `Saved on server as #${send.ticketNo} (rev ${send.rev})`}
-        {send.status === 'failed' && `Not sent: ${send.message}`}
-      </p>
-    </main>
+    <div className="min-h-dvh bg-surface pb-24 min-[950px]:grid min-[950px]:grid-cols-[96px_1fr] min-[950px]:pb-0">
+      {/* Navigation rail on wide screens, bottom bar below 950px (DESIGN.md). */}
+      <nav
+        aria-label={t('appName')}
+        className="fixed inset-x-0 bottom-0 z-30 flex justify-around border-t border-line bg-surface py-2 min-[950px]:sticky min-[950px]:top-0 min-[950px]:h-dvh min-[950px]:flex-col min-[950px]:justify-start min-[950px]:gap-6 min-[950px]:border-t-0 min-[950px]:pt-24"
+      >
+        {nav.map((item) => {
+          const active = tab === item.id
+          return (
+            <button
+              key={item.id}
+              type="button"
+              aria-current={active ? 'page' : undefined}
+              onClick={() => setTab(item.id)}
+              className="group grid min-h-14 justify-items-center gap-1 px-3 text-[12px] font-medium"
+            >
+              <span
+                className={`state relative grid h-8 w-14 place-items-center rounded-full transition-colors duration-200 ${active ? '[--bg:var(--color-tonal)]' : ''}`}
+              >
+                <item.icon size={22} aria-hidden />
+                {item.badge > 0 && (
+                  <span className="absolute -top-1 right-1 grid h-5 min-w-5 place-items-center rounded-full bg-ink px-1 text-[11px] font-semibold text-surface tabular-nums">
+                    {item.badge}
+                  </span>
+                )}
+              </span>
+              {item.label}
+            </button>
+          )
+        })}
+      </nav>
+
+      <div className="min-w-0">
+        <AppBar
+          title={tab === 'order' ? t('newOrder') : t('navService')}
+          device={device}
+        >
+          <span
+            className={`hidden items-center gap-2 rounded-full px-4 py-2 text-sm font-medium sm:flex ${tvOnline ? 'bg-tonal' : 'border border-ink-soft'}`}
+            role="status"
+          >
+            <span
+              className={`size-2 rounded-full ${tvOnline ? 'bg-ink' : 'border border-ink'}`}
+              aria-hidden
+            />
+            {tvOnline ? t('tvOnline') : t('tvOffline')}
+          </span>
+        </AppBar>
+        {disconnected && (
+          <p
+            role="alert"
+            className="flex items-center gap-2 bg-ink px-6 py-3 text-[15px] font-semibold text-surface"
+          >
+            <WifiOff size={18} aria-hidden />
+            {t('disconnected', {
+              time: socket.lastMessageAt
+                ? formatTime(socket.lastMessageAt)
+                : '--:--',
+            })}
+          </p>
+        )}
+        {loadFailed && (
+          <div
+            role="alert"
+            className="mx-6 mt-6 flex flex-wrap items-center gap-4 rounded-md border border-ink-soft px-5 py-4"
+          >
+            <span className="mr-auto">{t('networkError')}</span>
+            <Button
+              variant="tonal"
+              onClick={() => setLoadAttempt((n) => n + 1)}
+            >
+              {t('retry')}
+            </Button>
+          </div>
+        )}
+
+        {tab === 'order' ? (
+          <Composer
+            menu={menu}
+            tables={tables}
+            settings={socket.board?.settings ?? DEFAULT_SETTINGS}
+            drafts={drafts}
+            reviewOpen={reviewOpen}
+            setReviewOpen={setReviewOpen}
+            onSent={(ticket) => {
+              snackbar.show(t('sent', { ticket }))
+              setTab('service')
+            }}
+          />
+        ) : (
+          <ServiceList
+            board={socket.board}
+            serverNow={now + socket.serverOffsetMs}
+            unsent={drafts.draft.attempted ? drafts.draft : null}
+            onOpenUnsent={() => {
+              setTab('order')
+              setReviewOpen(true)
+            }}
+            notify={snackbar.show}
+          />
+        )}
+      </div>
+      {snackbar.node}
+    </div>
   )
 }
