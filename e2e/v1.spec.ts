@@ -140,6 +140,26 @@ test('a paired tablet sends an order that appears on the paired TV without reloa
   const takeaway = tv.getByRole('article').filter({ hasText: 'Es Teh Lemon' })
   await expect(takeaway).toBeVisible()
 
+  // Amendments from the waiter's service list: move, add an item, ask to cancel.
+  const serviceCard = () => tablet.locator('main > ul > li').first()
+  await serviceCard().getByRole('button', { name: 'Pindah meja' }).click()
+  await tablet.getByRole('button', { name: 'Meja 3', exact: true }).click()
+  await expect(takeaway).toContainText('Meja 3')
+  await serviceCard().getByRole('button', { name: 'Tambah item' }).click()
+  await expect(tablet.getByText(/Menambah item ke/)).toBeVisible()
+  await tablet.getByRole('button', { name: /Air Mineral/ }).click()
+  await tablet.getByRole('button', { name: /Tambah ke pesanan/ }).click()
+  await tablet.getByRole('button', { name: 'Periksa pesanan' }).click()
+  await tablet.getByRole('button', { name: 'Kirim ke dapur' }).click()
+  await expect(takeaway).toContainText('Air Mineral')
+  await serviceCard().getByRole('button', { name: 'Batalkan pesanan' }).click()
+  await tablet.getByLabel('Alasan').fill('Salah meja')
+  await tablet.getByRole('button', { name: 'Minta batal' }).click()
+  await expect(
+    tablet.getByText('Menunggu dapur mengonfirmasi pembatalan'),
+  ).toBeVisible()
+  await tablet.screenshot({ path: 'test-results/service.png' })
+
   await admin.getByRole('button', { name: 'Ringkasan' }).click()
   await admin.screenshot({
     path: 'test-results/admin-overview.png',

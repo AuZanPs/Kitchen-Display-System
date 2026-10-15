@@ -3,6 +3,7 @@ import { z } from 'zod'
 import {
   type CreateOrder,
   destinationSchema,
+  type OrderLineInput,
   orderLineInputSchema,
 } from '../../shared/order'
 import { uuid } from '../lib/uuid'
@@ -41,9 +42,10 @@ export function emptyDraft(): Draft {
   }
 }
 
-function load(): Draft {
+function load(storageKey: string | null): Draft {
+  if (!storageKey) return emptyDraft()
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const raw = localStorage.getItem(storageKey)
     if (!raw) return emptyDraft()
     const parsed = draftSchema.safeParse(JSON.parse(raw))
     return parsed.success ? parsed.data : emptyDraft()
@@ -52,17 +54,21 @@ function load(): Draft {
   }
 }
 
-/** The draft lives in localStorage before anything is sent (BUILD.md I6). */
-export function useDraft() {
-  const [draft, setDraft] = useState<Draft>(load)
+/**
+ * The draft lives in localStorage before anything is sent (BUILD.md I6).
+ * A null key keeps it in memory only (items added to a sent ticket).
+ */
+export function useDraft(storageKey: string | null = STORAGE_KEY) {
+  const [draft, setDraft] = useState<Draft>(() => load(storageKey))
 
   useEffect(() => {
+    if (!storageKey) return
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(draft))
+      localStorage.setItem(storageKey, JSON.stringify(draft))
     } catch {
       // Storage full or blocked: the draft still lives in memory.
     }
-  }, [draft])
+  }, [draft, storageKey])
 
   /** Any edit makes it a different order, so it gets a new operationId. */
   function edit(change: (draft: Draft) => Partial<Draft>) {
@@ -89,19 +95,23 @@ export function useDraft() {
   }
 }
 
+export function toLines(draft: Draft): OrderLineInput[] {
+  return draft.lines.map(({ menuItemId, qty, optionIds, note, allergy }) => ({
+    menuItemId,
+    qty,
+    optionIds,
+    note: note.trim(),
+    allergy: allergy.trim(),
+  }))
+}
+
 export function toCreateOrder(draft: Draft): CreateOrder | null {
   if (!draft.destination || draft.lines.length === 0) return null
   return {
     operationId: draft.operationId,
     destination: draft.destination,
     orderNote: draft.orderNote.trim(),
-    lines: draft.lines.map(({ menuItemId, qty, optionIds, note, allergy }) => ({
-      menuItemId,
-      qty,
-      optionIds,
-      note: note.trim(),
-      allergy: allergy.trim(),
-    })),
+    lines: toLines(draft),
   }
 }
 

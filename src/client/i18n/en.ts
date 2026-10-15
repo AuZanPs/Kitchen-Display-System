@@ -117,6 +117,13 @@ export const en: Dict = {
   serviceClosedSend: 'Service is closed. Ask the admin to open it.',
   rejected: 'Server refused: {message}',
 
+  addingTo: 'Adding items to {ticket} ({where})',
+  itemsAdded: '{ticket}: items added',
+  moved: '{ticket} moved to {table}',
+  requestCancel: 'Request cancel',
+  cancelRequestHint: 'The kitchen confirms before the order is cancelled.',
+  cancelRequestSent: 'Cancel request for {ticket} sent',
+  cancelPending: 'Waiting for the kitchen to confirm the cancel',
   navOrder: 'Orders',
   navService: 'Table service',
   newOrder: 'New order',

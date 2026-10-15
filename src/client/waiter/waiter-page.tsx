@@ -1,6 +1,6 @@
 import { ClipboardList, ConciergeBell, WifiOff } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { DEFAULT_SETTINGS } from '../../shared/board'
+import { type BoardOrder, DEFAULT_SETTINGS } from '../../shared/board'
 import {
   type MenuItem,
   menuSchema,
@@ -37,6 +37,9 @@ function Waiter({ device }: { device: string }) {
   const [loadFailed, setLoadFailed] = useState(false)
   const [loadAttempt, setLoadAttempt] = useState(0)
   const drafts = useDraft()
+  // Items added to a sent ticket: a separate draft, kept in memory only.
+  const extra = useDraft(null)
+  const [targetId, setTargetId] = useState<string | null>(null)
   // A draft whose send was never confirmed reopens its review after a reload.
   const [reviewOpen, setReviewOpen] = useState(drafts.draft.attempted)
   const socket = useBoardSocket()
@@ -59,6 +62,15 @@ function Waiter({ device }: { device: string }) {
       setLoadFailed(!m.ok || !tb.ok)
     })
   }, [loadAttempt, menuVersion])
+
+  const target =
+    socket.board?.orders.find(
+      (o) =>
+        o.id === targetId &&
+        o.status !== 'served' &&
+        o.status !== 'cancelled' &&
+        !o.cancelRequested,
+    ) ?? null
 
   const readyCount =
     socket.board?.orders.filter((o) => o.status === 'ready').length ?? 0
@@ -153,14 +165,18 @@ function Waiter({ device }: { device: string }) {
 
         {tab === 'order' ? (
           <Composer
+            key={target?.id ?? 'new'}
             menu={menu}
             tables={tables}
             settings={socket.board?.settings ?? DEFAULT_SETTINGS}
-            drafts={drafts}
+            drafts={target ? extra : drafts}
             reviewOpen={reviewOpen}
             setReviewOpen={setReviewOpen}
-            onSent={(ticket) => {
-              snackbar.show(t('sent', { ticket }))
+            target={target}
+            onLeaveTarget={() => setTargetId(null)}
+            onSent={(message) => {
+              snackbar.show(message)
+              setTargetId(null)
               setTab('service')
             }}
           />
@@ -170,8 +186,15 @@ function Waiter({ device }: { device: string }) {
             serverNow={now + socket.serverOffsetMs}
             unsent={drafts.draft.attempted ? drafts.draft : null}
             onOpenUnsent={() => {
+              setTargetId(null)
               setTab('order')
               setReviewOpen(true)
+            }}
+            tables={tables}
+            onAddItems={(order: BoardOrder) => {
+              extra.reset()
+              setTargetId(order.id)
+              setTab('order')
             }}
             notify={snackbar.show}
           />

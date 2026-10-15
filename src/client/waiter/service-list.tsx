@@ -1,13 +1,24 @@
-import { Check, CircleAlert, MonitorOff } from 'lucide-react'
+import {
+  ArrowRightLeft,
+  Ban,
+  Check,
+  CircleAlert,
+  ListPlus,
+  MonitorOff,
+} from 'lucide-react'
 import { useState } from 'react'
 import type { BoardMessage, BoardOrder } from '../../shared/board'
-import { ticketLabel } from '../../shared/order'
+import type { Table } from '../../shared/menu'
+import { LIMITS, ticketLabel } from '../../shared/order'
 import { type DictKey, useI18n } from '../i18n'
 import { whereLabel } from '../lib/board'
 import { failureText, sendCommand } from '../lib/commands'
 import { stagger } from '../lib/stagger'
 import { Button } from '../ui/button'
+import { Dialog } from '../ui/dialog'
+import { TextField } from '../ui/text-field'
 import type { Draft } from './draft'
+import { TableGrid } from './table-grid'
 
 const STEPS: DictKey[] = ['saved', 'onTv', 'accepted', 'ready']
 
@@ -30,19 +41,29 @@ function statusText(order: BoardOrder, tvCount: number): DictKey {
 
 export function ServiceList({
   board,
+  tables,
   serverNow,
   unsent,
   onOpenUnsent,
+  onAddItems,
   notify,
 }: {
   board: BoardMessage | null
+  tables: Table[] | null
   serverNow: number
   unsent: Draft | null
   onOpenUnsent: () => void
+  onAddItems: (order: BoardOrder) => void
   notify: (text: string) => void
 }) {
   const { t } = useI18n()
   const [busy, setBusy] = useState<string | null>(null)
+  const [moving, setMoving] = useState<BoardOrder | null>(null)
+  const [cancelling, setCancelling] = useState<BoardOrder | null>(null)
+  const [reason, setReason] = useState('')
+  // Commands always target the version on the live board, not a stale copy.
+  const live = (order: BoardOrder) =>
+    board?.orders.find((o) => o.id === order.id) ?? order
   // Ready food first, then newest: the tray waiting on the pass matters most.
   const orders = [...(board?.orders ?? [])].sort(
     (a, b) =>
@@ -58,6 +79,38 @@ export function ServiceList({
     })
     setBusy(null)
     if (!result.ok) notify(failureText(result, t))
+  }
+
+  async function move(order: BoardOrder, table: Table) {
+    setMoving(null)
+    const current = live(order)
+    if (current.table === table.label && !current.takeaway) return
+    const result = await sendCommand(order.id, {
+      type: 'moveTable',
+      expectedVersion: current.version,
+      tableId: table.id,
+    })
+    notify(
+      result.ok
+        ? t('moved', {
+            ticket: ticketLabel(order.ticketNo),
+            table: table.label,
+          })
+        : failureText(result, t),
+    )
+  }
+
+  async function requestCancel(order: BoardOrder) {
+    setBusy(order.id)
+    const result = await sendCommand(order.id, {
+      type: 'requestCancel',
+      expectedVersion: live(order).version,
+      reason: reason.trim(),
+    })
+    setBusy(null)
+    if (!result.ok) return notify(failureText(result, t))
+    setCancelling(null)
+    notify(t('cancelRequestSent', { ticket: ticketLabel(order.ticketNo) }))
   }
 
   return (
@@ -89,6 +142,7 @@ export function ServiceList({
           )
           const closed =
             order.status === 'served' || order.status === 'cancelled'
+          const editable = !closed && !order.cancelRequested
           return (
             <li
               key={order.id}
@@ -114,6 +168,11 @@ export function ServiceList({
                   )}
                   {t(text)}
                 </span>
+                {order.changePending && !closed && (
+                  <span className="flex min-h-9 items-center self-center rounded-full border border-ink-soft px-4 text-sm font-medium">
+                    {t('changePending')}
+                  </span>
+                )}
                 {order.status === 'ready' && (
                   <Button
                     size="lg"
@@ -149,10 +208,101 @@ export function ServiceList({
                   {t('tellKitchen')}
                 </p>
               )}
+
+              {order.cancelRequested && !closed && (
+                <p className="flex items-center gap-2 rounded-sm border-2 border-ink px-4 py-2.5 text-sm font-semibold">
+                  <Ban size={16} aria-hidden />
+                  {t('cancelPending')}
+                </p>
+              )}
+
+              {editable && (
+                <div className="-mx-3 -mb-2 flex flex-wrap gap-1 border-t border-line pt-2">
+                  <Button
+                    variant="text"
+                    icon={<ListPlus size={18} aria-hidden />}
+                    onClick={() => onAddItems(order)}
+                  >
+                    {t('addItems')}
+                  </Button>
+                  <Button
+                    variant="text"
+                    icon={<ArrowRightLeft size={18} aria-hidden />}
+                    onClick={() => setMoving(order)}
+                  >
+                    {t('moveTable')}
+                  </Button>
+                  <Button
+                    variant="text"
+                    icon={<Ban size={18} aria-hidden />}
+                    onClick={() => {
+                      setReason('')
+                      setCancelling(order)
+                    }}
+                  >
+                    {t('cancelOrder')}
+                  </Button>
+                </div>
+              )}
             </li>
           )
         })}
       </ul>
+
+      <Dialog
+        open={moving !== null}
+        onOpenChange={(open) => !open && setMoving(null)}
+        title={
+          moving
+            ? `${t('moveTable')} · ${ticketLabel(moving.ticketNo)}`
+            : t('moveTable')
+        }
+      >
+        <TableGrid
+          tables={tables}
+          isCurrent={(table) =>
+            moving !== null && !moving.takeaway && moving.table === table.label
+          }
+          onPick={(table) => moving && void move(moving, table)}
+        />
+      </Dialog>
+
+      <Dialog
+        open={cancelling !== null}
+        onOpenChange={(open) => !open && setCancelling(null)}
+        title={
+          cancelling
+            ? `${t('cancelOrder')} · ${ticketLabel(cancelling.ticketNo)}`
+            : t('cancelOrder')
+        }
+        description={t('cancelRequestHint')}
+        footer={
+          <>
+            <Button variant="text" onClick={() => setCancelling(null)}>
+              {t('cancel')}
+            </Button>
+            <Button
+              icon={<Ban size={18} aria-hidden />}
+              disabled={
+                reason.trim() === '' ||
+                reason.length > LIMITS.reason ||
+                busy === cancelling?.id
+              }
+              onClick={() => cancelling && void requestCancel(cancelling)}
+            >
+              {t('requestCancel')}
+            </Button>
+          </>
+        }
+      >
+        <TextField
+          label={t('cancelReason')}
+          max={LIMITS.reason}
+          autoComplete="off"
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+        />
+      </Dialog>
     </main>
   )
 }

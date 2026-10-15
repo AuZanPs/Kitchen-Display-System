@@ -1,5 +1,6 @@
 import {
   ArrowRight,
+  ListPlus,
   Minus,
   Plus,
   Search,
@@ -8,9 +9,10 @@ import {
   ShoppingBag,
   Trash2,
   Utensils,
+  X,
 } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import type { Settings } from '../../shared/board'
+import type { BoardOrder, Settings } from '../../shared/board'
 import type { MenuItem, Table } from '../../shared/menu'
 import {
   createOrderResultSchema,
@@ -19,7 +21,8 @@ import {
 } from '../../shared/order'
 import { formatIdr, formatTime, useI18n } from '../i18n'
 import { api } from '../lib/api'
-import { failureText } from '../lib/commands'
+import { whereLabel } from '../lib/board'
+import { failureText, sendCommand } from '../lib/commands'
 import { stagger } from '../lib/stagger'
 import { Ticket } from '../ticket'
 import { Button, IconButton } from '../ui/button'
@@ -31,9 +34,11 @@ import {
   type DraftLine,
   draftTotal,
   toCreateOrder,
+  toLines,
   type useDraft,
 } from './draft'
 import { ItemDialog } from './item-dialog'
+import { TableGrid } from './table-grid'
 
 type Drafts = ReturnType<typeof useDraft>
 
@@ -45,6 +50,8 @@ export function Composer({
   reviewOpen,
   setReviewOpen,
   onSent,
+  target,
+  onLeaveTarget,
 }: {
   menu: MenuItem[] | null
   tables: Table[] | null
@@ -52,7 +59,10 @@ export function Composer({
   drafts: Drafts
   reviewOpen: boolean
   setReviewOpen: (open: boolean) => void
-  onSent: (ticket: string) => void
+  onSent: (message: string) => void
+  /** A sent ticket the new lines are added to, instead of a new order. */
+  target: BoardOrder | null
+  onLeaveTarget: () => void
 }) {
   const { t } = useI18n()
   const { draft, edit } = drafts
@@ -75,7 +85,7 @@ export function Composer({
         .toLocaleLowerCase('id')
         .includes(query.trim().toLocaleLowerCase('id')),
   )
-  const where = whereText(draft, tables, t)
+  const where = target ? whereLabel(target, t) : whereText(draft, tables, t)
 
   function saveLine(line: DraftLine) {
     edit((d) => ({
@@ -89,39 +99,58 @@ export function Composer({
   return (
     <div className="grid gap-6 px-4 pt-6 sm:px-6 min-[950px]:grid-cols-[minmax(0,1fr)_minmax(320px,380px)] min-[950px]:items-start">
       <section className="grid min-w-0 gap-5" aria-label={t('search')}>
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="text-[15px] font-medium">{t('table')}</span>
-          <Button variant="outlined" onClick={() => setPickingTable(true)}>
-            {draft.destination?.type === 'table' ? where : t('chooseTable')}
-          </Button>
-          <fieldset className="ml-auto grid grid-cols-2 rounded-full border border-ink-soft p-1">
-            <legend className="sr-only">{t('table')}</legend>
-            {(['table', 'takeaway'] as const).map((type) => (
-              <label
-                key={type}
-                className={`state flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-full px-4 text-sm font-medium has-focus-visible:outline-3 has-focus-visible:outline-ink ${draft.destination?.type === type ? '[--bg:var(--color-tonal)]' : ''}`}
-              >
-                <input
-                  type="radio"
-                  name="destination"
-                  className="sr-only"
-                  checked={draft.destination?.type === type}
-                  onChange={() =>
-                    type === 'takeaway'
-                      ? edit(() => ({ destination: { type: 'takeaway' } }))
-                      : setPickingTable(true)
-                  }
-                />
-                {type === 'table' ? (
-                  <Utensils size={16} aria-hidden />
-                ) : (
-                  <ShoppingBag size={16} aria-hidden />
-                )}
-                {type === 'table' ? t('dineIn') : t('takeaway')}
-              </label>
-            ))}
-          </fieldset>
-        </div>
+        {target ? (
+          <div className="rise flex flex-wrap items-center gap-3 rounded-md border-2 border-ink py-2 pr-2 pl-4">
+            <ListPlus size={22} aria-hidden />
+            <span className="mr-auto text-[17px] font-medium">
+              {t('addingTo', {
+                ticket: ticketLabel(target.ticketNo),
+                where,
+              })}
+            </span>
+            <Button
+              variant="text"
+              icon={<X size={18} aria-hidden />}
+              onClick={onLeaveTarget}
+            >
+              {t('cancel')}
+            </Button>
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-[15px] font-medium">{t('table')}</span>
+            <Button variant="outlined" onClick={() => setPickingTable(true)}>
+              {draft.destination?.type === 'table' ? where : t('chooseTable')}
+            </Button>
+            <fieldset className="ml-auto grid grid-cols-2 rounded-full border border-ink-soft p-1">
+              <legend className="sr-only">{t('table')}</legend>
+              {(['table', 'takeaway'] as const).map((type) => (
+                <label
+                  key={type}
+                  className={`state flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-full px-4 text-sm font-medium has-focus-visible:outline-3 has-focus-visible:outline-ink ${draft.destination?.type === type ? '[--bg:var(--color-tonal)]' : ''}`}
+                >
+                  <input
+                    type="radio"
+                    name="destination"
+                    className="sr-only"
+                    checked={draft.destination?.type === type}
+                    onChange={() =>
+                      type === 'takeaway'
+                        ? edit(() => ({ destination: { type: 'takeaway' } }))
+                        : setPickingTable(true)
+                    }
+                  />
+                  {type === 'table' ? (
+                    <Utensils size={16} aria-hidden />
+                  ) : (
+                    <ShoppingBag size={16} aria-hidden />
+                  )}
+                  {type === 'table' ? t('dineIn') : t('takeaway')}
+                </label>
+              ))}
+            </fieldset>
+          </div>
+        )}
 
         <label className="flex h-14 max-w-md items-center gap-3 rounded-full bg-tonal px-5 focus-within:outline-3 focus-within:outline-ink">
           <Search size={20} aria-hidden />
@@ -193,7 +222,8 @@ export function Composer({
           if (item) setEditing({ item, line })
         }}
         drafts={drafts}
-        showOrderNote={settings.orderNote}
+        showOrderNote={settings.orderNote && !target}
+        needsTable={!target && !draft.destination}
         onReview={() => setReviewOpen(true)}
       />
 
@@ -213,30 +243,19 @@ export function Composer({
         onOpenChange={setPickingTable}
         title={t('chooseTable')}
       >
-        <ul className="grid grid-cols-3 gap-3 pb-2 sm:grid-cols-4">
-          {tables?.map((table) => {
-            const active =
-              draft.destination?.type === 'table' &&
-              draft.destination.tableId === table.id
-            return (
-              <li key={table.id}>
-                <button
-                  type="button"
-                  aria-pressed={active}
-                  onClick={() => {
-                    edit(() => ({
-                      destination: { type: 'table', tableId: table.id },
-                    }))
-                    setPickingTable(false)
-                  }}
-                  className={`state grid min-h-20 w-full place-items-center rounded-md text-lg font-medium ${active ? 'bg-ink text-surface' : '[--bg:var(--color-tonal)]'}`}
-                >
-                  {table.label}
-                </button>
-              </li>
-            )
-          })}
-        </ul>
+        <TableGrid
+          tables={tables}
+          isCurrent={(table) =>
+            draft.destination?.type === 'table' &&
+            draft.destination.tableId === table.id
+          }
+          onPick={(table) => {
+            edit(() => ({
+              destination: { type: 'table', tableId: table.id },
+            }))
+            setPickingTable(false)
+          }}
+        />
       </Dialog>
 
       <ReviewDialog
@@ -244,9 +263,10 @@ export function Composer({
         onOpenChange={setReviewOpen}
         drafts={drafts}
         where={where}
-        onSent={(ticket) => {
+        target={target}
+        onSent={(message) => {
           setReviewOpen(false)
-          onSent(ticket)
+          onSent(message)
         }}
       />
     </div>
@@ -269,6 +289,7 @@ function Summary({
   where,
   drafts,
   showOrderNote,
+  needsTable,
   onEdit,
   onReview,
 }: {
@@ -276,6 +297,7 @@ function Summary({
   where: string
   drafts: Drafts
   showOrderNote: boolean
+  needsTable: boolean
   onEdit: (line: DraftLine) => void
   onReview: () => void
 }) {
@@ -395,16 +417,14 @@ function Summary({
         </div>
         <Button
           size="lg"
-          disabled={
-            !draft.destination || draft.lines.length === 0 || noteTooLong
-          }
+          disabled={needsTable || draft.lines.length === 0 || noteTooLong}
           onClick={onReview}
           icon={<ArrowRight size={20} aria-hidden />}
           className="flex-row-reverse"
         >
           {t('review')}
         </Button>
-        {!draft.destination && draft.lines.length > 0 && (
+        {needsTable && draft.lines.length > 0 && (
           <p className="text-center text-[13px]">{t('pickTableFirst')}</p>
         )}
       </div>
@@ -443,30 +463,66 @@ function ReviewDialog({
   onOpenChange,
   drafts,
   where,
+  target,
   onSent,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   drafts: Drafts
   where: string
-  onSent: (ticket: string) => void
+  target: BoardOrder | null
+  onSent: (message: string) => void
 }) {
   const { t } = useI18n()
   const [send, setSend] = useState<SendState>({ status: 'idle' })
   const { draft } = drafts
   const body = toCreateOrder(draft)
+  const ready = target ? draft.lines.length > 0 : body !== null
+
+  async function create() {
+    if (!body) return null
+    const result = await api('/api/orders', createOrderResultSchema, { body })
+    return result.ok
+      ? {
+          ok: true as const,
+          message: t('sent', { ticket: ticketLabel(result.data.ticketNo) }),
+        }
+      : result
+  }
+
+  async function addLines(order: BoardOrder) {
+    const result = await sendCommand(order.id, {
+      // Reused on retry, so a lost response never adds the lines twice.
+      operationId: draft.operationId,
+      type: 'addLines',
+      expectedVersion: order.version,
+      lines: toLines(draft),
+    })
+    if (!result.ok) return result
+    const linked = result.data.linkedTicketNo
+    return {
+      ok: true as const,
+      message:
+        linked === undefined
+          ? t('itemsAdded', { ticket: ticketLabel(order.ticketNo) })
+          : t('sent', { ticket: ticketLabel(linked) }),
+    }
+  }
 
   async function submit() {
-    if (!body || send.status === 'sending') return
+    if (!ready || send.status === 'sending') return
     setSend({ status: 'sending' })
     drafts.markAttempted()
-    const result = await api('/api/orders', createOrderResultSchema, { body })
+    const result = await (target ? addLines(target) : create())
+    if (!result) return
     if (result.ok) {
       setSend({ status: 'idle' })
       drafts.reset()
-      onSent(ticketLabel(result.data.ticketNo))
+      onSent(result.message)
       return
     }
+    // The ticket moved on: the next try is a new operation on the new version.
+    if (result.code === 'stale_version') drafts.edit(() => ({}))
     setSend({
       status: 'failed',
       message: result.status === 0 ? t('notSent') : failureText(result, t),
@@ -475,7 +531,7 @@ function ReviewDialog({
 
   return (
     <Dialog
-      open={open && body !== null}
+      open={open && ready}
       onOpenChange={(next) => {
         if (send.status !== 'sending') onOpenChange(next)
       }}
@@ -523,9 +579,11 @@ function ReviewDialog({
         <Ticket
           size="paper"
           className="border border-line"
-          ticketNo={null}
+          ticketNo={target?.ticketNo ?? null}
           where={where}
-          takeaway={draft.destination?.type === 'takeaway'}
+          takeaway={
+            target ? target.takeaway : draft.destination?.type === 'takeaway'
+          }
           lines={draft.lines.map((l) => ({
             key: l.key,
             qty: l.qty,

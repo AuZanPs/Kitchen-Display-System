@@ -120,6 +120,13 @@ export const id = {
   serviceClosedSend: 'Layanan sedang tutup. Minta admin membuka layanan.',
   rejected: 'Server menolak: {message}',
 
+  addingTo: 'Menambah item ke {ticket} ({where})',
+  itemsAdded: '{ticket}: item ditambahkan',
+  moved: '{ticket} pindah ke {table}',
+  requestCancel: 'Minta batal',
+  cancelRequestHint: 'Dapur mengonfirmasi dulu sebelum pesanan dibatalkan.',
+  cancelRequestSent: 'Permintaan batal {ticket} terkirim',
+  cancelPending: 'Menunggu dapur mengonfirmasi pembatalan',
   navOrder: 'Pesanan',
   navService: 'Layanan meja',
   newOrder: 'Pesanan baru',
