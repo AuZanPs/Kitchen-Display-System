@@ -152,4 +152,30 @@ test('a paired tablet sends an order that appears on the paired TV without reloa
     .getByRole('button', { name: 'Batalkan pesanan' })
     .click()
   await expect(takeaway).toBeHidden()
+
+  // Menu edits reach the tablet live: a new item, then one sold out.
+  await tablet.getByRole('button', { name: 'Pesanan', exact: true }).click()
+  await admin.getByRole('button', { name: 'Menu', exact: true }).click()
+  await admin.getByRole('button', { name: 'Tambah menu' }).click()
+  await admin.getByLabel('Nama menu').fill('Es Kopi E2E')
+  await admin.getByLabel('Harga').fill('25000')
+  await admin.getByLabel('Kategori').fill('Minuman')
+  await admin.getByRole('button', { name: 'Simpan' }).click()
+  await expect(admin.getByText('Es Kopi E2E tersimpan')).toBeVisible()
+  await expect(tablet.getByRole('button', { name: /Es Kopi E2E/ })).toBeVisible(
+    { timeout: 5_000 },
+  )
+
+  await admin
+    .getByRole('listitem')
+    .filter({ hasText: 'Jus Jeruk' })
+    .getByRole('switch')
+    .uncheck()
+  await expect(tablet.getByRole('button', { name: /Jus Jeruk/ })).toBeDisabled({
+    timeout: 5_000,
+  })
+  await admin.screenshot({
+    path: 'test-results/admin-menu.png',
+    fullPage: true,
+  })
 })

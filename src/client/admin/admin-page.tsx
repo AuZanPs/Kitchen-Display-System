@@ -3,6 +3,7 @@ import {
   LogOut,
   MonitorSmartphone,
   SlidersHorizontal,
+  UtensilsCrossed,
 } from 'lucide-react'
 import { type SubmitEvent, useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router'
@@ -16,11 +17,12 @@ import { Button } from '../ui/button'
 import { useSnackbar } from '../ui/snackbar'
 import { TextField } from '../ui/text-field'
 import { DevicesTab } from './devices-tab'
+import { MenuTab } from './menu-tab'
 import { OverviewTab } from './overview-tab'
 import { SettingsTab } from './settings-tab'
 import { type Device, devicesSchema } from './shared'
 
-const TABS = ['overview', 'devices', 'settings'] as const
+const TABS = ['overview', 'menu', 'devices', 'settings'] as const
 type Tab = (typeof TABS)[number]
 const tabSchema = z.enum(TABS)
 // Presence is admin-only data, so it is polled rather than put on the board.
@@ -122,6 +124,7 @@ function Console({ onSignedOut }: { onSignedOut: () => void }) {
 
   const tabs = [
     { id: 'overview', label: t('tabOverview'), icon: LayoutDashboard },
+    { id: 'menu', label: t('tabMenu'), icon: UtensilsCrossed },
     { id: 'devices', label: t('tabDevices'), icon: MonitorSmartphone },
     { id: 'settings', label: t('tabSettings'), icon: SlidersHorizontal },
   ] as const
@@ -154,7 +157,7 @@ function Console({ onSignedOut }: { onSignedOut: () => void }) {
                 onClick={() =>
                   setParams(item.id === 'overview' ? {} : { tab: item.id })
                 }
-                className="state relative flex min-h-14 flex-1 items-center justify-center gap-2 px-3 text-[15px] font-medium sm:flex-none sm:px-6"
+                className="state relative flex min-h-16 min-w-0 flex-1 flex-col items-center justify-center gap-1 px-1 text-[13px] font-medium sm:min-h-14 sm:flex-none sm:flex-row sm:gap-2 sm:px-6 sm:text-[15px]"
               >
                 <item.icon size={20} aria-hidden />
                 {item.label}
@@ -176,6 +179,9 @@ function Console({ onSignedOut }: { onSignedOut: () => void }) {
             notify={snackbar.show}
             onManageDevices={() => setParams({ tab: 'devices' })}
           />
+        )}
+        {tab === 'menu' && (
+          <MenuTab menuVersion={board?.menuVersion} notify={snackbar.show} />
         )}
         {tab === 'devices' && (
           <DevicesTab

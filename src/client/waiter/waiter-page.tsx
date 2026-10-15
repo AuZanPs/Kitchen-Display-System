@@ -45,7 +45,9 @@ function Waiter({ device }: { device: string }) {
   const disconnected =
     now - (socket.lastMessageAt ?? socket.startedAt) > STALE_AFTER_MS
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: `loadAttempt` re-runs the load on retry
+  // Reloads on retry and whenever the admin edits the menu or tables.
+  const menuVersion = socket.board?.menuVersion
+  // biome-ignore lint/correctness/useExhaustiveDependencies: both values only trigger a reload
   useEffect(() => {
     setLoadFailed(false)
     void Promise.all([
@@ -56,7 +58,7 @@ function Waiter({ device }: { device: string }) {
       if (tb.ok) setTables(tb.data.tables)
       setLoadFailed(!m.ok || !tb.ok)
     })
-  }, [loadAttempt])
+  }, [loadAttempt, menuVersion])
 
   const readyCount =
     socket.board?.orders.filter((o) => o.status === 'ready').length ?? 0

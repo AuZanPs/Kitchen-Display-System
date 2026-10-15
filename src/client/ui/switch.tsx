@@ -5,12 +5,15 @@ import { useId } from 'react'
 export function Switch({
   label,
   hint,
+  hideLabel = false,
   checked,
   disabled,
   onChange,
 }: {
   label: string
   hint?: string
+  /** Keeps the name for screen readers when the row already says what it is. */
+  hideLabel?: boolean
   checked: boolean
   disabled?: boolean
   onChange: (checked: boolean) => void
@@ -21,7 +24,7 @@ export function Switch({
       htmlFor={id}
       className="flex min-h-14 cursor-pointer items-center justify-between gap-4"
     >
-      <span className="grid">
+      <span className={hideLabel ? 'sr-only' : 'grid'}>
         <span className="text-base">{label}</span>
         {hint && <span className="text-[13px] text-ink-soft">{hint}</span>}
       </span>
