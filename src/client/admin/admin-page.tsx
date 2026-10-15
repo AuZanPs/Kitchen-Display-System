@@ -1,4 +1,5 @@
 import {
+  History,
   LayoutDashboard,
   LogOut,
   MonitorSmartphone,
@@ -18,13 +19,21 @@ import { Button } from '../ui/button'
 import { useSnackbar } from '../ui/snackbar'
 import { TextField } from '../ui/text-field'
 import { DevicesTab } from './devices-tab'
+import { HistoryTab } from './history-tab'
 import { MenuTab } from './menu-tab'
 import { OverviewTab } from './overview-tab'
 import { SettingsTab } from './settings-tab'
 import { type Device, devicesSchema } from './shared'
 import { StaffTab } from './staff-tab'
 
-const TABS = ['overview', 'menu', 'staff', 'devices', 'settings'] as const
+const TABS = [
+  'overview',
+  'menu',
+  'staff',
+  'devices',
+  'history',
+  'settings',
+] as const
 type Tab = (typeof TABS)[number]
 const tabSchema = z.enum(TABS)
 // Presence is admin-only data, so it is polled rather than put on the board.
@@ -129,6 +138,7 @@ function Console({ onSignedOut }: { onSignedOut: () => void }) {
     { id: 'menu', label: t('tabMenu'), icon: UtensilsCrossed },
     { id: 'staff', label: t('tabStaff'), icon: UsersRound },
     { id: 'devices', label: t('tabDevices'), icon: MonitorSmartphone },
+    { id: 'history', label: t('tabHistory'), icon: History },
     { id: 'settings', label: t('tabSettings'), icon: SlidersHorizontal },
   ] as const
 
@@ -149,7 +159,7 @@ function Console({ onSignedOut }: { onSignedOut: () => void }) {
         aria-label={t('adminTitle')}
         className="sticky top-16 z-20 border-b border-line bg-surface/95 backdrop-blur"
       >
-        <div className="mx-auto flex max-w-5xl px-2 sm:px-4">
+        <div className="mx-auto flex max-w-5xl overflow-x-auto px-2 [scrollbar-width:none] sm:px-4">
           {tabs.map((item) => {
             const active = tab === item.id
             return (
@@ -160,7 +170,7 @@ function Console({ onSignedOut }: { onSignedOut: () => void }) {
                 onClick={() =>
                   setParams(item.id === 'overview' ? {} : { tab: item.id })
                 }
-                className="state relative flex min-h-16 min-w-0 flex-1 flex-col items-center justify-center gap-1 px-1 text-[13px] font-medium sm:min-h-14 sm:flex-none sm:flex-row sm:gap-2 sm:px-6 sm:text-[15px]"
+                className="state relative flex min-h-16 min-w-max flex-1 flex-col items-center justify-center gap-1 px-1 text-[13px] font-medium sm:min-h-14 sm:flex-none sm:flex-row sm:gap-2 sm:px-6 sm:text-[15px]"
               >
                 <item.icon size={20} aria-hidden />
                 {item.label}
@@ -187,6 +197,9 @@ function Console({ onSignedOut }: { onSignedOut: () => void }) {
           <MenuTab menuVersion={board?.menuVersion} notify={snackbar.show} />
         )}
         {tab === 'staff' && <StaffTab notify={snackbar.show} />}
+        {tab === 'history' && (
+          <HistoryTab devices={devices} notify={snackbar.show} />
+        )}
         {tab === 'devices' && (
           <DevicesTab
             devices={devices}

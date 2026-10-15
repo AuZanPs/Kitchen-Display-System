@@ -202,6 +202,16 @@ test('a paired tablet sends an order that appears on the paired TV without reloa
     fullPage: true,
   })
 
+  // History: today's orders with totals, and each order's timeline.
+  await admin.getByRole('button', { name: 'Riwayat' }).click()
+  await expect(admin.getByText('Omzet')).toBeVisible()
+  await admin.getByRole('button', { name: /A-001/ }).click()
+  await expect(
+    admin.getByRole('dialog').getByText('Diterima dapur'),
+  ).toBeVisible()
+  await admin.screenshot({ path: 'test-results/admin-history.png' })
+  await admin.keyboard.press('Escape')
+
   // Staff PINs: once the admin turns them on, the tablet asks who is working.
   await admin.getByRole('button', { name: 'Staf', exact: true }).click()
   await admin.getByRole('button', { name: 'Tambah staf' }).click()
