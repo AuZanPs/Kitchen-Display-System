@@ -83,6 +83,7 @@
     font-family: var(--font-sans);
     font-feature-settings: "tnum";
     -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
   }
 
   :focus-visible {

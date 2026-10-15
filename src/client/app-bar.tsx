@@ -46,7 +46,10 @@ export function AppBar({
 }) {
   return (
     <header className="sticky top-0 z-30 flex min-h-16 items-center gap-3 border-b border-line bg-surface/95 px-4 backdrop-blur sm:px-6">
-      <span className="grid size-9 place-items-center rounded-sm bg-ink text-[13px] font-extrabold tracking-wider text-surface">
+      <span
+        translate="no"
+        className="grid size-9 place-items-center rounded-sm bg-ink text-[13px] font-extrabold tracking-wider text-surface"
+      >
         KDS
       </span>
       <div className="mr-auto grid leading-tight">

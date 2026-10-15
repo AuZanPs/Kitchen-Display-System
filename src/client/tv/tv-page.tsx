@@ -45,7 +45,9 @@ function Board({ place }: { place: string }) {
   return (
     <main className="on-ink flex h-dvh flex-col gap-6 overflow-hidden bg-ink px-12 pt-8 pb-10 text-surface">
       <header className="flex items-center gap-6 border-b border-surface-soft/40 pb-6">
-        <span className="text-[32px] font-semibold tracking-tight">KDS</span>
+        <h1 translate="no" className="text-[32px] font-semibold tracking-tight">
+          KDS
+        </h1>
         <span className="mr-auto text-[28px] text-surface-soft">/ {place}</span>
         {disconnected ? (
           <span className="flex items-center gap-2 rounded-full border-2 border-surface px-5 py-2 text-[22px] font-semibold">

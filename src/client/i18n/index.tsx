@@ -82,6 +82,16 @@ export function formatTime(at: number, withSeconds = false) {
   })
 }
 
+/** A `YYYY-MM-DD` service day in the reader's language. */
+export function formatDay(day: string, lang: Lang) {
+  const date = new Date(`${day}T00:00:00Z`)
+  if (Number.isNaN(date.getTime())) return day
+  return new Intl.DateTimeFormat(lang, {
+    dateStyle: 'medium',
+    timeZone: 'UTC',
+  }).format(date)
+}
+
 const rupiah = new Intl.NumberFormat('id-ID', {
   style: 'currency',
   currency: 'IDR',

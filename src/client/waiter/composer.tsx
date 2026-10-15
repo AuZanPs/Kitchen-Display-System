@@ -128,7 +128,10 @@ export function Composer({
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder={t('search')}
+            placeholder={`${t('search')}…`}
+            name="menu-search"
+            autoComplete="off"
+            spellCheck={false}
             aria-label={t('search')}
             className="h-full min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-ink-soft"
           />

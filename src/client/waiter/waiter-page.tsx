@@ -77,7 +77,7 @@ function Waiter({ device }: { device: string }) {
       {/* Navigation rail on wide screens, bottom bar below 950px (DESIGN.md). */}
       <nav
         aria-label={t('appName')}
-        className="fixed inset-x-0 bottom-0 z-30 flex justify-around border-t border-line bg-surface py-2 min-[950px]:sticky min-[950px]:top-0 min-[950px]:h-dvh min-[950px]:flex-col min-[950px]:justify-start min-[950px]:gap-6 min-[950px]:border-t-0 min-[950px]:pt-24"
+        className="fixed inset-x-0 bottom-0 z-30 flex justify-around border-t border-line bg-surface pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] min-[950px]:sticky min-[950px]:top-0 min-[950px]:h-dvh min-[950px]:flex-col min-[950px]:justify-start min-[950px]:gap-6 min-[950px]:border-t-0 min-[950px]:pt-24"
       >
         {nav.map((item) => {
           const active = tab === item.id

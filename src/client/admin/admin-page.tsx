@@ -9,7 +9,7 @@ import {
 } from '../../shared/board'
 import { ROLES } from '../../shared/order'
 import { AppBar, LanguageToggle } from '../app-bar'
-import { type Translate, useI18n } from '../i18n'
+import { formatDay, type Translate, useI18n } from '../i18n'
 import { api } from '../lib/api'
 import { CenterNote } from '../lib/session'
 import { Button } from '../ui/button'
@@ -214,6 +214,8 @@ function PairCard({ onPaired }: { onPaired: (message: string) => void }) {
           hint={t('pairHint')}
           inputMode="numeric"
           autoComplete="one-time-code"
+          name="pairing-code"
+          spellCheck={false}
           className="text-2xl font-semibold tracking-[0.3em] tabular-nums"
           value={code}
           onChange={(e) => {
@@ -250,6 +252,8 @@ function PairCard({ onPaired }: { onPaired: (message: string) => void }) {
         <TextField
           label={t('label')}
           hint={t('labelHint')}
+          name="device-label"
+          autoComplete="off"
           max={40}
           value={label}
           onChange={(e) => setLabel(e.target.value)}
@@ -267,7 +271,7 @@ function PairCard({ onPaired }: { onPaired: (message: string) => void }) {
 }
 
 function ServiceDayCard({ notify }: { notify: (text: string) => void }) {
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
   const [day, setDay] = useState<{ open: boolean; day: string } | null>(null)
   const [needsForce, setNeedsForce] = useState(false)
 
@@ -303,7 +307,9 @@ function ServiceDayCard({ notify }: { notify: (text: string) => void }) {
             className={`size-3 rounded-full ${day.open ? 'bg-ink' : 'border-2 border-ink'}`}
             aria-hidden
           />
-          {day.open ? t('serviceOpen', { day: day.day }) : t('serviceClosed')}
+          {day.open
+            ? t('serviceOpen', { day: formatDay(day.day, lang) })
+            : t('serviceClosed')}
         </p>
       )}
       <div className="flex flex-wrap gap-3">
