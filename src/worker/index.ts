@@ -233,7 +233,11 @@ app.post(
       c.req.valid('json'),
     )
     if (!result.ok) return reply(c, result)
-    await setStaffSession(c, result.body.staff.id, result.body.deviceId)
+    await setStaffSession(c, {
+      staffId: result.body.staff.id,
+      deviceId: result.body.deviceId,
+      pinTag: result.body.pinTag,
+    })
     return c.json({ staff: result.body.staff })
   },
 )

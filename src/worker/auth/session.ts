@@ -78,13 +78,12 @@ export function clearDeviceCookie(c: Ctx) {
 /** A staff sign-in, signed and bound to one device so it cannot be moved. */
 export async function setStaffSession(
   c: Ctx,
-  staffId: string,
-  deviceId: string,
+  staff: { staffId: string; deviceId: string; pinTag: string },
 ) {
   const secret = sessionSecret(c.env)
   if (!secret) throw new Error('SESSION_SECRET is not configured')
   const exp = Date.now() + STAFF_TTL_S * 1000
-  const payload = `${staffId}.${deviceId}.${exp}`
+  const payload = `${staff.staffId}.${staff.deviceId}.${staff.pinTag}.${exp}`
   const signature = await hmacHex(secret, `staff.${payload}`)
   setCookie(
     c,
@@ -100,27 +99,28 @@ export function clearStaffSession(c: Ctx) {
 
 async function staffSession(c: Ctx, deviceId: string) {
   const secret = sessionSecret(c.env)
-  const [staffId, boundTo, exp, signature] = (
+  const [staffId, boundTo, pinTag, exp, signature] = (
     getCookie(c, STAFF_COOKIE) ?? ''
   ).split('.')
-  if (!secret || !staffId || !exp || !signature || boundTo !== deviceId) {
-    return undefined
-  }
-  if (!(Number(exp) > Date.now())) return undefined
-  const expected = await hmacHex(secret, `staff.${staffId}.${boundTo}.${exp}`)
-  return safeEqual(signature, expected) ? staffId : undefined
+  if (!secret || !staffId || !pinTag || !exp || !signature) return undefined
+  if (boundTo !== deviceId || !(Number(exp) > Date.now())) return undefined
+  const expected = await hmacHex(
+    secret,
+    `staff.${staffId}.${boundTo}.${pinTag}.${exp}`,
+  )
+  return safeEqual(signature, expected) ? { staffId, pinTag } : undefined
 }
 
 /** The paired device's cookie, unchecked; the room verifies the secret. */
 async function deviceCredentials(c: Ctx): Promise<Credentials> {
   const match = DEVICE_TOKEN.exec(getCookie(c, DEVICE_COOKIE) ?? '')
   if (!match?.[1] || !match[2]) return { kind: 'none' }
-  const staffId = await staffSession(c, match[1])
+  const staff = await staffSession(c, match[1])
   return {
     kind: 'device',
     deviceId: match[1],
     secret: match[2],
-    ...(staffId ? { staffId } : {}),
+    ...staff,
   }
 }
 

@@ -52,6 +52,7 @@ import {
   type Credentials,
   ENROLL_TTL_MS,
   insertChallenge,
+  isLockedOut,
   listDevices,
   type Poll,
   pollChallenge,
@@ -73,7 +74,9 @@ import {
   canSignIn,
   hashPin,
   PIN_TRIES,
+  pinKeys,
   pinMatches,
+  pinTag,
   saveStaff,
   staffForRole,
   staffRow,
@@ -277,21 +280,29 @@ export class VenueRoom extends DurableObject<Env> {
   async staffLogin(
     credentials: Credentials,
     input: StaffLogin,
-  ): Promise<Result<{ staff: StaffMember; deviceId: string }>> {
+  ): Promise<Result<{ staff: StaffMember; deviceId: string; pinTag: string }>> {
     const actor = await this.authenticate(credentials)
     if (!actor || credentials.kind !== 'device') return unauthenticated()
-    // Counted before the hash, so guessing costs attempts even when right.
+    const keys = pinKeys(input.staffId, actor.deviceId)
+    const now = Date.now()
+    // Short windows count every try, before the hash; daily caps count misses.
     const allowed =
-      this.allowAttempt(
-        `pin-device:${actor.deviceId}`,
-        PIN_TRIES.device,
-        MINUTE_MS,
+      !isLockedOut(
+        this.db,
+        keys.staffDay,
+        PIN_TRIES.staffWrongPerDay,
+        DAY_MS,
+        now,
       ) &&
-      this.allowAttempt(
-        `pin-staff:${input.staffId}`,
-        PIN_TRIES.staff,
-        PIN_TRIES.staffWindowMs,
-      )
+      !isLockedOut(
+        this.db,
+        keys.deviceDay,
+        PIN_TRIES.deviceWrongPerDay,
+        DAY_MS,
+        now,
+      ) &&
+      this.allowAttempt(keys.device, PIN_TRIES.device, MINUTE_MS) &&
+      this.allowAttempt(keys.staff, PIN_TRIES.staff, PIN_TRIES.staffWindowMs)
     if (!allowed) {
       return fail(429, 'rate_limited', 'Terlalu banyak percobaan. Tunggu.')
     }
@@ -301,17 +312,34 @@ export class VenueRoom extends DurableObject<Env> {
       !canSignIn(row, actor.role) ||
       !(await pinMatches(row, input.pin))
     ) {
+      this.ctx.storage.transactionSync(() => {
+        allowAttempt(
+          this.db,
+          keys.staffDay,
+          PIN_TRIES.staffWrongPerDay,
+          DAY_MS,
+          now,
+        )
+        allowAttempt(
+          this.db,
+          keys.deviceDay,
+          PIN_TRIES.deviceWrongPerDay,
+          DAY_MS,
+          now,
+        )
+      })
       return fail(401, 'unauthenticated', 'Nama atau PIN salah.')
     }
     this.ctx.storage.transactionSync(() =>
       this.db
         .delete(schema.rateLimits)
-        .where(eq(schema.rateLimits.key, `pin-staff:${row.id}`))
+        .where(eq(schema.rateLimits.key, keys.staff))
         .run(),
     )
     return ok({
       staff: { id: row.id, name: row.name },
       deviceId: actor.deviceId,
+      pinTag: pinTag(row),
     })
   }
 
@@ -660,10 +688,14 @@ export class VenueRoom extends DurableObject<Env> {
     const staff = credentials.staffId
       ? staffRow(this.db, credentials.staffId)
       : undefined
+    const signedIn =
+      staff !== undefined &&
+      canSignIn(staff, device.role) &&
+      pinTag(staff) === credentials.pinTag
     return {
       role: device.role,
       deviceId: device.id,
-      staffId: canSignIn(staff, device.role) ? (staff?.id ?? null) : null,
+      staffId: signedIn ? staff.id : null,
       managerUser: null,
     }
   }

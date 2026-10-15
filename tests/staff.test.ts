@@ -116,6 +116,27 @@ describe('staff PINs', () => {
     )
   })
 
+  it('a new PIN signs the person out and lifts a lockout', async () => {
+    const name = 'Wati'
+    const staffId = await addStaff(name, 'waiter', '5555')
+    const waiter = await pairDevice('waiter')
+    const { headers } = await signIn(waiter.headers, staffId, '5555')
+    expect((await order(headers)).status).toBe(201)
+    for (let i = 0; i < 5; i++) await signIn(waiter.headers, staffId, '0000')
+    expect((await signIn(waiter.headers, staffId, '5555')).res.status).toBe(429)
+
+    const reset = await request(`/api/manager/staff/${staffId}`, {
+      method: 'PUT',
+      headers: await adminHeaders(),
+      body: { name, role: 'waiter', pin: '6666' },
+    })
+    expect(reset.status).toBe(200)
+    expect((await rejected(await order(headers), 401)).code).toBe(
+      'pin_required',
+    )
+    expect((await signIn(waiter.headers, staffId, '6666')).res.status).toBe(200)
+  })
+
   it('the admin list never contains PIN hashes', async () => {
     await addStaff('Lina', 'kitchen', '3141')
     const res = await request('/api/manager/staff', {

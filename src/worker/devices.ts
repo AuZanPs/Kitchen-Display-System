@@ -31,10 +31,30 @@ export type Credentials =
       secret: string
       /** Signed staff sign-in bound to this device; the room still checks the row. */
       staffId?: string
+      /** Ties the sign-in to the PIN it used, so a new PIN signs everyone out. */
+      pinTag?: string
     }
 
 export function unauthenticated(): Failure {
   return fail(401, 'unauthenticated', 'Perangkat belum terdaftar.')
+}
+
+/** True while `key` has used up `limit` inside its window; counts nothing. */
+export function isLockedOut(
+  db: Db,
+  key: string,
+  limit: number,
+  windowMs: number,
+  now: number,
+): boolean {
+  const row = db
+    .select()
+    .from(schema.rateLimits)
+    .where(eq(schema.rateLimits.key, key))
+    .get()
+  return (
+    row !== undefined && row.windowStart > now - windowMs && row.count >= limit
+  )
 }
 
 /**

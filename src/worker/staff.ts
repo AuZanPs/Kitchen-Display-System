@@ -6,7 +6,26 @@ import { type Db, schema } from './db'
 
 type StaffRow = typeof schema.staff.$inferSelect
 
-export const PIN_TRIES = { staff: 5, staffWindowMs: 5 * 60 * 1000, device: 10 }
+export const PIN_TRIES = {
+  staff: 5,
+  staffWindowMs: 5 * 60 * 1000,
+  device: 10,
+  // Daily caps count wrong PINs only; a new PIN from the admin lifts them.
+  staffWrongPerDay: 20,
+  deviceWrongPerDay: 50,
+}
+
+export const pinKeys = (staffId: string, deviceId: string) => ({
+  staff: `pin-staff:${staffId}`,
+  device: `pin-device:${deviceId}`,
+  staffDay: `pin-wrong-day:${staffId}`,
+  deviceDay: `pin-wrong-day-device:${deviceId}`,
+})
+
+/** A short piece of the PIN's salt: it changes whenever the PIN does. */
+export function pinTag(row: StaffRow) {
+  return row.pinSalt?.slice(0, 16) ?? ''
+}
 
 /** Only staff with a PIN, enabled, and of the device's role can sign in. */
 export function canSignIn(row: StaffRow | undefined, role: Role) {
@@ -86,6 +105,13 @@ export function saveStaff(
   } else {
     if (!staffRow(db, id)) return null
     db.update(schema.staff).set(values).where(eq(schema.staff.id, id)).run()
+  }
+  if (pin) {
+    // A fresh PIN from the admin also lifts any lockout on this person.
+    const keys = pinKeys(staffId, '')
+    for (const key of [keys.staff, keys.staffDay]) {
+      db.delete(schema.rateLimits).where(eq(schema.rateLimits.key, key)).run()
+    }
   }
   const row = staffRow(db, staffId)
   return row
