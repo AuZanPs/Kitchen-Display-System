@@ -9,11 +9,22 @@ import {
   ORIGIN,
   openBoardSocket,
   postJson,
+  request,
   room,
   upgrade,
 } from './helpers'
 
 describe('board socket', () => {
+  it('sends API answers with security headers and no caching', async () => {
+    const res = await request('/api/health')
+    expect(res.headers.get('x-content-type-options')).toBe('nosniff')
+    expect(res.headers.get('x-frame-options')).toBe('DENY')
+    expect(res.headers.get('cache-control')).toBe('no-store')
+    const refused = await request('/api/board')
+    expect(refused.status).toBe(401)
+    expect(refused.headers.get('cache-control')).toBe('no-store')
+  })
+
   it('answers health checks', async () => {
     const res = await exports.default.fetch(`${ORIGIN}/api/health`)
     expect(res.status).toBe(200)

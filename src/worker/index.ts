@@ -1,6 +1,7 @@
 import { zValidator } from '@hono/zod-validator'
 import { type Context, Hono, type MiddlewareHandler } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
+import { secureHeaders } from 'hono/secure-headers'
 import { z } from 'zod'
 import { settingsSchema, tvControlSchema } from '../shared/board'
 import { commandSchema } from '../shared/commands'
@@ -108,6 +109,14 @@ const deviceParam = z.object({ id: z.uuid() })
 
 const app = new Hono<AppEnv>()
 
+// Static pages get theirs from public/_headers; API answers are never cached.
+const apiHeaders = secureHeaders({ xFrameOptions: 'DENY' })
+app.use('/api/*', async (c, next) => {
+  // A socket upgrade's 101 response cannot take extra headers.
+  if (c.req.header('Upgrade') === 'websocket') return next()
+  await apiHeaders(c, next)
+  c.header('Cache-Control', 'no-store')
+})
 app.use('/api/*', sameOrigin)
 app.use(
   '/api/*',
