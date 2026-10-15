@@ -7,7 +7,7 @@ import {
   historySchema,
   MAX_EXPORT_DAYS,
 } from '../../shared/history'
-import { ticketLabel } from '../../shared/order'
+import { jakartaDate, ticketLabel } from '../../shared/order'
 import { adminStaffListSchema } from '../../shared/staff'
 import { type DictKey, formatIdr, formatTime, useI18n } from '../i18n'
 import { api } from '../lib/api'
@@ -61,9 +61,7 @@ const eventsSchema = z.object({
 })
 type OrderEvent = z.infer<typeof eventsSchema>['events'][number]
 
-// Jakarta's calendar day, the same one the server files orders under.
-const jakartaToday = () =>
-  new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10)
+const jakartaToday = () => jakartaDate(Date.now())
 
 export function HistoryTab({
   devices,

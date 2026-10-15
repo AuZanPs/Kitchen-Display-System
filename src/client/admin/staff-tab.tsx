@@ -10,6 +10,7 @@ import {
 import { useI18n } from '../i18n'
 import { api } from '../lib/api'
 import { stagger } from '../lib/stagger'
+import { Monogram } from '../staff-sign-in'
 import { Button } from '../ui/button'
 import { Dialog } from '../ui/dialog'
 import { Switch } from '../ui/switch'
@@ -73,12 +74,7 @@ export function StaffTab({ notify }: { notify: (text: string) => void }) {
                     onClick={() => editing.start(member)}
                     className={`state flex min-h-16 w-full items-center gap-4 rounded-md px-4 py-2 text-left ${member.disabled ? 'border border-dashed border-ink-soft' : '[--bg:var(--color-wash)]'}`}
                   >
-                    <span
-                      aria-hidden
-                      className={`grid size-10 shrink-0 place-items-center rounded-full font-semibold ${member.disabled ? 'border border-ink-soft text-ink-soft' : 'bg-ink text-surface'}`}
-                    >
-                      {member.name.trim().charAt(0).toUpperCase()}
-                    </span>
+                    <Monogram name={member.name} muted={member.disabled} />
                     <span className="mr-auto grid min-w-0">
                       <span
                         className={`font-medium break-words ${member.disabled ? 'text-ink-soft' : ''}`}

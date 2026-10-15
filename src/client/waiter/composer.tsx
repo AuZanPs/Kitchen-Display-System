@@ -89,6 +89,11 @@ export function Composer({
   )
   const where = target ? whereLabel(target, t) : whereText(draft, tables, t)
 
+  function editLine(line: DraftLine) {
+    const item = menu?.find((m) => m.id === line.menuItemId)
+    if (item) setEditing({ item, line })
+  }
+
   function saveLine(line: DraftLine) {
     edit((d) => ({
       lines: d.lines.some((l) => l.key === line.key)
@@ -219,10 +224,7 @@ export function Composer({
       <Summary
         draft={draft}
         where={where}
-        onEdit={(line) => {
-          const item = menu?.find((m) => m.id === line.menuItemId)
-          if (item) setEditing({ item, line })
-        }}
+        onEdit={editLine}
         drafts={drafts}
         showOrderNote={settings.orderNote && !target}
         needsTable={!target && !draft.destination}
@@ -252,11 +254,8 @@ export function Composer({
           draft={draft}
           where={where}
           onEdit={(line) => {
-            const item = menu?.find((m) => m.id === line.menuItemId)
-            if (item) {
-              setSheetOpen(false)
-              setEditing({ item, line })
-            }
+            setSheetOpen(false)
+            editLine(line)
           }}
           drafts={drafts}
           showOrderNote={settings.orderNote && !target}

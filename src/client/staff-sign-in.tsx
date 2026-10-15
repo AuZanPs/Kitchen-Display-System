@@ -76,11 +76,20 @@ export function StaffSignIn({
   )
 }
 
-function Monogram({ name, large = false }: { name: string; large?: boolean }) {
+/** A person's initial in a circle; outlined when they are inactive. */
+export function Monogram({
+  name,
+  large = false,
+  muted = false,
+}: {
+  name: string
+  large?: boolean
+  muted?: boolean
+}) {
   return (
     <span
       aria-hidden
-      className={`grid shrink-0 place-items-center rounded-full bg-ink font-semibold text-surface ${large ? 'size-16 text-2xl' : 'size-11 text-lg'}`}
+      className={`grid shrink-0 place-items-center rounded-full font-semibold ${large ? 'size-16 text-2xl' : 'size-11 text-lg'} ${muted ? 'border border-ink-soft text-ink-soft' : 'bg-ink text-surface'}`}
     >
       {name.trim().charAt(0).toUpperCase()}
     </span>

@@ -1,6 +1,6 @@
 import { ClipboardList, ConciergeBell, WifiOff } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { type BoardOrder, DEFAULT_SETTINGS } from '../../shared/board'
+import { DEFAULT_SETTINGS } from '../../shared/board'
 import {
   type MenuItem,
   menuSchema,
@@ -206,7 +206,7 @@ function Waiter({
               setReviewOpen(true)
             }}
             tables={tables}
-            onAddItems={(order: BoardOrder) => {
+            onAddItems={(order) => {
               extra.reset()
               setTargetId(order.id)
               setTab('order')

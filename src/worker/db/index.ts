@@ -5,6 +5,7 @@ import {
   type Settings,
   settingsSchema,
 } from '../../shared/board'
+import { jakartaDate } from '../../shared/order'
 import * as schema from './schema'
 
 export { schema }
@@ -36,10 +37,7 @@ export function bumpRev(db: Db): number {
   return rev
 }
 
-/** Calendar date in Asia/Jakarta (UTC+7, no DST). */
-export function jakartaDate(at: number): string {
-  return new Date(at + 7 * 60 * 60 * 1000).toISOString().slice(0, 10)
-}
+export { jakartaDate } from '../../shared/order'
 
 export function recordMetric(db: Db, name: string, value: number, at: number) {
   const v = Math.max(0, Math.round(value))

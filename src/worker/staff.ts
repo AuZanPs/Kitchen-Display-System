@@ -56,6 +56,16 @@ export function staffForRole(db: Db, role: Role): StaffMember[] {
     .all()
 }
 
+function toAdminStaff(row: StaffRow): AdminStaff {
+  return {
+    id: row.id,
+    name: row.name,
+    role: row.role === 'kitchen' ? 'kitchen' : 'waiter',
+    hasPin: row.pinHash !== null,
+    disabled: row.disabledAt !== null,
+  }
+}
+
 export function adminStaff(db: Db): AdminStaff[] {
   return db
     .select()
@@ -63,13 +73,7 @@ export function adminStaff(db: Db): AdminStaff[] {
     .orderBy(schema.staff.name)
     .all()
     .filter((row) => row.role === 'waiter' || row.role === 'kitchen')
-    .map((row) => ({
-      id: row.id,
-      name: row.name,
-      role: row.role === 'kitchen' ? 'kitchen' : 'waiter',
-      hasPin: row.pinHash !== null,
-      disabled: row.disabledAt !== null,
-    }))
+    .map(toAdminStaff)
 }
 
 /** Hashing is async, so it happens before the write transaction. */
@@ -114,13 +118,5 @@ export function saveStaff(
     }
   }
   const row = staffRow(db, staffId)
-  return row
-    ? {
-        id: row.id,
-        name: row.name,
-        role: input.role,
-        hasPin: row.pinHash !== null,
-        disabled: row.disabledAt !== null,
-      }
-    : null
+  return row ? toAdminStaff(row) : null
 }

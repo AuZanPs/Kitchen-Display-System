@@ -41,6 +41,11 @@ export const apiErrorSchema = z.object({
 })
 export type ApiError = z.infer<typeof apiErrorSchema>
 
+/** Calendar date in Asia/Jakarta (UTC+7, no DST): the service day. */
+export function jakartaDate(at: number): string {
+  return new Date(at + 7 * 60 * 60 * 1000).toISOString().slice(0, 10)
+}
+
 /** Ticket numbers restart each service day and read like `A-007`. */
 export function ticketLabel(ticketNo: number) {
   return `A-${String(ticketNo).padStart(3, '0')}`
