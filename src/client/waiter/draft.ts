@@ -5,6 +5,7 @@ import {
   destinationSchema,
   orderLineInputSchema,
 } from '../../shared/order'
+import { uuid } from '../lib/uuid'
 
 const STORAGE_KEY = 'kds_draft'
 
@@ -31,7 +32,7 @@ export type Draft = z.infer<typeof draftSchema>
 
 export function emptyDraft(): Draft {
   return {
-    operationId: crypto.randomUUID(),
+    operationId: uuid(),
     destination: null,
     lines: [],
     orderNote: '',
@@ -68,7 +69,7 @@ export function useDraft() {
     setDraft((current) => ({
       ...current,
       ...change(current),
-      operationId: crypto.randomUUID(),
+      operationId: uuid(),
       attempted: false,
       attemptedAt: null,
     }))

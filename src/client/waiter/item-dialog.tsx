@@ -4,6 +4,7 @@ import type { Settings } from '../../shared/board'
 import { chooseOptions, type MenuItem } from '../../shared/menu'
 import { LIMITS } from '../../shared/order'
 import { formatIdr, useI18n } from '../i18n'
+import { uuid } from '../lib/uuid'
 import { Button, IconButton } from '../ui/button'
 import { Chip } from '../ui/chip'
 import { Dialog } from '../ui/dialog'
@@ -54,7 +55,7 @@ export function ItemDialog({
       return
     }
     onSave({
-      key: initial?.key ?? crypto.randomUUID(),
+      key: initial?.key ?? uuid(),
       menuItemId: item.id,
       name: item.name,
       qty,

@@ -1,6 +1,7 @@
 import { type CommandResult, commandResultSchema } from '../../shared/commands'
 import type { Translate } from '../i18n'
 import { type ApiResult, api } from './api'
+import { uuid } from './uuid'
 
 /** Order commands always target one version; a fresh operationId per tap. */
 export function sendCommand(
@@ -8,7 +9,7 @@ export function sendCommand(
   body: { type: string; expectedVersion: number } & Record<string, unknown>,
 ): Promise<ApiResult<CommandResult>> {
   return api(`/api/orders/${orderId}/commands`, commandResultSchema, {
-    body: { operationId: crypto.randomUUID(), ...body },
+    body: { operationId: uuid(), ...body },
   })
 }
 
