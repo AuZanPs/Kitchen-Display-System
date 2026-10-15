@@ -10,6 +10,7 @@ const ROWS = [
   { key: 'lineNotes', label: 'settingLineNotes', hint: 'settingLineNotesHint' },
   { key: 'orderNote', label: 'settingOrderNote', hint: 'settingOrderNoteHint' },
   { key: 'allergy', label: 'settingAllergy', hint: 'settingAllergyHint' },
+  { key: 'staffPins', label: 'settingStaffPins', hint: 'settingStaffPinsHint' },
 ] as const
 
 /** Lets each venue choose a simple or a detailed order form. */

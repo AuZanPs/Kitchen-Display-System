@@ -10,9 +10,10 @@ import {
 import { AppBar } from '../app-bar'
 import { formatTime, useI18n } from '../i18n'
 import { api } from '../lib/api'
-import { RequireRole } from '../lib/session'
+import { RequireRole, type Session } from '../lib/session'
 import { STALE_AFTER_MS, useBoardSocket } from '../lib/use-board-socket'
 import { useNow } from '../lib/use-now'
+import { StaffChip, StaffSignIn } from '../staff-sign-in'
 import { Button } from '../ui/button'
 import { useSnackbar } from '../ui/snackbar'
 import { Composer } from './composer'
@@ -24,12 +25,19 @@ type Tab = 'order' | 'service'
 export function WaiterPage() {
   return (
     <RequireRole allow="waiter">
-      {(session) => <Waiter device={session.label} />}
+      {(session, refresh) => <Waiter session={session} refresh={refresh} />}
     </RequireRole>
   )
 }
 
-function Waiter({ device }: { device: string }) {
+function Waiter({
+  session,
+  refresh,
+}: {
+  session: Session
+  refresh: () => void
+}) {
+  const device = session.label
   const { t } = useI18n()
   const [tab, setTab] = useState<Tab>('order')
   const [menu, setMenu] = useState<MenuItem[] | null>(null)
@@ -75,6 +83,10 @@ function Waiter({ device }: { device: string }) {
   const readyCount =
     socket.board?.orders.filter((o) => o.status === 'ready').length ?? 0
   const tvOnline = (socket.board?.tvCount ?? 0) > 0
+
+  if (socket.board?.settings.staffPins && !session.staff) {
+    return <StaffSignIn device={device} onSignedIn={refresh} />
+  }
 
   const nav = [
     { id: 'order', label: t('navOrder'), icon: ClipboardList, badge: 0 },
@@ -134,6 +146,9 @@ function Waiter({ device }: { device: string }) {
             />
             {tvOnline ? t('tvOnline') : t('tvOffline')}
           </span>
+          {session.staff && (
+            <StaffChip name={session.staff.name} onSignedOut={refresh} />
+          )}
         </AppBar>
         {disconnected && (
           <p

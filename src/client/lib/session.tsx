@@ -2,13 +2,15 @@ import { type ReactNode, useEffect, useState } from 'react'
 import { Navigate } from 'react-router'
 import { z } from 'zod'
 import { ROLES, type Role } from '../../shared/order'
+import { staffMemberSchema } from '../../shared/staff'
 import { useI18n } from '../i18n'
 import { Button } from '../ui/button'
-import { api } from './api'
+import { api, PIN_REQUIRED_EVENT } from './api'
 
 export const sessionSchema = z.object({
   role: z.enum(ROLES),
   label: z.string(),
+  staff: staffMemberSchema.nullable().default(null),
 })
 export type Session = z.infer<typeof sessionSchema>
 
@@ -43,6 +45,12 @@ export function useSession() {
     return () => controller.abort()
   }, [attempt])
 
+  useEffect(() => {
+    const recheck = () => setAttempt((n) => n + 1)
+    window.addEventListener(PIN_REQUIRED_EVENT, recheck)
+    return () => window.removeEventListener(PIN_REQUIRED_EVENT, recheck)
+  }, [])
+
   return { state, retry: () => setAttempt((n) => n + 1) }
 }
 
@@ -52,10 +60,16 @@ export function RequireRole({
   children,
 }: {
   allow: Role
-  children: (session: Session) => ReactNode
+  children: (session: Session, refresh: () => void) => ReactNode
 }) {
   const { state, retry } = useSession()
   const { t } = useI18n()
+  // A re-check keeps the page mounted; only the first load shows a note.
+  const [last, setLast] = useState<Session | null>(null)
+  useEffect(() => {
+    if (state.status === 'ok') setLast(state.session)
+  }, [state])
+  if (state.status === 'loading' && last) return children(last, retry)
   if (state.status === 'loading') return <CenterNote>{t('loading')}</CenterNote>
   if (state.status === 'error') {
     return (
@@ -72,7 +86,7 @@ export function RequireRole({
   if (session.role !== allow && session.role !== 'manager') {
     return <Navigate to={HOME_BY_ROLE[session.role]} replace />
   }
-  return children(session)
+  return children(session, retry)
 }
 
 export function CenterNote({ children }: { children: ReactNode }) {

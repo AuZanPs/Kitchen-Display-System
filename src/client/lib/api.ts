@@ -1,6 +1,8 @@
 import type { z } from 'zod'
 import { apiErrorSchema, type ErrorCode } from '../../shared/order'
 
+export const PIN_REQUIRED_EVENT = 'kds:pin-required'
+
 export type ApiResult<T> =
   | { ok: true; data: T }
   /** status 0 means the request never reached the server. */
@@ -38,6 +40,10 @@ export async function api<T>(
     res.status === 204 ? null : await res.json().catch(() => null)
   if (!res.ok) {
     const error = apiErrorSchema.safeParse(json)
+    // The staff member was signed out (or never signed in): the page asks again.
+    if (error.success && error.data.error.code === 'pin_required') {
+      window.dispatchEvent(new Event(PIN_REQUIRED_EVENT))
+    }
     return error.success
       ? { ok: false, status: res.status, ...error.data.error }
       : {

@@ -3,6 +3,7 @@ import {
   LogOut,
   MonitorSmartphone,
   SlidersHorizontal,
+  UsersRound,
   UtensilsCrossed,
 } from 'lucide-react'
 import { type SubmitEvent, useCallback, useEffect, useState } from 'react'
@@ -21,8 +22,9 @@ import { MenuTab } from './menu-tab'
 import { OverviewTab } from './overview-tab'
 import { SettingsTab } from './settings-tab'
 import { type Device, devicesSchema } from './shared'
+import { StaffTab } from './staff-tab'
 
-const TABS = ['overview', 'menu', 'devices', 'settings'] as const
+const TABS = ['overview', 'menu', 'staff', 'devices', 'settings'] as const
 type Tab = (typeof TABS)[number]
 const tabSchema = z.enum(TABS)
 // Presence is admin-only data, so it is polled rather than put on the board.
@@ -125,6 +127,7 @@ function Console({ onSignedOut }: { onSignedOut: () => void }) {
   const tabs = [
     { id: 'overview', label: t('tabOverview'), icon: LayoutDashboard },
     { id: 'menu', label: t('tabMenu'), icon: UtensilsCrossed },
+    { id: 'staff', label: t('tabStaff'), icon: UsersRound },
     { id: 'devices', label: t('tabDevices'), icon: MonitorSmartphone },
     { id: 'settings', label: t('tabSettings'), icon: SlidersHorizontal },
   ] as const
@@ -183,6 +186,7 @@ function Console({ onSignedOut }: { onSignedOut: () => void }) {
         {tab === 'menu' && (
           <MenuTab menuVersion={board?.menuVersion} notify={snackbar.show} />
         )}
+        {tab === 'staff' && <StaffTab notify={snackbar.show} />}
         {tab === 'devices' && (
           <DevicesTab
             devices={devices}

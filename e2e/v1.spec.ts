@@ -201,4 +201,25 @@ test('a paired tablet sends an order that appears on the paired TV without reloa
     path: 'test-results/admin-menu.png',
     fullPage: true,
   })
+
+  // Staff PINs: once the admin turns them on, the tablet asks who is working.
+  await admin.getByRole('button', { name: 'Staf', exact: true }).click()
+  await admin.getByRole('button', { name: 'Tambah staf' }).click()
+  await admin.getByLabel('Nama').fill('Rina')
+  await admin.getByLabel('PIN').fill('2468')
+  await admin.getByRole('button', { name: 'Simpan' }).click()
+  await expect(admin.getByText('Rina tersimpan')).toBeVisible()
+  await admin.getByRole('button', { name: 'Pengaturan' }).click()
+  await admin.getByRole('switch', { name: /PIN staf/ }).check()
+  await expect(tablet.getByText('Siapa yang bertugas?').first()).toBeVisible({
+    timeout: 5_000,
+  })
+  await tablet.getByRole('button', { name: /Rina/ }).click()
+  for (const digit of '2468') {
+    await tablet.getByRole('button', { name: digit, exact: true }).click()
+  }
+  await expect(tablet.getByRole('button', { name: 'Masuk' })).toBeEnabled()
+  await tablet.screenshot({ path: 'test-results/pin.png' })
+  await tablet.getByRole('button', { name: 'Masuk' }).click()
+  await expect(tablet.getByRole('button', { name: 'Rina' })).toBeVisible()
 })

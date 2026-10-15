@@ -21,5 +21,6 @@ export function failureText(
   if (result.status === 0) return t('networkError')
   if (result.code === 'stale_version') return t('staleVersion')
   if (result.code === 'service_closed') return t('serviceClosedSend')
+  if (result.code === 'pin_required') return t('pinRequired')
   return t('rejected', { message: result.message })
 }

@@ -12,11 +12,12 @@ import { AppBar } from '../app-bar'
 import { formatTime, useI18n } from '../i18n'
 import { boardLines, whereLabel } from '../lib/board'
 import { failureText, sendCommand } from '../lib/commands'
-import { RequireRole } from '../lib/session'
+import { RequireRole, type Session } from '../lib/session'
 import { stagger } from '../lib/stagger'
 import { STALE_AFTER_MS, useBoardSocket } from '../lib/use-board-socket'
 import { useNow } from '../lib/use-now'
 import { useWakeLock } from '../lib/use-wake-lock'
+import { StaffChip, StaffSignIn } from '../staff-sign-in'
 import { AllergyBlock, Ticket } from '../ticket'
 import { Button } from '../ui/button'
 import { Dialog } from '../ui/dialog'
@@ -26,12 +27,19 @@ import { TvControl } from './tv-control'
 export function KitchenPage() {
   return (
     <RequireRole allow="kitchen">
-      {(session) => <Kitchen device={session.label} />}
+      {(session, refresh) => <Kitchen session={session} refresh={refresh} />}
     </RequireRole>
   )
 }
 
-function Kitchen({ device }: { device: string }) {
+function Kitchen({
+  session,
+  refresh,
+}: {
+  session: Session
+  refresh: () => void
+}) {
+  const device = session.label
   const { t } = useI18n()
   const { board, lastMessageAt, startedAt, serverOffsetMs } = useBoardSocket()
   const now = useNow(1000)
@@ -89,10 +97,17 @@ function Kitchen({ device }: { device: string }) {
     },
   ]
 
+  if (board?.settings.staffPins && !session.staff) {
+    return <StaffSignIn device={device} onSignedIn={refresh} />
+  }
+
   return (
     <div className="min-h-dvh bg-surface pb-10">
       <AppBar title={t('kitchenTitle')} device={device}>
         <TvControl control={board?.tvControl} notify={snackbar.show} />
+        {session.staff && (
+          <StaffChip name={session.staff.name} onSignedOut={refresh} />
+        )}
       </AppBar>
       {disconnected && (
         <p

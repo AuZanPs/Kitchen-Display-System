@@ -18,23 +18,7 @@ import { Dialog } from '../ui/dialog'
 import { Switch } from '../ui/switch'
 import { TextField } from '../ui/text-field'
 import { MenuItemDialog, saveMenuItem, toInput } from './menu-item-dialog'
-
-type Editing<T> = { open: boolean; target: T | null; key: number }
-
-function useEditing<T>() {
-  const [state, setState] = useState<Editing<T>>({
-    open: false,
-    target: null,
-    key: 0,
-  })
-  return {
-    ...state,
-    // A fresh key resets the form; the target stays while the dialog closes.
-    start: (target: T | null) =>
-      setState((s) => ({ open: true, target, key: s.key + 1 })),
-    close: () => setState((s) => ({ ...s, open: false })),
-  }
-}
+import { useEditing } from './shared'
 
 const nextSort = (rows: { sort: number }[]) =>
   rows.reduce((max, r) => Math.max(max, r.sort), 0) + 1

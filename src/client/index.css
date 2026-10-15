@@ -176,3 +176,29 @@
 .ticket-enter {
   animation: ticket-in 420ms var(--ease-out) both;
 }
+
+/* A wrong PIN: a short sideways shake, like a head saying no. */
+@keyframes shake {
+  20%,
+  60% {
+    transform: translateX(-6px);
+  }
+  40%,
+  80% {
+    transform: translateX(6px);
+  }
+}
+.shake {
+  animation: shake 320ms var(--ease-standard);
+}
+
+/* A PIN dot filling in. */
+@keyframes pop {
+  from {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+}
+.pop {
+  animation: pop 160ms var(--ease-out);
+}
