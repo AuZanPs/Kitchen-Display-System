@@ -4,6 +4,7 @@ import { bodyLimit } from 'hono/body-limit'
 import { z } from 'zod'
 import { settingsSchema, tvControlSchema } from '../shared/board'
 import { commandSchema } from '../shared/commands'
+import { menuItemInputSchema, tableInputSchema } from '../shared/menu'
 import { createOrderSchema } from '../shared/order'
 import {
   clearAdminSession,
@@ -99,7 +100,7 @@ const requireAdmin: MiddlewareHandler<AppEnv> = async (c, next) => {
   await next()
 }
 
-const orderParam = z.object({ id: z.string().min(1).max(64) })
+const idParam = z.object({ id: z.string().min(1).max(64) })
 const deviceParam = z.object({ id: z.uuid() })
 
 const app = new Hono<AppEnv>()
@@ -259,7 +260,7 @@ app.post('/api/orders', invalidInput('json', createOrderSchema), async (c) => {
   return reply(c, result)
 })
 
-app.get('/api/orders/:id', invalidInput('param', orderParam), async (c) =>
+app.get('/api/orders/:id', invalidInput('param', idParam), async (c) =>
   reply(
     c,
     await venueRoom(c.env).getOrder(
@@ -271,7 +272,7 @@ app.get('/api/orders/:id', invalidInput('param', orderParam), async (c) =>
 
 app.post(
   '/api/orders/:id/commands',
-  invalidInput('param', orderParam),
+  invalidInput('param', idParam),
   invalidInput('json', commandSchema),
   async (c) => {
     const result = await venueRoom(c.env).command(
@@ -316,6 +317,73 @@ app.post(
       c,
       await venueRoom(c.env).updateSettings(
         { kind: 'admin' },
+        c.req.valid('json'),
+      ),
+    ),
+)
+
+// Menu and tables: changes bump menuVersion on the board so tablets refetch.
+app.get('/api/manager/menu', requireAdmin, async (c) =>
+  reply(c, await venueRoom(c.env).adminMenu({ kind: 'admin' })),
+)
+app.post(
+  '/api/manager/menu',
+  requireAdmin,
+  invalidInput('json', menuItemInputSchema),
+  async (c) =>
+    reply(
+      c,
+      await venueRoom(c.env).saveMenuItem(
+        { kind: 'admin' },
+        null,
+        c.req.valid('json'),
+      ),
+    ),
+)
+app.put(
+  '/api/manager/menu/:id',
+  requireAdmin,
+  invalidInput('param', idParam),
+  invalidInput('json', menuItemInputSchema),
+  async (c) =>
+    reply(
+      c,
+      await venueRoom(c.env).saveMenuItem(
+        { kind: 'admin' },
+        c.req.valid('param').id,
+        c.req.valid('json'),
+      ),
+    ),
+)
+
+app.get('/api/manager/tables', requireAdmin, async (c) =>
+  reply(c, await venueRoom(c.env).adminTables({ kind: 'admin' })),
+)
+app.post(
+  '/api/manager/tables',
+  requireAdmin,
+  invalidInput('json', tableInputSchema),
+  async (c) =>
+    reply(
+      c,
+      await venueRoom(c.env).saveTable(
+        { kind: 'admin' },
+        null,
+        c.req.valid('json'),
+      ),
+    ),
+)
+app.put(
+  '/api/manager/tables/:id',
+  requireAdmin,
+  invalidInput('param', idParam),
+  invalidInput('json', tableInputSchema),
+  async (c) =>
+    reply(
+      c,
+      await venueRoom(c.env).saveTable(
+        { kind: 'admin' },
+        c.req.valid('param').id,
         c.req.valid('json'),
       ),
     ),

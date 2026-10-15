@@ -10,7 +10,14 @@ import {
   type TvControl,
 } from '../shared/board'
 import type { Command, CommandResult } from '../shared/commands'
-import type { MenuItem, Table } from '../shared/menu'
+import type {
+  AdminMenuItem,
+  AdminTable,
+  MenuItem,
+  MenuItemInput,
+  Table,
+  TableInput,
+} from '../shared/menu'
 import { modifierGroupsSchema } from '../shared/menu'
 import {
   type CreateOrder,
@@ -45,6 +52,7 @@ import {
   touchDevice,
   unauthenticated,
 } from './devices'
+import { adminMenu, adminTables, saveMenuItem, saveTable } from './menu'
 import {
   type Actor,
   createOrder,
@@ -246,6 +254,7 @@ export class VenueRoom extends DurableObject<Env> {
     const items = this.db
       .select()
       .from(schema.menuItems)
+      .where(eq(schema.menuItems.hidden, false))
       .orderBy(schema.menuItems.sort, schema.menuItems.name)
       .all()
       .map((item) => ({
@@ -398,6 +407,40 @@ export class VenueRoom extends DurableObject<Env> {
       setSettings(this.db, settings)
       return ok({ settings, rev: bumpRev(this.db) })
     })
+  }
+
+  adminMenu(credentials: Credentials): Result<{ items: AdminMenuItem[] }> {
+    if (credentials.kind !== 'admin') return unauthenticated()
+    return ok({ items: adminMenu(this.db) })
+  }
+
+  /** Creates the item when `id` is null, otherwise replaces it. */
+  saveMenuItem(
+    credentials: Credentials,
+    id: string | null,
+    input: MenuItemInput,
+  ): Result<{ item: AdminMenuItem }> {
+    if (credentials.kind !== 'admin') return unauthenticated()
+    const item = this.write(() => saveMenuItem(this.db, id, input, Date.now()))
+    if (!item) return fail(404, 'not_found', 'Menu tidak ditemukan.')
+    return { ok: true, status: id === null ? 201 : 200, body: { item } }
+  }
+
+  adminTables(credentials: Credentials): Result<{ tables: AdminTable[] }> {
+    if (credentials.kind !== 'admin') return unauthenticated()
+    return ok({ tables: adminTables(this.db) })
+  }
+
+  /** Creates the table when `id` is null, otherwise replaces it. */
+  saveTable(
+    credentials: Credentials,
+    id: string | null,
+    input: TableInput,
+  ): Result<{ table: AdminTable }> {
+    if (credentials.kind !== 'admin') return unauthenticated()
+    const table = this.write(() => saveTable(this.db, id, input))
+    if (!table) return fail(404, 'not_found', 'Meja tidak ditemukan.')
+    return { ok: true, status: id === null ? 201 : 200, body: { table } }
   }
 
   /** Counts one attempt against `key`; false once the limit is reached. */

@@ -161,7 +161,7 @@ function resolveLines(
   const rows: LineRow[] = []
   lines.forEach((line, index) => {
     const item = items.get(line.menuItemId)
-    if (!item) {
+    if (!item || item.hidden) {
       problems.push({ index, code: 'unknown_item', message: 'Menu tidak ada.' })
       return
     }

@@ -195,6 +195,7 @@ export function buildBoard(db: Db, live: Live, now: number): BoardMessage {
     tvCount: live.tvCount,
     tvControl: live.tvControl,
     settings: getSettings(db),
+    menuVersion: Number(getMeta(db, 'menu_version') ?? 0),
     orders: toBoardOrders(
       db,
       rows.filter((r) => keep.has(r)),

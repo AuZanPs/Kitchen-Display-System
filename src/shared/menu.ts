@@ -33,9 +33,50 @@ export const tableSchema = z.object({
 export const menuSchema = z.object({ items: z.array(menuItemSchema) })
 export const tablesSchema = z.object({ tables: z.array(tableSchema) })
 
+// Option ids are matched across all groups of an item, so they must be unique per item.
+function uniqueIds(groups: ModifierGroup[]) {
+  const optionIds = groups.flatMap((g) => g.options.map((o) => o.id))
+  return (
+    new Set(groups.map((g) => g.id)).size === groups.length &&
+    new Set(optionIds).size === optionIds.length
+  )
+}
+
+/** What the admin sends to create or replace a menu item. */
+export const menuItemInputSchema = z.object({
+  name: z.string().trim().min(1).max(60),
+  priceIdr: z.number().int().min(0).max(10_000_000),
+  category: z.string().trim().min(1).max(30),
+  sort: z.number().int().min(0).max(100_000),
+  available: z.boolean(),
+  hidden: z.boolean(),
+  modifierGroups: modifierGroupsSchema.refine(uniqueIds, {
+    message: 'Duplicate modifier id',
+  }),
+})
+
+export const adminMenuItemSchema = menuItemInputSchema.extend({
+  id: z.string(),
+})
+export const adminMenuSchema = z.object({ items: z.array(adminMenuItemSchema) })
+
+export const tableInputSchema = z.object({
+  label: z.string().trim().min(1).max(20),
+  sort: z.number().int().min(0).max(100_000),
+  active: z.boolean(),
+})
+export const adminTableSchema = tableInputSchema.extend({ id: z.string() })
+export const adminTablesSchema = z.object({
+  tables: z.array(adminTableSchema),
+})
+
 export type ModifierGroup = z.infer<typeof modifierGroupSchema>
 export type MenuItem = z.infer<typeof menuItemSchema>
 export type Table = z.infer<typeof tableSchema>
+export type MenuItemInput = z.infer<typeof menuItemInputSchema>
+export type AdminMenuItem = z.infer<typeof adminMenuItemSchema>
+export type TableInput = z.infer<typeof tableInputSchema>
+export type AdminTable = z.infer<typeof adminTableSchema>
 
 export type ChosenOptions =
   | { ok: true; names: string[]; priceDeltaIdr: number }

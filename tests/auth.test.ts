@@ -18,7 +18,7 @@ import {
   upgrade,
 } from './helpers'
 
-type Call = { name: string; path: string; body?: unknown }
+type Call = { name: string; path: string; method?: string; body?: unknown }
 
 // Every route a paired device can use. Order ids don't need to exist:
 // authentication is checked before the order is looked up.
@@ -64,6 +64,22 @@ const adminRoutes: Call[] = [
     path: '/api/admin/settings',
     body: { allergy: true, lineNotes: true, orderNote: true },
   },
+  { name: 'GET manager menu', path: '/api/manager/menu' },
+  { name: 'POST menu item', path: '/api/manager/menu', body: {} },
+  {
+    name: 'PUT menu item',
+    path: '/api/manager/menu/x',
+    method: 'PUT',
+    body: {},
+  },
+  { name: 'GET manager tables', path: '/api/manager/tables' },
+  { name: 'POST table', path: '/api/manager/tables', body: {} },
+  {
+    name: 'PUT table',
+    path: '/api/manager/tables/x',
+    method: 'PUT',
+    body: {},
+  },
   {
     name: 'POST close day',
     path: '/api/manager/service-day/close',
@@ -73,7 +89,10 @@ const adminRoutes: Call[] = [
 
 describe('without credentials', () => {
   it.each([...deviceRoutes, ...adminRoutes])('$name is 401', async (call) => {
-    const res = await request(call.path, { body: call.body })
+    const res = await request(call.path, {
+      method: call.method,
+      body: call.body,
+    })
     expect(res.status).toBe(401)
   })
 
@@ -167,6 +186,7 @@ describe('device roles', () => {
   it.each(adminRoutes)('a device on $name is 401', async (call) => {
     const kitchen = await pairDevice('kitchen')
     const res = await request(call.path, {
+      method: call.method,
       body: call.body,
       headers: kitchen.headers,
     })

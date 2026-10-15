@@ -85,6 +85,8 @@ export const boardMessageSchema = z.object({
   tvCount: z.number().int(),
   tvControl: tvControlSchema,
   settings: settingsSchema,
+  /** Moves whenever the admin edits the menu or tables, so tablets refetch. */
+  menuVersion: z.number().int().nonnegative(),
   orders: z.array(boardOrderSchema),
 })
 

@@ -57,6 +57,8 @@ export const menuItems = sqliteTable('menu_items', {
   priceIdr: integer('price_idr').notNull(),
   category: text('category').notNull(),
   available: integer('available', { mode: 'boolean' }).notNull().default(true),
+  // Hidden instead of deleted, so old order lines keep pointing at a real row.
+  hidden: integer('hidden', { mode: 'boolean' }).notNull().default(false),
   sort: integer('sort').notNull().default(0),
   modifierGroupsJson: text('modifier_groups_json').notNull().default('[]'),
   updatedAt: integer('updated_at').notNull(),
