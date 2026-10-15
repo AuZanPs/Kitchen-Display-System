@@ -73,6 +73,8 @@ export function Composer({
     line: DraftLine | null
   } | null>(null)
   const [pickingTable, setPickingTable] = useState(false)
+  // Narrow screens keep the summary in a sheet behind a bar (BUILD.md §6).
+  const [sheetOpen, setSheetOpen] = useState(false)
 
   const categories = useMemo(
     () => [...new Set(menu?.map((m) => m.category))],
@@ -97,7 +99,7 @@ export function Composer({
   }
 
   return (
-    <div className="grid gap-6 px-4 pt-6 sm:px-6 min-[950px]:grid-cols-[minmax(0,1fr)_minmax(320px,380px)] min-[950px]:items-start">
+    <div className="grid gap-6 px-4 pt-6 pb-20 sm:px-6 min-[950px]:grid-cols-[minmax(0,1fr)_minmax(320px,380px)] min-[950px]:items-start min-[950px]:pb-0">
       <section className="grid min-w-0 gap-5" aria-label={t('search')}>
         {target ? (
           <div className="rise flex flex-wrap items-center gap-3 rounded-md border-2 border-ink py-2 pr-2 pl-4">
@@ -225,7 +227,46 @@ export function Composer({
         showOrderNote={settings.orderNote && !target}
         needsTable={!target && !draft.destination}
         onReview={() => setReviewOpen(true)}
+        className="hidden min-[950px]:grid"
       />
+
+      <CartBar
+        draft={draft}
+        canReview={
+          (target !== null || draft.destination !== null) &&
+          draft.lines.length > 0
+        }
+        onOpen={() => setSheetOpen(true)}
+        onReview={() => setReviewOpen(true)}
+      />
+      <Dialog
+        open={sheetOpen}
+        onOpenChange={setSheetOpen}
+        title={where}
+        description={t('itemsSelected', {
+          count: draft.lines.reduce((n, l) => n + l.qty, 0),
+        })}
+      >
+        <Summary
+          sheet
+          draft={draft}
+          where={where}
+          onEdit={(line) => {
+            const item = menu?.find((m) => m.id === line.menuItemId)
+            if (item) {
+              setSheetOpen(false)
+              setEditing({ item, line })
+            }
+          }}
+          drafts={drafts}
+          showOrderNote={settings.orderNote && !target}
+          needsTable={!target && !draft.destination}
+          onReview={() => {
+            setSheetOpen(false)
+            setReviewOpen(true)
+          }}
+        />
+      </Dialog>
 
       {editing && (
         <ItemDialog
@@ -292,6 +333,8 @@ function Summary({
   needsTable,
   onEdit,
   onReview,
+  sheet = false,
+  className = '',
 }: {
   draft: Draft
   where: string
@@ -300,6 +343,9 @@ function Summary({
   needsTable: boolean
   onEdit: (line: DraftLine) => void
   onReview: () => void
+  /** Inside the narrow-screen sheet: the dialog already shows the header. */
+  sheet?: boolean
+  className?: string
 }) {
   const { t } = useI18n()
   const [confirmDiscard, setConfirmDiscard] = useState(false)
@@ -319,9 +365,13 @@ function Summary({
   return (
     <aside
       aria-label={t('review')}
-      className="grid gap-5 rounded-lg bg-tonal p-5 min-[950px]:sticky min-[950px]:top-24 min-[950px]:max-h-[calc(100dvh-7rem)] min-[950px]:grid-rows-[auto_minmax(0,1fr)_auto] min-[950px]:overflow-hidden"
+      className={
+        sheet
+          ? 'grid gap-5 pb-2'
+          : `gap-5 rounded-lg bg-tonal p-5 min-[950px]:sticky min-[950px]:top-24 min-[950px]:max-h-[calc(100dvh-7rem)] min-[950px]:grid-rows-[auto_minmax(0,1fr)_auto] min-[950px]:overflow-hidden ${className}`
+      }
     >
-      <header className="flex items-start gap-3">
+      <header className={sheet ? 'hidden' : 'flex items-start gap-3'}>
         <ShoppingBag size={24} className="mt-1" aria-hidden />
         <div className="mr-auto grid">
           <h2 className="text-[26px] leading-tight">{where}</h2>
@@ -406,7 +456,7 @@ function Summary({
               const orderNote = e.target.value
               edit(() => ({ orderNote }))
             }}
-            className="border-transparent"
+            className={sheet ? '' : 'border-transparent'}
           />
         )}
         <div className="flex items-end justify-between gap-4">
@@ -596,5 +646,42 @@ function ReviewDialog({
         />
       </div>
     </Dialog>
+  )
+}
+
+/** Narrow screens: the order so far, always one tap from review. */
+function CartBar({
+  draft,
+  canReview,
+  onOpen,
+  onReview,
+}: {
+  draft: Draft
+  canReview: boolean
+  onOpen: () => void
+  onReview: () => void
+}) {
+  const { t } = useI18n()
+  if (draft.lines.length === 0) return null
+  const count = draft.lines.reduce((n, l) => n + l.qty, 0)
+  return (
+    <div className="on-ink rise fixed inset-x-4 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-20 flex items-center gap-2 rounded-full bg-ink p-1.5 text-surface min-[950px]:hidden">
+      <button
+        type="button"
+        onClick={onOpen}
+        aria-label={`${t('itemsSelected', { count })}, ${formatIdr(draftTotal(draft))}`}
+        className="state flex min-h-12 min-w-0 flex-1 items-center gap-3 rounded-full pr-3 pl-2 text-left [--on:var(--color-surface)]"
+      >
+        <span className="grid size-9 shrink-0 place-items-center rounded-full bg-surface text-[15px] font-semibold text-ink tabular-nums">
+          {count}
+        </span>
+        <span className="truncate text-base font-medium tabular-nums">
+          {formatIdr(draftTotal(draft))}
+        </span>
+      </button>
+      <Button variant="tonal" disabled={!canReview} onClick={onReview}>
+        {t('review')}
+      </Button>
+    </div>
   )
 }
