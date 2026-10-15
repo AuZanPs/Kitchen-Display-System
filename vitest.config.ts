@@ -6,8 +6,13 @@ export default defineConfig({
     cloudflareTest({
       wrangler: { configPath: './wrangler.jsonc' },
       miniflare: {
-        bindings: { ENVIRONMENT: 'development', DEV_KEY: 'test-dev-key' },
+        bindings: {
+          ENVIRONMENT: 'development',
+          ADMIN_PASSWORD: 'test-admin-password',
+          SESSION_SECRET: 'test-session-secret-that-is-at-least-32-chars',
+        },
       },
     }),
   ],
+  test: { include: ['tests/**/*.test.ts'] },
 })

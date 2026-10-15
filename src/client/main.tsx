@@ -3,7 +3,6 @@ import { createRoot } from 'react-dom/client'
 import { createBrowserRouter, Link } from 'react-router'
 import { RouterProvider } from 'react-router/dom'
 import './index.css'
-import { DevKeyGate } from './dev-key-gate'
 import { TvPage } from './tv/tv-page'
 import { WaiterPage } from './waiter/waiter-page'
 
@@ -26,8 +25,6 @@ if (!root) throw new Error('Missing #root element')
 
 createRoot(root).render(
   <StrictMode>
-    <DevKeyGate>
-      <RouterProvider router={router} />
-    </DevKeyGate>
+    <RouterProvider router={router} />
   </StrictMode>,
 )

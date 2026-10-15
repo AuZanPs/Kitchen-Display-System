@@ -3,12 +3,12 @@ import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
 import { boardOrderSchema } from '../src/shared/board'
 import { commandSchema } from '../src/shared/commands'
-import type { Actor } from '../src/worker/orders'
 import {
+  adminHeaders,
   boardOrder,
   command,
   createOrder,
-  DEV_KEY,
+  deviceCredentials,
   line,
   ORIGIN,
   postCommand,
@@ -29,7 +29,7 @@ const history = z.object({
 
 async function getHistory(orderId: string) {
   const res = await exports.default.fetch(`${ORIGIN}/api/orders/${orderId}`, {
-    headers: DEV_KEY,
+    headers: await adminHeaders(),
   })
   expect(res.status).toBe(200)
   return history.parse(await res.json()).events
@@ -317,13 +317,6 @@ describe('cancellation', () => {
 })
 
 describe('role guard inside the room', () => {
-  const actor = (role: Actor['role']): Actor => ({
-    role,
-    deviceId: `test-${role}`,
-    staffId: null,
-    managerUser: null,
-  })
-
   it.each([
     ['waiter', 'accept'],
     ['waiter', 'ready'],
@@ -342,7 +335,7 @@ describe('role guard inside the room', () => {
           ? { type, reason: 'x' }
           : { type }
     const result = await room().command(
-      actor(role),
+      await deviceCredentials(room(), role),
       orderId,
       commandSchema.parse({
         operationId: crypto.randomUUID(),

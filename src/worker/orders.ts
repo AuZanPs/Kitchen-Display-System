@@ -45,7 +45,7 @@ export type Actor = {
 
 export type Failure = {
   ok: false
-  status: 403 | 404 | 409 | 422
+  status: 401 | 403 | 404 | 409 | 422 | 429
   body: ApiError
 }
 export type Result<T> = { ok: true; status: 200 | 201; body: T } | Failure

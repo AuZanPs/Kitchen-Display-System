@@ -15,7 +15,9 @@ import {
   type CreateOrder,
   type CreateOrderResult,
   ROLES,
+  type Role,
 } from '../shared/order'
+import { randomCode, randomHex, safeEqual, sha256Hex } from './auth/crypto'
 import { buildBoard } from './board'
 import {
   bumpRev,
@@ -28,6 +30,19 @@ import {
 } from './db'
 import migrations from './db/migrations/migrations'
 import {
+  type Approve,
+  allowAttempt,
+  approveChallenge,
+  type Credentials,
+  ENROLL_TTL_MS,
+  insertChallenge,
+  listDevices,
+  type Poll,
+  pollChallenge,
+  revokeDevice,
+  unauthenticated,
+} from './devices'
+import {
   type Actor,
   createOrder,
   fail,
@@ -37,21 +52,35 @@ import {
 } from './orders'
 
 const DAY_MS = 24 * 60 * 60 * 1000
+const MINUTE_MS = 60 * 1000
 const MAX_CLIENT_MESSAGE = 16 * 1024
+/** WebSocket close code sent to a revoked device. */
+export const CLOSE_REVOKED = 4001
 
 const attachmentSchema = z.object({
   deviceId: z.string(),
   role: z.enum(ROLES),
 })
 
-async function sha256(text: string) {
-  const hash = await crypto.subtle.digest(
-    'SHA-256',
-    new TextEncoder().encode(text),
-  )
-  return Array.from(new Uint8Array(hash), (b) =>
-    b.toString(16).padStart(2, '0'),
-  ).join('')
+const ADMIN_ACTOR: Actor = {
+  role: 'manager',
+  deviceId: 'admin',
+  staffId: null,
+  managerUser: 'admin',
+}
+
+/** The Worker forwards socket credentials in headers only it can set. */
+function socketCredentials(headers: Headers): Credentials {
+  if (headers.get('x-kds-admin') === '1') return { kind: 'admin' }
+  const deviceId = headers.get('x-kds-device-id')
+  const secret = headers.get('x-kds-device-secret')
+  return deviceId && secret
+    ? { kind: 'device', deviceId, secret }
+    : { kind: 'none' }
+}
+
+function ok<T>(body: T): Result<T> {
+  return { ok: true, status: 200, body }
 }
 
 /** Cleanup runs daily at 04:00 Jakarta time (21:00 UTC), outside service. */
@@ -129,21 +158,18 @@ export class VenueRoom extends DurableObject<Env> {
     await this.ctx.storage.setAlarm(nextCleanupAt(Date.now()))
   }
 
-  /** WebSocket upgrade. The Worker has already authenticated the device. */
+  /** WebSocket upgrade. The Worker checked the origin; the room checks who it is. */
   async fetch(request: Request): Promise<Response> {
     if (request.headers.get('Upgrade') !== 'websocket') {
       return new Response('Expected websocket', { status: 426 })
     }
-    const attachment = attachmentSchema.safeParse({
-      deviceId: request.headers.get('x-kds-device'),
-      role: request.headers.get('x-kds-role'),
-    })
-    if (!attachment.success) return new Response('Bad request', { status: 400 })
+    const actor = await this.authenticate(socketCredentials(request.headers))
+    if (!actor) return new Response('Unauthenticated', { status: 401 })
 
     const { 0: client, 1: server } = new WebSocketPair()
-    this.ctx.acceptWebSocket(server, [attachment.data.role])
-    server.serializeAttachment(attachment.data)
-    if (attachment.data.role === 'tv') {
+    this.ctx.acceptWebSocket(server, [actor.role, `device:${actor.deviceId}`])
+    server.serializeAttachment({ deviceId: actor.deviceId, role: actor.role })
+    if (actor.role === 'tv') {
       // tvCount changed, so everyone gets a new board (this socket included).
       this.write(() => bumpRev(this.db))
     } else {
@@ -183,11 +209,28 @@ export class VenueRoom extends DurableObject<Env> {
     }
   }
 
-  getBoard(): BoardMessage {
-    return this.board()
+  async session(
+    credentials: Credentials,
+  ): Promise<Result<{ role: Role; label: string }>> {
+    const actor = await this.authenticate(credentials)
+    if (!actor) return unauthenticated()
+    const device = this.db
+      .select({ label: schema.devices.label })
+      .from(schema.devices)
+      .where(eq(schema.devices.id, actor.deviceId))
+      .get()
+    return ok({ role: actor.role, label: device?.label ?? 'Admin' })
   }
 
-  getMenu(): { items: MenuItem[] } {
+  async getBoard(credentials: Credentials): Promise<Result<BoardMessage>> {
+    if (!(await this.authenticate(credentials))) return unauthenticated()
+    return ok(this.board())
+  }
+
+  async getMenu(
+    credentials: Credentials,
+  ): Promise<Result<{ items: MenuItem[] }>> {
+    if (!(await this.authenticate(credentials))) return unauthenticated()
     const items = this.db
       .select()
       .from(schema.menuItems)
@@ -203,25 +246,30 @@ export class VenueRoom extends DurableObject<Env> {
           JSON.parse(item.modifierGroupsJson),
         ),
       }))
-    return { items }
+    return ok({ items })
   }
 
-  getTables(): { tables: Table[] } {
+  async getTables(
+    credentials: Credentials,
+  ): Promise<Result<{ tables: Table[] }>> {
+    if (!(await this.authenticate(credentials))) return unauthenticated()
     const tables = this.db
       .select({ id: schema.tables.id, label: schema.tables.label })
       .from(schema.tables)
       .where(eq(schema.tables.active, true))
       .orderBy(schema.tables.sort, schema.tables.label)
       .all()
-    return { tables }
+    return ok({ tables })
   }
 
   async createOrder(
-    actor: Actor,
+    credentials: Credentials,
     input: CreateOrder,
     receivedAt: number,
   ): Promise<Result<CreateOrderResult>> {
-    const payloadHash = await sha256(JSON.stringify(input))
+    const actor = await this.authenticate(credentials)
+    if (!actor) return unauthenticated()
+    const payloadHash = await sha256Hex(JSON.stringify(input))
     return this.write(() =>
       createOrder(this.db, actor, input, {
         payloadHash,
@@ -232,12 +280,14 @@ export class VenueRoom extends DurableObject<Env> {
   }
 
   async command(
-    actor: Actor,
+    credentials: Credentials,
     orderId: string,
     command: Command,
     receivedAt: number,
   ): Promise<Result<CommandResult>> {
-    const payloadHash = await sha256(JSON.stringify({ orderId, command }))
+    const actor = await this.authenticate(credentials)
+    if (!actor) return unauthenticated()
+    const payloadHash = await sha256Hex(JSON.stringify({ orderId, command }))
     return this.write(() =>
       runCommand(this.db, actor, orderId, command, {
         payloadHash,
@@ -247,14 +297,17 @@ export class VenueRoom extends DurableObject<Env> {
     )
   }
 
-  getOrder(orderId: string) {
+  async getOrder(credentials: Credentials, orderId: string) {
+    if (!(await this.authenticate(credentials))) return unauthenticated()
     return orderHistory(this.db, orderId)
   }
 
-  controlTv(
-    actor: Actor,
+  async controlTv(
+    credentials: Credentials,
     control: TvControl,
-  ): Result<{ tvControl: TvControl; rev: number }> {
+  ): Promise<Result<{ tvControl: TvControl; rev: number }>> {
+    const actor = await this.authenticate(credentials)
+    if (!actor) return unauthenticated()
     if (actor.role !== 'kitchen' && actor.role !== 'manager') {
       return fail(403, 'forbidden', 'Peran ini tidak boleh mengatur TV.')
     }
@@ -263,8 +316,16 @@ export class VenueRoom extends DurableObject<Env> {
     return { ok: true, status: 200, body: { tvControl: control, rev } }
   }
 
+  getTvControl(): TvControl {
+    return this.tvControl
+  }
+
   /** Opening on a new date restarts ticket numbers at A-001. */
-  openServiceDay(actor: Actor): Result<{ serviceDay: string; rev: number }> {
+  async openServiceDay(
+    credentials: Credentials,
+  ): Promise<Result<{ serviceDay: string; rev: number }>> {
+    const actor = await this.authenticate(credentials)
+    if (!actor) return unauthenticated()
     if (actor.role !== 'manager')
       return fail(403, 'forbidden', 'Hanya manajer.')
     return this.write(() => {
@@ -282,10 +343,12 @@ export class VenueRoom extends DurableObject<Env> {
     })
   }
 
-  closeServiceDay(
-    actor: Actor,
+  async closeServiceDay(
+    credentials: Credentials,
     force: boolean,
-  ): Result<{ serviceDay: string; rev: number }> {
+  ): Promise<Result<{ serviceDay: string; rev: number }>> {
+    const actor = await this.authenticate(credentials)
+    if (!actor) return unauthenticated()
     if (actor.role !== 'manager')
       return fail(403, 'forbidden', 'Hanya manajer.')
     return this.write(() => {
@@ -312,6 +375,121 @@ export class VenueRoom extends DurableObject<Env> {
         },
       }
     })
+  }
+
+  /** Counts one attempt against `key`; false once the limit is reached. */
+  allowAttempt(key: string, limit: number, windowMs: number): boolean {
+    return this.ctx.storage.transactionSync(() =>
+      allowAttempt(this.db, key, limit, windowMs, Date.now()),
+    )
+  }
+
+  /** A new device asks for a pairing code. */
+  async startEnrollment(ipHash: string): Promise<
+    Result<{
+      challengeId: string
+      code: string
+      pollSecret: string
+      expiresAt: number
+    }>
+  > {
+    if (!this.allowAttempt(`enroll:${ipHash}`, 10, 10 * MINUTE_MS)) {
+      return fail(429, 'rate_limited', 'Terlalu banyak percobaan. Tunggu.')
+    }
+    const pollSecret = randomHex(32)
+    const secretHash = await sha256Hex(pollSecret)
+    // A code that collides with a live challenge is rare; draw again.
+    for (let i = 0; i < 5; i++) {
+      const id = crypto.randomUUID()
+      const code = randomCode()
+      const codeHash = await sha256Hex(code)
+      const now = Date.now()
+      const stored = this.ctx.storage.transactionSync(() =>
+        insertChallenge(this.db, { id, codeHash, secretHash, ipHash }, now),
+      )
+      if (stored) {
+        return ok({
+          challengeId: id,
+          code,
+          pollSecret,
+          expiresAt: now + ENROLL_TTL_MS,
+        })
+      }
+    }
+    return fail(429, 'rate_limited', 'Coba lagi sebentar lagi.')
+  }
+
+  async approveEnrollment(credentials: Credentials, input: Approve) {
+    if (credentials.kind !== 'admin') return unauthenticated()
+    const codeHash = await sha256Hex(input.code)
+    return this.ctx.storage.transactionSync(() =>
+      approveChallenge(this.db, codeHash, input, Date.now()),
+    )
+  }
+
+  async pollEnrollment(input: Poll) {
+    const secretHash = await sha256Hex(input.pollSecret)
+    const secret = randomHex(32)
+    const device = {
+      id: crypto.randomUUID(),
+      secret,
+      tokenHash: await sha256Hex(secret),
+    }
+    return this.ctx.storage.transactionSync(() =>
+      pollChallenge(
+        this.db,
+        { challengeId: input.challengeId, secretHash },
+        device,
+        Date.now(),
+      ),
+    )
+  }
+
+  listDevices(credentials: Credentials) {
+    if (credentials.kind !== 'admin') return unauthenticated()
+    return ok({ devices: listDevices(this.db) })
+  }
+
+  /** Refuses the device from now on and drops its open sockets. */
+  revokeDevice(
+    credentials: Credentials,
+    deviceId: string,
+  ): Result<{ revoked: boolean }> {
+    if (credentials.kind !== 'admin') return unauthenticated()
+    const revoked = this.ctx.storage.transactionSync(() =>
+      revokeDevice(this.db, deviceId, Date.now()),
+    )
+    for (const ws of this.ctx.getWebSockets(`device:${deviceId}`)) {
+      try {
+        ws.send(JSON.stringify({ type: 'revoked' }))
+        ws.close(CLOSE_REVOKED, 'Revoked')
+      } catch {
+        // Already closing.
+      }
+    }
+    // A revoked TV no longer counts towards tvCount.
+    this.write(() => bumpRev(this.db))
+    return ok({ revoked })
+  }
+
+  /** The Worker vouches for the admin; devices are checked against their row. */
+  private async authenticate(credentials: Credentials): Promise<Actor | null> {
+    if (credentials.kind === 'admin') return ADMIN_ACTOR
+    if (credentials.kind === 'none') return null
+    const tokenHash = await sha256Hex(credentials.secret)
+    const device = this.db
+      .select()
+      .from(schema.devices)
+      .where(eq(schema.devices.id, credentials.deviceId))
+      .get()
+    if (!device || device.revokedAt !== null) return null
+    if (!safeEqual(device.tokenHash, tokenHash)) return null
+    return {
+      role: device.role,
+      deviceId: device.id,
+      staffId: null,
+      managerUser: null,
+    }
   }
 
   /** Runs one transaction and broadcasts if it moved the board. */

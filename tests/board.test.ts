@@ -2,9 +2,9 @@ import { evictDurableObject } from 'cloudflare:test'
 import { exports } from 'cloudflare:workers'
 import { describe, expect, it } from 'vitest'
 import {
+  adminHeaders,
   command,
   createOrder,
-  DEV_KEY,
   getBoard,
   ORIGIN,
   openBoardSocket,
@@ -73,13 +73,16 @@ describe('board socket', () => {
     ws.close()
   })
 
-  it('rejects upgrades without the dev key', async () => {
+  it('rejects upgrades without a paired device', async () => {
     const res = await upgrade({ Origin: ORIGIN })
     expect(res.status).toBe(401)
   })
 
   it('rejects upgrades from another origin', async () => {
-    const res = await upgrade({ Origin: 'http://evil.test', ...DEV_KEY })
+    const res = await upgrade({
+      Origin: 'http://evil.test',
+      ...(await adminHeaders()),
+    })
     expect(res.status).toBe(403)
   })
 

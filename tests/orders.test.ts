@@ -3,9 +3,9 @@ import { env } from 'cloudflare:workers'
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
 import { createOrderResultSchema, LIMITS } from '../src/shared/order'
-import type { Actor } from '../src/worker/orders'
 import {
   createOrder,
+  deviceCredentials,
   getBoard,
   line,
   openBoardSocket,
@@ -24,12 +24,7 @@ const zodIssues = z.object({
   ),
 })
 
-const manager: Actor = {
-  role: 'manager',
-  deviceId: 'test',
-  staffId: null,
-  managerUser: null,
-}
+const manager = { kind: 'admin' } as const
 
 async function countRows(table: string, orderId: string) {
   return runInDurableObject(room(), (_, state) =>
@@ -322,7 +317,9 @@ describe('service day', () => {
     expect((await stub().openServiceDay(manager)).ok).toBe(true)
     const next = await stub().createOrder(manager, orderBody(), Date.now())
     expect(next).toMatchObject({ ok: true, body: { ticketNo: 1 } })
-    expect((await stub().getBoard()).serviceOpen).toBe(true)
+    expect(await stub().getBoard(manager)).toMatchObject({
+      body: { serviceOpen: true },
+    })
   })
 
   it('reopening on the same date keeps the ticket numbers going', async () => {
@@ -335,7 +332,7 @@ describe('service day', () => {
   })
 
   it('only managers open or close the day', async () => {
-    const waiter: Actor = { ...manager, role: 'waiter' }
+    const waiter = await deviceCredentials(stub(), 'waiter')
     expect(await stub().openServiceDay(waiter)).toMatchObject({ status: 403 })
     expect(await stub().closeServiceDay(waiter, true)).toMatchObject({
       status: 403,
@@ -348,7 +345,7 @@ describe('role guard inside the room', () => {
     'refuses create from %s',
     async (role) => {
       const result = await room().createOrder(
-        { ...manager, role },
+        await deviceCredentials(room(), role),
         orderBody(),
         Date.now(),
       )
