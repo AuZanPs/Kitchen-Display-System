@@ -1,6 +1,7 @@
-import { AlarmClock, Ban, PencilLine, WifiOff } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { AlarmClock, Ban, Pause, PencilLine, WifiOff } from 'lucide-react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type {
+  BoardMessage,
   BoardOrder,
   OrderStatus,
   RenderedMessage,
@@ -11,10 +12,17 @@ import { boardLines, whereLabel } from '../lib/board'
 import { RequireRole } from '../lib/session'
 import { STALE_AFTER_MS, useBoardSocket } from '../lib/use-board-socket'
 import { useNow } from '../lib/use-now'
+import { useWakeLock } from '../lib/use-wake-lock'
 import { Ticket } from '../ticket'
+import { fixtureBoard } from './fixture'
+import { paginate, type Slice } from './paging'
 
 const REMINDER_AFTER_MS = 12 * 60 * 1000
 const RECEIPT_EVERY_MS = 1_000
+const PAGE_EVERY_MS = 8_000
+// Must match gap-6 between cards and gap-3 between ticket lines.
+const CARD_GAP = 24
+const LINE_GAP = 12
 
 const LANES = [
   { status: 'new', label: 'laneNew' },
@@ -23,21 +31,68 @@ const LANES = [
 ] as const satisfies readonly { status: OrderStatus; label: string }[]
 
 export function TvPage() {
+  // Layout check with synthetic tickets; compiled out of production builds.
+  const fixture = import.meta.env.DEV
+    ? Number(new URLSearchParams(window.location.search).get('fixture'))
+    : 0
+  if (fixture > 0) return <FixtureBoard count={fixture} />
   return (
     <RequireRole allow="tv">
-      {(session) => <Board place={session.label} />}
+      {(session) => <LiveBoard place={session.label} />}
     </RequireRole>
   )
 }
 
-function Board({ place }: { place: string }) {
-  const { t } = useI18n()
+function FixtureBoard({ count }: { count: number }) {
+  const [board] = useState(() => fixtureBoard(count, Date.now()))
+  const now = useNow(1000)
+  return (
+    <BoardView
+      board={board}
+      place="Fixture"
+      now={now}
+      serverOffsetMs={0}
+      lastMessageAt={now}
+      disconnected={false}
+    />
+  )
+}
+
+function LiveBoard({ place }: { place: string }) {
   const { board, lastMessageAt, startedAt, serverOffsetMs, send } =
     useBoardSocket()
   const now = useNow(1000)
-  const disconnected = now - (lastMessageAt ?? startedAt) > STALE_AFTER_MS
+  useWakeLock()
   useRenderReceipts(board?.orders, send)
+  return (
+    <BoardView
+      board={board}
+      place={place}
+      now={now}
+      serverOffsetMs={serverOffsetMs}
+      lastMessageAt={lastMessageAt}
+      disconnected={now - (lastMessageAt ?? startedAt) > STALE_AFTER_MS}
+    />
+  )
+}
 
+function BoardView({
+  board,
+  place,
+  now,
+  serverOffsetMs,
+  lastMessageAt,
+  disconnected,
+}: {
+  board: BoardMessage | null
+  place: string
+  now: number
+  serverOffsetMs: number
+  lastMessageAt: number | null
+  disconnected: boolean
+}) {
+  const { t } = useI18n()
+  const tick = usePageTick(board?.tvControl)
   const attention = (board?.orders ?? []).filter(
     (o) => (o.changePending || o.cancelRequested) && o.status !== 'cancelled',
   )
@@ -81,47 +136,17 @@ function Board({ place }: { place: string }) {
 
       {board ? (
         <div className="grid min-h-0 flex-1 grid-cols-3 gap-8">
-          {LANES.map((lane) => {
-            const orders = board.orders.filter((o) => o.status === lane.status)
-            return (
-              <section
-                key={lane.status}
-                className="flex min-h-0 flex-col gap-5"
-                aria-label={t(lane.label)}
-              >
-                <h2 className="flex items-center gap-3 text-[30px]">
-                  <span className="size-3 rounded-full bg-tonal" aria-hidden />
-                  <span className="mr-auto">{t(lane.label)}</span>
-                  <span className="grid size-11 place-items-center rounded-full bg-surface text-[22px] font-semibold text-ink tabular-nums">
-                    {orders.length}
-                  </span>
-                </h2>
-                {/* No paging yet: a lane taller than the screen is cut off. */}
-                <div className="grid min-h-0 content-start gap-6 overflow-hidden">
-                  {orders.map((order) => (
-                    <Ticket
-                      key={order.id}
-                      className="ticket-enter"
-                      size="tv"
-                      ticketNo={order.ticketNo}
-                      where={whereLabel(order, t)}
-                      takeaway={order.takeaway}
-                      lines={boardLines(order)}
-                      orderNote={order.orderNote}
-                      tonalHeader={order.status === 'ready'}
-                      aside={
-                        <Age
-                          createdAt={order.createdAt}
-                          now={now + serverOffsetMs}
-                          t={t}
-                        />
-                      }
-                    />
-                  ))}
-                </div>
-              </section>
-            )
-          })}
+          {LANES.map((lane) => (
+            <Lane
+              key={lane.status}
+              label={t(lane.label)}
+              orders={board.orders.filter((o) => o.status === lane.status)}
+              tick={tick}
+              paused={board.tvControl.paused}
+              serverNow={now + serverOffsetMs}
+              t={t}
+            />
+          ))}
         </div>
       ) : (
         <p className="grid flex-1 place-items-center text-[30px] text-surface-soft">
@@ -132,13 +157,166 @@ function Board({ place }: { place: string }) {
   )
 }
 
+/** Advances every 8 s unless paused; the kitchen can jump to a page. */
+function usePageTick(control: BoardMessage['tvControl'] | undefined) {
+  const [tick, setTick] = useState(0)
+  const page = control?.page
+  const paused = control?.paused ?? false
+  // Pausing or picking a page shows the kitchen's page, not the local one.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `paused` only re-syncs the page
+  useEffect(() => {
+    if (page !== undefined) setTick(page)
+  }, [page, paused])
+  useEffect(() => {
+    if (paused) return
+    const timer = setInterval(() => setTick((n) => n + 1), PAGE_EVERY_MS)
+    return () => clearInterval(timer)
+  }, [paused])
+  return tick
+}
+
+/**
+ * One lane. Every ticket is also drawn in an invisible layer at full length;
+ * those measurements decide which whole tickets (or parts of a tall one) fit
+ * on each page, so nothing is ever cut off.
+ */
+function Lane({
+  label,
+  orders,
+  tick,
+  paused,
+  serverNow,
+  t,
+}: {
+  label: string
+  orders: BoardOrder[]
+  tick: number
+  paused: boolean
+  serverNow: number
+  t: Translate
+}) {
+  const boxRef = useRef<HTMLDivElement>(null)
+  const measureRef = useRef<HTMLDivElement>(null)
+  const [height, setHeight] = useState(0)
+  const [pages, setPages] = useState<Slice[][] | null>(null)
+
+  useLayoutEffect(() => {
+    const box = boxRef.current
+    if (!box) return
+    const observer = new ResizeObserver(() => setHeight(box.clientHeight))
+    observer.observe(box)
+    return () => observer.disconnect()
+  }, [])
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: new orders change what the hidden layer drew
+  useLayoutEffect(() => {
+    const root = measureRef.current
+    if (!root || height === 0) return
+    const sizes = [...root.children].map((card) => ({
+      height: card.getBoundingClientRect().height,
+      lines: [...card.querySelectorAll('ol > li')].map(
+        (li) => li.getBoundingClientRect().height,
+      ),
+    }))
+    const next = paginate(sizes, height, CARD_GAP, LINE_GAP)
+    setPages((current) =>
+      JSON.stringify(current) === JSON.stringify(next) ? current : next,
+    )
+  }, [orders, height])
+
+  const total = pages?.length ?? 1
+  const pageIndex = tick % total
+  const page: Slice[] =
+    pages?.[pageIndex] ??
+    orders.map((order, index) => ({
+      index,
+      from: 0,
+      to: order.lines.length,
+      part: 0,
+    }))
+
+  return (
+    <section className="flex min-h-0 flex-col gap-5" aria-label={label}>
+      <h2 className="flex items-center gap-3 text-[30px]">
+        <span className="size-3 rounded-full bg-tonal" aria-hidden />
+        <span className="mr-auto">{label}</span>
+        {total > 1 && (
+          <span className="flex items-center gap-2 text-[22px] text-surface-soft tabular-nums">
+            {paused && <Pause size={22} aria-hidden />}
+            {t('page', { n: pageIndex + 1, total })}
+          </span>
+        )}
+        <span className="grid size-11 place-items-center rounded-full bg-surface text-[22px] font-semibold text-ink tabular-nums">
+          {orders.length}
+        </span>
+      </h2>
+      <div ref={boxRef} className="relative min-h-0 flex-1 overflow-hidden">
+        <div key={pageIndex} className="grid content-start gap-6">
+          {page.map((slice) => {
+            const order = orders[slice.index]
+            if (!order) return null
+            const lines = boardLines(order)
+            return (
+              <Ticket
+                key={`${order.id}:${slice.part}`}
+                className="ticket-enter"
+                size="tv"
+                ticketNo={order.ticketNo}
+                where={whereLabel(order, t)}
+                takeaway={order.takeaway}
+                lines={lines.slice(slice.from, slice.to)}
+                allLines={lines}
+                continued={slice.part > 0}
+                // The order note closes the ticket, so it goes on the last part.
+                orderNote={slice.to === lines.length ? order.orderNote : null}
+                tonalHeader={order.status === 'ready'}
+                aside={
+                  slice.part > 0 ? null : (
+                    <Age
+                      createdAt={order.createdAt}
+                      now={serverNow}
+                      onTonal={order.status === 'ready'}
+                      t={t}
+                    />
+                  )
+                }
+              />
+            )
+          })}
+        </div>
+        <div
+          ref={measureRef}
+          aria-hidden
+          className="pointer-events-none invisible absolute inset-x-0 top-0 grid content-start gap-6"
+        >
+          {orders.map((order) => (
+            <Ticket
+              key={order.id}
+              size="tv"
+              ticketNo={order.ticketNo}
+              where={whereLabel(order, t)}
+              takeaway={order.takeaway}
+              lines={boardLines(order)}
+              orderNote={order.orderNote}
+              aside={<Age createdAt={order.createdAt} now={serverNow} t={t} />}
+            />
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
 function Age({
   createdAt,
   now,
+  onTonal = false,
   t,
 }: {
   createdAt: number
   now: number
+  /** Sits on a soft blue header, so the pill turns off-white. */
+  onTonal?: boolean
   t: Translate
 }) {
   const ms = Math.max(0, now - createdAt)
@@ -150,7 +328,9 @@ function Age({
     hours > 0 ? `${hours}:${mm}:${ss}` : `${Math.floor(total / 60)}:${ss}`
   if (ms < REMINDER_AFTER_MS) {
     return (
-      <span className="shrink-0 rounded-full bg-tonal px-4 py-1.5 text-[24px] tabular-nums">
+      <span
+        className={`shrink-0 rounded-full px-4 py-1.5 text-[24px] tabular-nums ${onTonal ? 'bg-surface' : 'bg-tonal'}`}
+      >
         {text}
       </span>
     )
