@@ -5,6 +5,7 @@ import { secureHeaders } from 'hono/secure-headers'
 import { z } from 'zod'
 import { settingsSchema, tvControlSchema } from '../shared/board'
 import { commandSchema } from '../shared/commands'
+import { exportQuerySchema, historyQuerySchema } from '../shared/history'
 import { menuItemInputSchema, tableInputSchema } from '../shared/menu'
 import { createOrderSchema } from '../shared/order'
 import { staffInputSchema, staffLoginSchema } from '../shared/staff'
@@ -21,6 +22,7 @@ import {
   setStaffSession,
 } from './auth/session'
 import { approveSchema, pollSchema } from './devices'
+import { toCsv } from './history'
 import type { Result } from './orders'
 
 export { VenueRoom } from './venue-room'
@@ -425,6 +427,40 @@ app.put(
         c.req.valid('json'),
       ),
     ),
+)
+
+app.get(
+  '/api/manager/history',
+  requireAdmin,
+  invalidInput('query', historyQuerySchema),
+  async (c) =>
+    reply(
+      c,
+      await venueRoom(c.env).history(
+        { kind: 'admin' },
+        c.req.valid('query').day,
+      ),
+    ),
+)
+
+app.get(
+  '/api/manager/export',
+  requireAdmin,
+  invalidInput('query', exportQuerySchema),
+  async (c) => {
+    const { from, to, format } = c.req.valid('query')
+    const result = await venueRoom(c.env).exportRows(
+      { kind: 'admin' },
+      from,
+      to,
+    )
+    if (!result.ok) return reply(c, result)
+    const file = `kds-${from}_${to}.${format}`
+    c.header('Content-Disposition', `attachment; filename="${file}"`)
+    if (format === 'json') return c.json(result.body.rows)
+    c.header('Content-Type', 'text/csv; charset=utf-8')
+    return c.body(toCsv(result.body.rows))
+  },
 )
 
 app.get('/api/manager/staff', requireAdmin, async (c) =>

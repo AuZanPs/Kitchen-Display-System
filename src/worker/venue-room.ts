@@ -10,6 +10,7 @@ import {
   type TvControl,
 } from '../shared/board'
 import type { Command, CommandResult } from '../shared/commands'
+import type { ExportRow, History } from '../shared/history'
 import type {
   AdminMenuItem,
   AdminTable,
@@ -60,6 +61,7 @@ import {
   touchDevice,
   unauthenticated,
 } from './devices'
+import { dayHistory, exportRows } from './history'
 import { adminMenu, adminTables, saveMenuItem, saveTable } from './menu'
 import {
   type Actor,
@@ -321,6 +323,21 @@ export class VenueRoom extends DurableObject<Env> {
       deviceId: actor.deviceId,
       pinTag: pinTag(target),
     })
+  }
+
+  /** One service day for the admin; today (Jakarta) when no day is given. */
+  history(credentials: Credentials, day: string | undefined): Result<History> {
+    if (credentials.kind !== 'admin') return unauthenticated()
+    return ok(dayHistory(this.db, day ?? jakartaDate(Date.now())))
+  }
+
+  exportRows(
+    credentials: Credentials,
+    from: string,
+    to: string,
+  ): Result<{ rows: ExportRow[] }> {
+    if (credentials.kind !== 'admin') return unauthenticated()
+    return ok({ rows: exportRows(this.db, from, to) })
   }
 
   adminStaff(credentials: Credentials): Result<{ staff: AdminStaff[] }> {

@@ -70,6 +70,11 @@ const adminRoutes: Call[] = [
     path: '/api/admin/settings',
     body: { allergy: true, lineNotes: true, orderNote: true, staffPins: false },
   },
+  { name: 'GET history', path: '/api/manager/history' },
+  {
+    name: 'GET export',
+    path: '/api/manager/export?from=2026-10-01&to=2026-10-02',
+  },
   { name: 'GET manager staff', path: '/api/manager/staff' },
   {
     name: 'POST staff member',
