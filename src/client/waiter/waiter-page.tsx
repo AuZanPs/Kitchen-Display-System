@@ -99,7 +99,7 @@ function Waiter({
   ] as const
 
   return (
-    <div className="min-h-dvh bg-surface pb-24 min-[950px]:grid min-[950px]:grid-cols-[96px_1fr] min-[950px]:pb-0">
+    <div className="min-h-dvh bg-surface pb-24 [--snackbar-bottom:10.5rem] min-[950px]:grid min-[950px]:[--snackbar-bottom:1.5rem] min-[950px]:grid-cols-[96px_1fr] min-[950px]:pb-0">
       {/* Navigation rail on wide screens, bottom bar below 950px (DESIGN.md). */}
       <nav
         aria-label={t('appName')}
