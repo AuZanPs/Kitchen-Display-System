@@ -221,6 +221,7 @@ export const id = {
   evRequestCancel: 'Minta batal',
   evAckCancel: 'Batal dikonfirmasi dapur',
   evManagerCancel: 'Dibatalkan admin',
+  todayStats: 'Hari ini',
   // Admin menu and tables
   tabMenu: 'Menu',
   menuTitle: 'Daftar menu',

@@ -1,7 +1,8 @@
 import { Ban, ExternalLink } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { z } from 'zod'
 import type { BoardMessage, BoardOrder } from '../../shared/board'
+import { type HistoryStats, historySchema } from '../../shared/history'
 import { LIMITS, ticketLabel } from '../../shared/order'
 import { type DictKey, formatDay, useI18n } from '../i18n'
 import { api } from '../lib/api'
@@ -13,6 +14,7 @@ import { Button } from '../ui/button'
 import { Card } from '../ui/card'
 import { Dialog } from '../ui/dialog'
 import { TextField } from '../ui/text-field'
+import { StatTiles } from './history-tab'
 import {
   type Device,
   PAIR_ROLES,
@@ -41,6 +43,7 @@ export function OverviewTab({
   const { t } = useI18n()
   return (
     <div className="grid gap-8">
+      <Today board={board} />
       <section aria-labelledby="screens" className="grid gap-4">
         <h2 id="screens" className="text-2xl font-medium">
           {t('screens')}
@@ -61,6 +64,33 @@ export function OverviewTab({
       <ServiceDay board={board} notify={notify} />
       <ActiveOrders board={board} notify={notify} />
     </div>
+  )
+}
+
+/** Today's numbers; refetched when an order is added or changes state. */
+function Today({ board }: { board: BoardMessage | null }) {
+  const { t } = useI18n()
+  const [stats, setStats] = useState<HistoryStats | null>(null)
+  // Render receipts move the board too; only order changes matter here.
+  const orders = useMemo(
+    () => board?.orders.map((o) => `${o.id}:${o.status}`).join() ?? '',
+    [board],
+  )
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `orders` only triggers a refetch
+  useEffect(() => {
+    void api('/api/manager/history', historySchema).then((r) => {
+      if (r.ok) setStats(r.data.stats)
+    })
+  }, [orders])
+
+  return (
+    <section aria-labelledby="today" className="grid gap-4">
+      <h2 id="today" className="text-2xl font-medium">
+        {t('todayStats')}
+      </h2>
+      <StatTiles stats={stats} />
+    </section>
   )
 }
 

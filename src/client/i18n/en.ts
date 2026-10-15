@@ -217,6 +217,7 @@ export const en: Dict = {
   evRequestCancel: 'Cancel requested',
   evAckCancel: 'Cancel confirmed by kitchen',
   evManagerCancel: 'Cancelled by admin',
+  todayStats: 'Today',
   // Admin menu and tables
   tabMenu: 'Menu',
   menuTitle: 'Menu items',

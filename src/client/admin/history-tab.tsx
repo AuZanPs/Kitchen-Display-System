@@ -4,6 +4,7 @@ import { z } from 'zod'
 import type { BoardOrder } from '../../shared/board'
 import {
   type History,
+  type HistoryStats,
   historySchema,
   MAX_EXPORT_DAYS,
 } from '../../shared/history'
@@ -91,23 +92,6 @@ export function HistoryTab({
     })
   }, [])
 
-  const stats = history?.stats
-  const tiles = stats
-    ? [
-        { label: t('statOrders'), value: String(stats.orders) },
-        { label: t('statServed'), value: String(stats.served) },
-        { label: t('statCancelled'), value: String(stats.cancelled) },
-        {
-          label: t('statReady'),
-          value:
-            stats.avgReadyMinutes === null
-              ? '–'
-              : t('minutes', { min: stats.avgReadyMinutes }),
-        },
-        { label: t('statRevenue'), value: formatIdr(stats.revenueIdr) },
-      ]
-    : []
-
   return (
     <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,20rem)] lg:items-start">
       <section aria-labelledby="history" className="grid content-start gap-6">
@@ -127,20 +111,7 @@ export function HistoryTab({
           </label>
         </div>
 
-        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
-          {tiles.map((tile, index) => (
-            <li
-              key={tile.label}
-              style={stagger(index)}
-              className="rise grid content-between gap-2 rounded-md bg-wash p-4 last:col-span-2 sm:last:col-span-1"
-            >
-              <span className="text-sm text-ink-soft">{tile.label}</span>
-              <span className="text-2xl font-medium tabular-nums break-words">
-                {tile.value}
-              </span>
-            </li>
-          ))}
-        </ul>
+        <StatTiles stats={history?.stats ?? null} />
 
         {history && history.orders.length === 0 && (
           <p className="text-ink-soft">{t('noOrdersDay')}</p>
@@ -191,6 +162,44 @@ export function HistoryTab({
         }
       />
     </div>
+  )
+}
+
+/** A day's numbers as tiles; the history tab and the overview share them. */
+export function StatTiles({ stats }: { stats: HistoryStats | null }) {
+  const { t } = useI18n()
+  // While loading every tile shows a dash, so the layout never jumps.
+  const show = (value: (s: HistoryStats) => string) =>
+    stats ? value(stats) : '–'
+  const tiles = [
+    { label: t('statOrders'), value: show((s) => String(s.orders)) },
+    { label: t('statServed'), value: show((s) => String(s.served)) },
+    { label: t('statCancelled'), value: show((s) => String(s.cancelled)) },
+    {
+      label: t('statReady'),
+      value: show((s) =>
+        s.avgReadyMinutes === null
+          ? '–'
+          : t('minutes', { min: s.avgReadyMinutes }),
+      ),
+    },
+    { label: t('statRevenue'), value: show((s) => formatIdr(s.revenueIdr)) },
+  ]
+  return (
+    <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
+      {tiles.map((tile, index) => (
+        <li
+          key={tile.label}
+          style={stagger(index)}
+          className="rise grid content-between gap-2 rounded-md bg-wash p-4 last:col-span-2 sm:last:col-span-1"
+        >
+          <span className="text-sm text-ink-soft">{tile.label}</span>
+          <span className="text-2xl font-medium tabular-nums break-words">
+            {tile.value}
+          </span>
+        </li>
+      ))}
+    </ul>
   )
 }
 
