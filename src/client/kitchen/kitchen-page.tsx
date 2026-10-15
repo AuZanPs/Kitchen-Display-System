@@ -1,4 +1,11 @@
-import { Check, ChefHat, PencilLine, ShieldAlert, WifiOff } from 'lucide-react'
+import {
+  Ban,
+  Check,
+  ChefHat,
+  PencilLine,
+  ShieldAlert,
+  WifiOff,
+} from 'lucide-react'
 import { useState } from 'react'
 import type { BoardOrder } from '../../shared/board'
 import { AppBar } from '../app-bar'
@@ -9,10 +16,12 @@ import { RequireRole } from '../lib/session'
 import { stagger } from '../lib/stagger'
 import { STALE_AFTER_MS, useBoardSocket } from '../lib/use-board-socket'
 import { useNow } from '../lib/use-now'
+import { useWakeLock } from '../lib/use-wake-lock'
 import { AllergyBlock, Ticket } from '../ticket'
 import { Button } from '../ui/button'
 import { Dialog } from '../ui/dialog'
 import { useSnackbar } from '../ui/snackbar'
+import { TvControl } from './tv-control'
 
 export function KitchenPage() {
   return (
@@ -30,17 +39,20 @@ function Kitchen({ device }: { device: string }) {
   const [busy, setBusy] = useState<string | null>(null)
   const [confirming, setConfirming] = useState<BoardOrder | null>(null)
   const disconnected = now - (lastMessageAt ?? startedAt) > STALE_AFTER_MS
+  useWakeLock()
 
   async function run(
     order: BoardOrder,
-    type: 'accept' | 'ready' | 'ackChange',
+    type: 'accept' | 'ready' | 'ackChange' | 'ackCancel',
     allergyAcknowledged = false,
   ) {
     setBusy(order.id)
     const result = await sendCommand(order.id, {
       type,
       expectedVersion: order.version,
-      ...(type === 'ready' ? {} : { allergyAcknowledged }),
+      ...(type === 'accept' || type === 'ackChange'
+        ? { allergyAcknowledged }
+        : {}),
     })
     setBusy(null)
     setConfirming(null)
@@ -53,20 +65,35 @@ function Kitchen({ device }: { device: string }) {
     else void run(order, kind)
   }
 
+  const orders = board?.orders ?? []
+  // A cancel request outranks cooking: it sits on top until confirmed.
   const sections = [
     {
+      title: t('changesStrip'),
+      orders: orders.filter(
+        (o) =>
+          o.cancelRequested &&
+          o.status !== 'served' &&
+          o.status !== 'cancelled',
+      ),
+    },
+    {
       title: t('laneNew'),
-      orders: board?.orders.filter((o) => o.status === 'new') ?? [],
+      orders: orders.filter((o) => o.status === 'new' && !o.cancelRequested),
     },
     {
       title: t('lanePreparing'),
-      orders: board?.orders.filter((o) => o.status === 'accepted') ?? [],
+      orders: orders.filter(
+        (o) => o.status === 'accepted' && !o.cancelRequested,
+      ),
     },
   ]
 
   return (
     <div className="min-h-dvh bg-surface pb-10">
-      <AppBar title={t('kitchenTitle')} device={device} />
+      <AppBar title={t('kitchenTitle')} device={device}>
+        <TvControl control={board?.tvControl} notify={snackbar.show} />
+      </AppBar>
       {disconnected && (
         <p
           role="alert"
@@ -122,16 +149,50 @@ function Kitchen({ device }: { device: string }) {
                           </span>
                         }
                         banner={
-                          order.changePending && (
-                            <p className="mx-4 mb-2 flex items-center gap-2 rounded-sm bg-ink px-3 py-2 text-sm font-semibold text-surface">
-                              <PencilLine size={16} aria-hidden />
-                              {t('changePending')}
+                          order.cancelRequested ? (
+                            <p className="mx-4 mb-2 flex items-start gap-2 rounded-sm bg-ink px-3 py-2 text-sm font-semibold text-surface">
+                              <Ban
+                                size={16}
+                                className="mt-px shrink-0"
+                                aria-hidden
+                              />
+                              {t('cancelRequestedReason', {
+                                reason: order.cancelReason ?? '',
+                              })}
                             </p>
+                          ) : (
+                            order.changePending && (
+                              <div className="mx-4 mb-2 grid gap-1 rounded-sm bg-ink px-3 py-2 text-sm font-semibold text-surface">
+                                <span className="flex items-center gap-2">
+                                  <PencilLine size={16} aria-hidden />
+                                  {t('changePending')}
+                                </span>
+                                {order.pendingChanges.map((change) => (
+                                  <span
+                                    key={change.version}
+                                    className="pl-6 font-normal"
+                                  >
+                                    {change.summary}
+                                  </span>
+                                ))}
+                              </div>
+                            )
                           )
                         }
                       />
                       <div className="flex gap-3 px-4 pb-4">
-                        {order.status === 'new' && (
+                        {order.cancelRequested && (
+                          <Button
+                            className="flex-1"
+                            size="lg"
+                            icon={<Ban size={20} aria-hidden />}
+                            disabled={busy === order.id}
+                            onClick={() => void run(order, 'ackCancel')}
+                          >
+                            {t('ackCancel')}
+                          </Button>
+                        )}
+                        {order.status === 'new' && !order.cancelRequested && (
                           <Button
                             className="flex-1"
                             size="lg"
@@ -141,18 +202,21 @@ function Kitchen({ device }: { device: string }) {
                             {t('accept')}
                           </Button>
                         )}
-                        {order.status === 'accepted' && order.changePending && (
-                          <Button
-                            className="flex-1"
-                            size="lg"
-                            disabled={busy === order.id}
-                            onClick={() => accept(order, 'ackChange')}
-                          >
-                            {t('ackChange')}
-                          </Button>
-                        )}
                         {order.status === 'accepted' &&
-                          !order.changePending && (
+                          order.changePending &&
+                          !order.cancelRequested && (
+                            <Button
+                              className="flex-1"
+                              size="lg"
+                              disabled={busy === order.id}
+                              onClick={() => accept(order, 'ackChange')}
+                            >
+                              {t('ackChange')}
+                            </Button>
+                          )}
+                        {order.status === 'accepted' &&
+                          !order.changePending &&
+                          !order.cancelRequested && (
                             <Button
                               className="flex-1"
                               size="lg"

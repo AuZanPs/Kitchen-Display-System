@@ -112,12 +112,18 @@ test('a paired tablet sends an order that appears on the paired TV without reloa
   await card.getByRole('button', { name: 'Terima' }).click()
   await kitchen.getByRole('button', { name: 'Sudah dibaca, terima' }).click()
   await expect(
-    tv.getByRole('region', { name: 'Sedang disiapkan' }).getByText(allergy),
+    tv
+      .getByRole('region', { name: 'Sedang disiapkan' })
+      .getByRole('article')
+      .filter({ hasText: allergy }),
   ).toBeVisible()
   await kitchen.screenshot({ path: 'test-results/kitchen.png', fullPage: true })
   await card.getByRole('button', { name: 'Siap' }).click()
   await expect(
-    tv.getByRole('region', { name: 'Siap diantar' }).getByText(allergy),
+    tv
+      .getByRole('region', { name: 'Siap diantar' })
+      .getByRole('article')
+      .filter({ hasText: allergy }),
   ).toBeVisible()
 
   // The waiter delivers it.
@@ -160,18 +166,15 @@ test('a paired tablet sends an order that appears on the paired TV without reloa
   ).toBeVisible()
   await tablet.screenshot({ path: 'test-results/service.png' })
 
+  // The kitchen sees the request on top and confirms it; the TV drops it.
+  await kitchen.getByRole('button', { name: 'Konfirmasi pembatalan' }).click()
+  await expect(takeaway).toBeHidden()
+
   await admin.getByRole('button', { name: 'Ringkasan' }).click()
   await admin.screenshot({
     path: 'test-results/admin-overview.png',
     fullPage: true,
   })
-  await admin.getByRole('button', { name: 'Batalkan pesanan' }).first().click()
-  await admin.getByLabel('Alasan').fill('Tamu batal')
-  await admin
-    .getByRole('dialog')
-    .getByRole('button', { name: 'Batalkan pesanan' })
-    .click()
-  await expect(takeaway).toBeHidden()
 
   // Menu edits reach the tablet live: a new item, then one sold out.
   await tablet.getByRole('button', { name: 'Pesanan', exact: true }).click()

@@ -214,9 +214,17 @@ export const id = {
   allergyConfirmBody: 'Baca semua alergi di bawah sebelum menerima.',
   allergyConfirm: 'Sudah dibaca, terima',
   staleVersion: 'Pesanan sudah berubah. Lihat lagi.',
+  cancelRequestedReason: 'Minta batal: {reason}',
   changePending: 'Ada perubahan',
   cancelRequested: 'Minta batal',
 
+  tvControlTitle: 'Layar TV',
+  tvRotate: 'Ganti halaman otomatis',
+  tvRotateHint: 'Tiap 8 detik, saat pesanan lebih dari satu layar.',
+  tvPage: 'Halaman {n}',
+  prevPage: 'Halaman sebelumnya',
+  nextPage: 'Halaman berikutnya',
+  tvPageHint: 'Matikan ganti otomatis untuk memilih halaman.',
   // TV
   live: 'Live',
   minutesOver: 'Lewat {min} menit',
