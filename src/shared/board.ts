@@ -65,6 +65,8 @@ export const settingsSchema = z.object({
   allergy: z.boolean(),
   lineNotes: z.boolean(),
   orderNote: z.boolean(),
+  /** Waiters and kitchen staff sign in with a PIN before they act. */
+  staffPins: z.boolean(),
 })
 export type Settings = z.infer<typeof settingsSchema>
 
@@ -73,6 +75,7 @@ export const DEFAULT_SETTINGS: Settings = {
   allergy: false,
   lineNotes: true,
   orderNote: true,
+  staffPins: false,
 }
 
 export const boardMessageSchema = z.object({

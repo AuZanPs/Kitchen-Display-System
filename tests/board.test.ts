@@ -163,10 +163,16 @@ describe('venue settings', () => {
       allergy: false,
       lineNotes: true,
       orderNote: true,
+      staffPins: false,
     })
     const { ws, nextBoard } = await openBoardSocket()
     await nextBoard()
-    const detailed = { allergy: true, lineNotes: true, orderNote: false }
+    const detailed = {
+      allergy: true,
+      lineNotes: true,
+      orderNote: false,
+      staffPins: false,
+    }
     expect((await postJson('/api/admin/settings', detailed)).status).toBe(200)
     expect((await nextBoard()).settings).toEqual(detailed)
     ws.close()

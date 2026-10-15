@@ -25,6 +25,12 @@ import {
   ROLES,
   type Role,
 } from '../shared/order'
+import type {
+  AdminStaff,
+  StaffInput,
+  StaffLogin,
+  StaffMember,
+} from '../shared/staff'
 import { randomCode, randomHex, safeEqual, sha256Hex } from './auth/crypto'
 import { buildBoard } from './board'
 import {
@@ -32,6 +38,7 @@ import {
   type Db,
   getMeta,
   getRev,
+  getSettings,
   jakartaDate,
   schema,
   setMeta,
@@ -61,6 +68,16 @@ import {
   type Result,
   runCommand,
 } from './orders'
+import {
+  adminStaff,
+  canSignIn,
+  hashPin,
+  PIN_TRIES,
+  pinMatches,
+  saveStaff,
+  staffForRole,
+  staffRow,
+} from './staff'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 const MINUTE_MS = 60 * 1000
@@ -231,7 +248,7 @@ export class VenueRoom extends DurableObject<Env> {
 
   async session(
     credentials: Credentials,
-  ): Promise<Result<{ role: Role; label: string }>> {
+  ): Promise<Result<{ role: Role; label: string; staff: StaffMember | null }>> {
     const actor = await this.authenticate(credentials)
     if (!actor) return unauthenticated()
     const device = this.db
@@ -239,7 +256,83 @@ export class VenueRoom extends DurableObject<Env> {
       .from(schema.devices)
       .where(eq(schema.devices.id, actor.deviceId))
       .get()
-    return ok({ role: actor.role, label: device?.label ?? 'Admin' })
+    const staff = actor.staffId ? staffRow(this.db, actor.staffId) : undefined
+    return ok({
+      role: actor.role,
+      label: device?.label ?? 'Admin',
+      staff: staff ? { id: staff.id, name: staff.name } : null,
+    })
+  }
+
+  /** Names a device may sign in as; empty for the TV. */
+  async listStaff(
+    credentials: Credentials,
+  ): Promise<Result<{ staff: StaffMember[] }>> {
+    const actor = await this.authenticate(credentials)
+    if (!actor || credentials.kind !== 'device') return unauthenticated()
+    return ok({ staff: staffForRole(this.db, actor.role) })
+  }
+
+  /** Checks a PIN; the Worker turns success into a device-bound cookie. */
+  async staffLogin(
+    credentials: Credentials,
+    input: StaffLogin,
+  ): Promise<Result<{ staff: StaffMember; deviceId: string }>> {
+    const actor = await this.authenticate(credentials)
+    if (!actor || credentials.kind !== 'device') return unauthenticated()
+    // Counted before the hash, so guessing costs attempts even when right.
+    const allowed =
+      this.allowAttempt(
+        `pin-device:${actor.deviceId}`,
+        PIN_TRIES.device,
+        MINUTE_MS,
+      ) &&
+      this.allowAttempt(
+        `pin-staff:${input.staffId}`,
+        PIN_TRIES.staff,
+        PIN_TRIES.staffWindowMs,
+      )
+    if (!allowed) {
+      return fail(429, 'rate_limited', 'Terlalu banyak percobaan. Tunggu.')
+    }
+    const row = staffRow(this.db, input.staffId)
+    if (
+      !row ||
+      !canSignIn(row, actor.role) ||
+      !(await pinMatches(row, input.pin))
+    ) {
+      return fail(401, 'unauthenticated', 'Nama atau PIN salah.')
+    }
+    this.ctx.storage.transactionSync(() =>
+      this.db
+        .delete(schema.rateLimits)
+        .where(eq(schema.rateLimits.key, `pin-staff:${row.id}`))
+        .run(),
+    )
+    return ok({
+      staff: { id: row.id, name: row.name },
+      deviceId: actor.deviceId,
+    })
+  }
+
+  adminStaff(credentials: Credentials): Result<{ staff: AdminStaff[] }> {
+    if (credentials.kind !== 'admin') return unauthenticated()
+    return ok({ staff: adminStaff(this.db) })
+  }
+
+  /** Creates the staff member when `id` is null, otherwise replaces it. */
+  async saveStaff(
+    credentials: Credentials,
+    id: string | null,
+    input: StaffInput,
+  ): Promise<Result<{ staff: AdminStaff }>> {
+    if (credentials.kind !== 'admin') return unauthenticated()
+    const pin = input.pin ? await hashPin(input.pin) : null
+    const staff = this.ctx.storage.transactionSync(() =>
+      saveStaff(this.db, id, input, pin, Date.now()),
+    )
+    if (!staff) return fail(404, 'not_found', 'Staf tidak ditemukan.')
+    return { ok: true, status: id === null ? 201 : 200, body: { staff } }
   }
 
   async getBoard(credentials: Credentials): Promise<Result<BoardMessage>> {
@@ -290,6 +383,8 @@ export class VenueRoom extends DurableObject<Env> {
   ): Promise<Result<CreateOrderResult>> {
     const actor = await this.authenticate(credentials)
     if (!actor) return unauthenticated()
+    const signedOut = this.staffRequired(actor)
+    if (signedOut) return signedOut
     const payloadHash = await sha256Hex(JSON.stringify(input))
     return this.write(() =>
       createOrder(this.db, actor, input, {
@@ -308,6 +403,8 @@ export class VenueRoom extends DurableObject<Env> {
   ): Promise<Result<CommandResult>> {
     const actor = await this.authenticate(credentials)
     if (!actor) return unauthenticated()
+    const signedOut = this.staffRequired(actor)
+    if (signedOut) return signedOut
     const payloadHash = await sha256Hex(JSON.stringify({ orderId, command }))
     return this.write(() =>
       runCommand(this.db, actor, orderId, command, {
@@ -332,6 +429,8 @@ export class VenueRoom extends DurableObject<Env> {
     if (actor.role !== 'kitchen' && actor.role !== 'manager') {
       return fail(403, 'forbidden', 'Peran ini tidak boleh mengatur TV.')
     }
+    const signedOut = this.staffRequired(actor)
+    if (signedOut) return signedOut
     this.tvControl = control
     const rev = this.write(() => bumpRev(this.db))
     return { ok: true, status: 200, body: { tvControl: control, rev } }
@@ -557,12 +656,28 @@ export class VenueRoom extends DurableObject<Env> {
       .get()
     if (!device || device.revokedAt !== null) return null
     if (!safeEqual(device.tokenHash, tokenHash)) return null
+    // A disabled or re-roled staff member is signed out on the next request.
+    const staff = credentials.staffId
+      ? staffRow(this.db, credentials.staffId)
+      : undefined
     return {
       role: device.role,
       deviceId: device.id,
-      staffId: null,
+      staffId: canSignIn(staff, device.role) ? (staff?.id ?? null) : null,
       managerUser: null,
     }
+  }
+
+  /** With staff PINs on, waiter and kitchen devices act only as a person. */
+  private staffRequired(actor: Actor) {
+    if (
+      actor.staffId ||
+      (actor.role !== 'waiter' && actor.role !== 'kitchen')
+    ) {
+      return null
+    }
+    if (!getSettings(this.db).staffPins) return null
+    return fail(401, 'pin_required', 'Masuk dengan PIN dulu.')
   }
 
   /** Runs one transaction and broadcasts if it moved the board. */

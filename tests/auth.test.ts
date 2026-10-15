@@ -38,6 +38,12 @@ const deviceRoutes: Call[] = [
       expectedVersion: 1,
     },
   },
+  { name: 'GET staff', path: '/api/staff' },
+  {
+    name: 'POST staff login',
+    path: '/api/staff/login',
+    body: { staffId: 'sample-waiter', pin: '1234' },
+  },
   {
     name: 'POST tv control',
     path: '/api/tv/control',
@@ -62,7 +68,19 @@ const adminRoutes: Call[] = [
   {
     name: 'POST settings',
     path: '/api/admin/settings',
-    body: { allergy: true, lineNotes: true, orderNote: true },
+    body: { allergy: true, lineNotes: true, orderNote: true, staffPins: false },
+  },
+  { name: 'GET manager staff', path: '/api/manager/staff' },
+  {
+    name: 'POST staff member',
+    path: '/api/manager/staff',
+    body: { name: 'X', role: 'waiter' },
+  },
+  {
+    name: 'PUT staff member',
+    path: '/api/manager/staff/x',
+    method: 'PUT',
+    body: { name: 'X', role: 'waiter' },
   },
   { name: 'GET manager menu', path: '/api/manager/menu' },
   { name: 'POST menu item', path: '/api/manager/menu', body: {} },
@@ -196,7 +214,11 @@ describe('device roles', () => {
   it('reports its role and label', async () => {
     const tv = await pairDevice('tv', 'TV dapur')
     const res = await request('/api/session', { headers: tv.headers })
-    expect(await res.json()).toEqual({ role: 'tv', label: 'TV dapur' })
+    expect(await res.json()).toEqual({
+      role: 'tv',
+      label: 'TV dapur',
+      staff: null,
+    })
   })
 })
 

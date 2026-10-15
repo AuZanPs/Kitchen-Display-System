@@ -25,7 +25,13 @@ export type Poll = z.infer<typeof pollSchema>
 export type Credentials =
   | { kind: 'none' }
   | { kind: 'admin' }
-  | { kind: 'device'; deviceId: string; secret: string }
+  | {
+      kind: 'device'
+      deviceId: string
+      secret: string
+      /** Signed staff sign-in bound to this device; the room still checks the row. */
+      staffId?: string
+    }
 
 export function unauthenticated(): Failure {
   return fail(401, 'unauthenticated', 'Perangkat belum terdaftar.')

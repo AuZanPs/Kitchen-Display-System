@@ -6,15 +6,18 @@ import { settingsSchema, tvControlSchema } from '../shared/board'
 import { commandSchema } from '../shared/commands'
 import { menuItemInputSchema, tableInputSchema } from '../shared/menu'
 import { createOrderSchema } from '../shared/order'
+import { staffInputSchema, staffLoginSchema } from '../shared/staff'
 import {
   clearAdminSession,
   clearDeviceCookie,
+  clearStaffSession,
   credentials,
   hasAdminSession,
   ipHash,
   isAdminPassword,
   setAdminSession,
   setDeviceCookie,
+  setStaffSession,
 } from './auth/session'
 import { approveSchema, pollSchema } from './devices'
 import type { Result } from './orders'
@@ -217,6 +220,28 @@ app.post('/api/devices/forget', (c) => {
   return c.body(null, 204)
 })
 
+// Staff PINs: the room checks the PIN, the Worker signs the cookie.
+app.get('/api/staff', async (c) =>
+  reply(c, await venueRoom(c.env).listStaff(await credentials(c))),
+)
+app.post(
+  '/api/staff/login',
+  invalidInput('json', staffLoginSchema),
+  async (c) => {
+    const result = await venueRoom(c.env).staffLogin(
+      await credentials(c),
+      c.req.valid('json'),
+    )
+    if (!result.ok) return reply(c, result)
+    await setStaffSession(c, result.body.staff.id, result.body.deviceId)
+    return c.json({ staff: result.body.staff })
+  },
+)
+app.post('/api/staff/logout', (c) => {
+  clearStaffSession(c)
+  return c.body(null, 204)
+})
+
 app.get('/api/session', async (c) =>
   reply(c, await venueRoom(c.env).session(await credentials(c))),
 )
@@ -382,6 +407,39 @@ app.put(
     reply(
       c,
       await venueRoom(c.env).saveTable(
+        { kind: 'admin' },
+        c.req.valid('param').id,
+        c.req.valid('json'),
+      ),
+    ),
+)
+
+app.get('/api/manager/staff', requireAdmin, async (c) =>
+  reply(c, await venueRoom(c.env).adminStaff({ kind: 'admin' })),
+)
+app.post(
+  '/api/manager/staff',
+  requireAdmin,
+  invalidInput('json', staffInputSchema),
+  async (c) =>
+    reply(
+      c,
+      await venueRoom(c.env).saveStaff(
+        { kind: 'admin' },
+        null,
+        c.req.valid('json'),
+      ),
+    ),
+)
+app.put(
+  '/api/manager/staff/:id',
+  requireAdmin,
+  invalidInput('param', idParam),
+  invalidInput('json', staffInputSchema),
+  async (c) =>
+    reply(
+      c,
+      await venueRoom(c.env).saveStaff(
         { kind: 'admin' },
         c.req.valid('param').id,
         c.req.valid('json'),

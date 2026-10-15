@@ -5,7 +5,9 @@ import { hmacHex, safeEqual, sha256Hex } from './crypto'
 
 export const ADMIN_COOKIE = 'kds_admin'
 export const DEVICE_COOKIE = 'kds_device'
+export const STAFF_COOKIE = 'kds_staff'
 const ADMIN_TTL_S = 12 * 60 * 60
+const STAFF_TTL_S = 12 * 60 * 60
 const DEVICE_TTL_S = 400 * 24 * 60 * 60 // browsers cap cookie lifetime at 400 days
 const DEVICE_TOKEN = /^main\.([0-9a-f-]{36})\.([0-9a-f]{64})$/
 // Short secrets would make the session signature guessable.
@@ -73,11 +75,53 @@ export function clearDeviceCookie(c: Ctx) {
   deleteCookie(c, DEVICE_COOKIE, { path: '/' })
 }
 
+/** A staff sign-in, signed and bound to one device so it cannot be moved. */
+export async function setStaffSession(
+  c: Ctx,
+  staffId: string,
+  deviceId: string,
+) {
+  const secret = sessionSecret(c.env)
+  if (!secret) throw new Error('SESSION_SECRET is not configured')
+  const exp = Date.now() + STAFF_TTL_S * 1000
+  const payload = `${staffId}.${deviceId}.${exp}`
+  const signature = await hmacHex(secret, `staff.${payload}`)
+  setCookie(
+    c,
+    STAFF_COOKIE,
+    `${payload}.${signature}`,
+    cookieOptions(c, STAFF_TTL_S),
+  )
+}
+
+export function clearStaffSession(c: Ctx) {
+  deleteCookie(c, STAFF_COOKIE, { path: '/' })
+}
+
+async function staffSession(c: Ctx, deviceId: string) {
+  const secret = sessionSecret(c.env)
+  const [staffId, boundTo, exp, signature] = (
+    getCookie(c, STAFF_COOKIE) ?? ''
+  ).split('.')
+  if (!secret || !staffId || !exp || !signature || boundTo !== deviceId) {
+    return undefined
+  }
+  if (!(Number(exp) > Date.now())) return undefined
+  const expected = await hmacHex(secret, `staff.${staffId}.${boundTo}.${exp}`)
+  return safeEqual(signature, expected) ? staffId : undefined
+}
+
 /** The paired device's cookie, unchecked; the room verifies the secret. */
-function deviceCredentials(c: Ctx): Credentials {
+async function deviceCredentials(c: Ctx): Promise<Credentials> {
   const match = DEVICE_TOKEN.exec(getCookie(c, DEVICE_COOKIE) ?? '')
   if (!match?.[1] || !match[2]) return { kind: 'none' }
-  return { kind: 'device', deviceId: match[1], secret: match[2] }
+  const staffId = await staffSession(c, match[1])
+  return {
+    kind: 'device',
+    deviceId: match[1],
+    secret: match[2],
+    ...(staffId ? { staffId } : {}),
+  }
 }
 
 /**
@@ -85,7 +129,7 @@ function deviceCredentials(c: Ctx): Credentials {
  * as admin, so a TV tab on the admin's laptop still reports as a TV.
  */
 export async function credentials(c: Ctx): Promise<Credentials> {
-  const device = deviceCredentials(c)
+  const device = await deviceCredentials(c)
   if (device.kind === 'device') return device
   return (await hasAdminSession(c)) ? { kind: 'admin' } : { kind: 'none' }
 }

@@ -28,6 +28,7 @@ export const ERROR_CODES = [
   'invalid_transition',
   'allergy_ack_required',
   'rate_limited',
+  'pin_required',
 ] as const
 export type ErrorCode = (typeof ERROR_CODES)[number]
 
