@@ -9,7 +9,7 @@ type Props = {
   onOpenChange: (open: boolean) => void
   title: string
   description?: string
-  children: ReactNode
+  children?: ReactNode
   footer?: ReactNode
   wide?: boolean
 }

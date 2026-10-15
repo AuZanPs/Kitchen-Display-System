@@ -426,9 +426,7 @@ function Summary({
             </Button>
           </>
         }
-      >
-        {null}
-      </Dialog>
+      />
     </aside>
   )
 }

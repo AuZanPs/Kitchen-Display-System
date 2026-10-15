@@ -411,9 +411,7 @@ function DeviceList({
             </Button>
           </>
         }
-      >
-        {null}
-      </Dialog>
+      />
     </section>
   )
 }

@@ -20,7 +20,6 @@
   --color-ink-soft: color-mix(in srgb, #1f1f1f 70%, #f8fafd);
   --color-line: color-mix(in srgb, #1f1f1f 16%, #f8fafd);
   --color-wash: color-mix(in srgb, #d3e3fd 40%, #f8fafd);
-  --color-ink-raised: color-mix(in srgb, #f8fafd 9%, #1f1f1f);
   --color-surface-soft: color-mix(in srgb, #f8fafd 72%, #1f1f1f);
   --color-transparent: transparent;
   --color-current: currentColor;
@@ -43,19 +42,6 @@
 
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
-}
-
-/* The chit's tear line: a row of punched holes drawn with a gradient. */
-@utility perforation {
-  height: 2px;
-  background-image: radial-gradient(
-    circle,
-    currentColor 1px,
-    transparent 1.5px
-  );
-  background-size: 8px 2px;
-  background-repeat: repeat-x;
-  opacity: 0.45;
 }
 
 /* Material state layers: hover 8%, focus 12%, pressed 16% of the content

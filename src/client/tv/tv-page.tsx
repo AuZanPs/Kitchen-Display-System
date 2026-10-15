@@ -96,7 +96,7 @@ function Board({ place }: { place: string }) {
                     {orders.length}
                   </span>
                 </h2>
-                {/* ponytail: no paging in V1; a lane taller than the screen is cut off. Paging is V2. */}
+                {/* No paging yet: a lane taller than the screen is cut off. */}
                 <div className="grid min-h-0 content-start gap-6 overflow-hidden">
                   {orders.map((order) => (
                     <Ticket

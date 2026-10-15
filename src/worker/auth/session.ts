@@ -74,7 +74,7 @@ export function clearDeviceCookie(c: Ctx) {
 }
 
 /** The paired device's cookie, unchecked; the room verifies the secret. */
-export function deviceCredentials(c: Ctx): Credentials {
+function deviceCredentials(c: Ctx): Credentials {
   const match = DEVICE_TOKEN.exec(getCookie(c, DEVICE_COOKIE) ?? '')
   if (!match?.[1] || !match[2]) return { kind: 'none' }
   return { kind: 'device', deviceId: match[1], secret: match[2] }
