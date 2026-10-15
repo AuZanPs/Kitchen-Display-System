@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { expectAccessible, pair, signInAdmin } from './helpers.ts'
+import { expectAccessible, pair, settle, signInAdmin } from './helpers.ts'
 
 const PHONE = { width: 390, height: 844 }
 const TABLET = { width: 820, height: 1180 }
@@ -43,26 +43,37 @@ test('every screen at phone, tablet and desktop widths', async ({
   for (const size of [PHONE, TABLET, DESKTOP]) {
     await tablet.setViewportSize(size)
     await tablet.getByRole('button', { name: 'Layanan meja' }).click()
+    await expectAccessible(tablet, `service ${size.width}`)
     await tablet.screenshot({
       path: `test-results/screen-service-${size.width}.png`,
       fullPage: true,
     })
-    await expectAccessible(tablet, `service ${size.width}`)
     await tablet.getByRole('button', { name: 'Pesanan', exact: true }).click()
+    await expectAccessible(tablet, `composer ${size.width}`)
     await tablet.screenshot({
       path: `test-results/screen-composer-${size.width}.png`,
       fullPage: true,
     })
-    await expectAccessible(tablet, `composer ${size.width}`)
   }
+
+  // On a phone the order so far rides in a bar and opens as a sheet.
+  await tablet.setViewportSize(PHONE)
+  await tablet.getByRole('button', { name: /Es Teh Lemon/ }).click()
+  await tablet.getByRole('button', { name: /Tambah ke pesanan/ }).click()
+  await settle(tablet)
+  await tablet.screenshot({ path: 'test-results/screen-cartbar-390.png' })
+  await tablet.getByRole('button', { name: /1 item dipilih/ }).click()
+  await expectAccessible(tablet, 'summary sheet 390')
+  await tablet.screenshot({ path: 'test-results/screen-sheet-390.png' })
+  await tablet.keyboard.press('Escape')
 
   for (const size of [PHONE, TABLET]) {
     await kitchen.setViewportSize(size)
+    await expectAccessible(kitchen, `kitchen ${size.width}`)
     await kitchen.screenshot({
       path: `test-results/screen-kitchen-${size.width}.png`,
       fullPage: true,
     })
-    await expectAccessible(kitchen, `kitchen ${size.width}`)
   }
 
   const tabs = [
@@ -77,6 +88,7 @@ test('every screen at phone, tablet and desktop widths', async ({
     await admin.setViewportSize(size)
     for (const tab of tabs) {
       await admin.getByRole('button', { name: tab, exact: true }).click()
+      await settle(admin)
       await admin.screenshot({
         path: `test-results/screen-admin-${tab.toLowerCase()}-${size.width}.png`,
         fullPage: true,

@@ -9,9 +9,8 @@ export const ADMIN_PASSWORD =
     .exec(readFileSync('.dev.vars', 'utf8'))?.[1]
     ?.trim() ?? ''
 
-/** WCAG 2.1 A/AA checks on what is on screen now. */
-export async function expectAccessible(page: Page, screen: string) {
-  // Entrance fades would read as low contrast mid-way; spinners never end.
+/** Waits for entrance motion to finish; endless spinners are ignored. */
+export async function settle(page: Page) {
   await page.waitForFunction(() =>
     document
       .getAnimations()
@@ -21,6 +20,13 @@ export async function expectAccessible(page: Page, screen: string) {
           a.effect?.getTiming().iterations === Number.POSITIVE_INFINITY,
       ),
   )
+}
+
+/** WCAG 2.1 A/AA checks on what is on screen now. */
+export async function expectAccessible(page: Page, screen: string) {
+  // Hover layers and entrance fades would skew the contrast checks.
+  await page.mouse.move(0, 0)
+  await settle(page)
   const { violations } = await new AxeBuilder({ page })
     .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
     .analyze()
@@ -28,7 +34,8 @@ export async function expectAccessible(page: Page, screen: string) {
   expect
     .soft(
       violations.map(
-        (v) => `${screen}: ${v.id} x${v.nodes.length} ${v.nodes[0]?.target}`,
+        (v) =>
+          `${screen}: ${v.id} x${v.nodes.length} ${v.nodes[0]?.target} ${v.nodes[0]?.any[0]?.message ?? ''}`,
       ),
     )
     .toEqual([])

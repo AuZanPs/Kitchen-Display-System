@@ -14,5 +14,9 @@ export default defineConfig({
       },
     }),
   ],
-  test: { include: ['tests/**/*.test.ts'] },
+  test: {
+    include: ['tests/**/*.test.ts'],
+    // Integration tests boot workerd; a busy machine can pass 5 s.
+    testTimeout: 15_000,
+  },
 })
