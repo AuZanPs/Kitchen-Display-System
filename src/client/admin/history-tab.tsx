@@ -211,7 +211,7 @@ function ExportCard() {
         <h2 className="text-2xl font-medium">{t('exportTitle')}</h2>
         <p className="text-[15px] text-ink-soft">{t('exportHint')}</p>
       </div>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid gap-1">
         <TextField
           label={t('from')}
           type="date"
