@@ -148,6 +148,7 @@ function Console({ onSignedOut }: { onSignedOut: () => void }) {
         <Button
           variant="text"
           icon={<LogOut size={18} aria-hidden />}
+          aria-label={t('signOut')}
           onClick={() => void signOut()}
         >
           <span className="hidden sm:inline">{t('signOut')}</span>

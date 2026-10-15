@@ -210,6 +210,7 @@ function DeviceList({
               <Button
                 variant="text"
                 icon={<Trash2 size={18} aria-hidden />}
+                aria-label={`${t('revoke')} ${device.label}`}
                 onClick={() => setTarget(device)}
               >
                 <span className="hidden sm:inline">{t('revoke')}</span>

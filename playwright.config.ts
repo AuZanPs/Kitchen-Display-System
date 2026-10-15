@@ -5,6 +5,8 @@ const STATE_DIR = '.wrangler/e2e-state'
 
 export default defineConfig({
   testDir: './e2e',
+  // Every spec drives the same venue room, so they run one after another.
+  workers: 1,
   timeout: 60_000,
   use: { baseURL: `http://localhost:${PORT}`, trace: 'retain-on-failure' },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
