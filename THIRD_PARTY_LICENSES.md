@@ -8,7 +8,7 @@ Self-hosted from `@fontsource-variable/google-sans-flex` 5.3.2 (latin subset, we
 
 ## lucide-react
 
-Icons are bundled into the app JavaScript. Licence as published in the package:
+Icons are bundled into the app JavaScript. The app icon (`public/favicon.svg`, `public/icon-*.png`) is the Lucide `receipt-text` icon on a plain tile. Licence as published in the package:
 
 ```
 ISC License
