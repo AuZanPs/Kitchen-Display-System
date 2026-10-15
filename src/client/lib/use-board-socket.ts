@@ -105,19 +105,31 @@ export function useBoardSocket(): BoardSocket {
       ws.onclose = reconnectLater
     }
 
-    // Back on the network: try now instead of waiting out the backoff.
-    function reconnectNow() {
-      if (socket?.readyState === WebSocket.OPEN) return
+    function restart() {
       clearTimeout(retryTimer)
       attempt = 0
       teardown()
       connect()
     }
+
+    // Back on the network: try now instead of waiting out the backoff.
+    function reconnectNow() {
+      if (socket?.readyState !== WebSocket.OPEN) restart()
+    }
+
+    // A phone that slept can hold a dead socket that still reports open.
+    function onVisible() {
+      if (document.visibilityState !== 'visible') return
+      if (Date.now() - lastSeen > STALE_AFTER_MS) restart()
+      else reconnectNow()
+    }
     window.addEventListener('online', reconnectNow)
+    document.addEventListener('visibilitychange', onVisible)
 
     connect()
     return () => {
       window.removeEventListener('online', reconnectNow)
+      document.removeEventListener('visibilitychange', onVisible)
       clearTimeout(retryTimer)
       teardown()
     }
