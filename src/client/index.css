@@ -42,6 +42,7 @@
 
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 /* Material state layers: hover 8%, focus 12%, pressed 16% of the content
@@ -51,8 +52,11 @@
   --on: var(--color-ink);
   background-color: color-mix(in srgb, var(--on) var(--layer, 0%), var(--bg));
   transition: background-color 150ms var(--ease-standard);
-  &:hover:not(:disabled) {
-    --layer: 8%;
+  /* Touch screens fire hover on tap; only real pointers get the hover layer. */
+  @media (hover: hover) {
+    &:hover:not(:disabled) {
+      --layer: 8%;
+    }
   }
   &:focus-visible:not(:disabled) {
     --layer: 12%;
@@ -93,32 +97,82 @@
   }
 }
 
-/* Dialogs rise from below on phones and settle in place on wider screens. */
-@keyframes dialog-in {
-  from {
-    opacity: 0;
-    transform: translateY(24px) scale(0.98);
-  }
-}
+/* Dialogs are bottom sheets on phones and settle in place on wider screens.
+   Exits are quicker than entrances. */
 @keyframes fade-in {
   from {
     opacity: 0;
   }
 }
+@keyframes fade-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+}
+@keyframes sheet-out {
+  to {
+    transform: translateY(100%);
+  }
+}
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+@keyframes dialog-out {
+  to {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
 .dialog-overlay[data-state="open"] {
   animation: fade-in 200ms var(--ease-out);
 }
+.dialog-overlay[data-state="closed"] {
+  animation: fade-out 150ms var(--ease-out);
+}
 .dialog-content[data-state="open"] {
-  animation: dialog-in 260ms var(--ease-out);
+  animation: sheet-in 300ms var(--ease-drawer);
+}
+.dialog-content[data-state="closed"] {
+  animation: sheet-out 180ms var(--ease-out);
+}
+@media (min-width: 640px) {
+  .dialog-content[data-state="open"] {
+    animation: dialog-in 220ms var(--ease-out);
+  }
+  .dialog-content[data-state="closed"] {
+    animation: dialog-out 150ms var(--ease-out);
+  }
 }
 
-/* A ticket arriving on the board settles in rather than popping. */
+/* New things rise into place. --i staggers siblings (capped, so long lists
+   never wait), and only newly mounted items animate. */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+.rise {
+  animation: rise 240ms var(--ease-out) both;
+  animation-delay: calc(min(var(--i, 0), 8) * 35ms);
+}
+
+/* A ticket arriving on the TV settles in a little slower: it is read from
+   across the kitchen, not tapped. */
 @keyframes ticket-in {
   from {
     opacity: 0;
-    transform: translateY(-8px);
+    transform: translateY(-10px);
   }
 }
 .ticket-enter {
-  animation: ticket-in 320ms var(--ease-out);
+  animation: ticket-in 420ms var(--ease-out) both;
 }

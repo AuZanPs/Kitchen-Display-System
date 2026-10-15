@@ -12,7 +12,7 @@ export function Chip({
     <button
       type="button"
       aria-pressed={selected}
-      className={`state inline-flex min-h-12 shrink-0 items-center gap-1.5 rounded-sm border px-4 text-[15px] font-medium transition-[background-color,border-color] duration-150 ${
+      className={`state inline-flex min-h-12 shrink-0 items-center gap-1.5 rounded-sm border px-4 text-[15px] font-medium transition-[background-color,border-color,scale] duration-150 active:scale-[0.97] ${
         selected
           ? 'border-transparent [--bg:var(--color-tonal)]'
           : 'border-line'

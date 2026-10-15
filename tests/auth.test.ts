@@ -371,3 +371,32 @@ describe('revoking a device', () => {
     expect(text).not.toMatch(/token|secret/i)
   })
 })
+
+describe('device presence', () => {
+  it('shows a device online while its socket is open and remembers when it was seen', async () => {
+    const tv = await pairDevice('tv', 'TV presence')
+    const list = async () => {
+      const res = await request('/api/devices', {
+        headers: await adminHeaders(),
+      })
+      const body = (await res.json()) as {
+        devices: { id: string; online: boolean; lastSeenAt: number | null }[]
+      }
+      const device = body.devices.find((d) => d.id === tv.deviceId)
+      if (!device) throw new Error('device missing')
+      return device
+    }
+    expect(await list()).toMatchObject({ online: false, lastSeenAt: null })
+
+    const res = await upgrade({ Origin: ORIGIN, ...tv.headers })
+    const ws = res.webSocket
+    if (!ws) throw new Error('no socket')
+    ws.accept()
+    const online = await list()
+    expect(online.online).toBe(true)
+    expect(online.lastSeenAt).toBeGreaterThan(0)
+
+    ws.close()
+    await expect.poll(async () => (await list()).online).toBe(false)
+  })
+})

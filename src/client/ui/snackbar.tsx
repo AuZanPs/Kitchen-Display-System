@@ -26,8 +26,7 @@ export function useSnackbar() {
       {message && (
         <p
           key={message.id}
-          className="dialog-content max-w-lg rounded-sm bg-ink px-5 py-3.5 text-[15px] font-medium text-surface"
-          data-state="open"
+          className="rise max-w-lg rounded-sm bg-ink px-5 py-3.5 text-[15px] font-medium text-surface"
         >
           {message.text}
         </p>

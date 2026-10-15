@@ -34,7 +34,7 @@ export function Button({
   return (
     <button
       type={type}
-      className={`state inline-flex select-none items-center justify-center rounded-full font-semibold tracking-[0.01em] transition-[background-color,transform] duration-150 ease-out active:scale-[0.97] disabled:cursor-not-allowed disabled:text-ink-soft disabled:active:scale-100 ${VARIANTS[variant]} ${SIZES[size]} ${className}`}
+      className={`state inline-flex select-none items-center justify-center rounded-full font-semibold tracking-[0.01em] transition-[background-color,scale] duration-150 ease-out active:scale-[0.97] disabled:cursor-not-allowed disabled:text-ink-soft disabled:active:scale-100 ${VARIANTS[variant]} ${SIZES[size]} ${className}`}
       {...rest}
     >
       {icon}
@@ -56,7 +56,7 @@ export function IconButton({
       type={type}
       aria-label={label}
       title={label}
-      className={`state inline-grid size-12 shrink-0 place-items-center rounded-full text-ink transition-transform duration-150 ease-out active:scale-[0.94] disabled:text-ink-soft ${className}`}
+      className={`state inline-grid size-12 shrink-0 place-items-center rounded-full text-ink transition-[background-color,scale] duration-150 ease-out active:scale-[0.94] disabled:text-ink-soft ${className}`}
       {...rest}
     >
       {children}

@@ -88,7 +88,6 @@ export const id = {
   closeDay: 'Tutup layanan',
   forceClose: 'Tutup paksa',
   activeOrdersLeft: 'Masih ada pesanan aktif.',
-  openScreens: 'Buka layar',
 
   // Waiter
   chooseTable: 'Pilih meja',
@@ -133,6 +132,24 @@ export const id = {
   minutes: '{min} mnt',
   openUnsent: 'Periksa pesanan',
 
+  tabOverview: 'Ringkasan',
+  tabDevices: 'Perangkat',
+  tabSettings: 'Pengaturan',
+  screens: 'Layar',
+  notPaired: 'Belum dipasang',
+  onlineCount: '{online} dari {total} online',
+  openScreen: 'Buka layar',
+  online: 'Online',
+  neverSeen: 'Belum pernah terhubung',
+  lastSeen: 'Terakhir {time}',
+  pairSteps:
+    'Buka alamat aplikasi di perangkat baru. Kode 6 angka muncul di layarnya; masukkan di sini.',
+  cancelHint:
+    'Pesanan hilang dari TV dan dapur. Tulis alasannya untuk catatan.',
+  cancelReason: 'Alasan',
+  orderCancelled: '{ticket} dibatalkan',
+  settingLineNotesHint: 'Pelayan bisa menulis catatan untuk tiap menu.',
+  settingOrderNoteHint: 'Satu catatan untuk seluruh pesanan.',
   orderDetails: 'Detail pesanan',
   orderDetailsHint:
     'Pilih isian yang muncul di tablet. Tetap sederhana atau lengkap.',

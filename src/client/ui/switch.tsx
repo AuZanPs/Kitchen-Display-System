@@ -38,7 +38,7 @@ export function Switch({
         />
         <span
           aria-hidden
-          className="pointer-events-none absolute top-1/2 left-2 grid size-4 -translate-y-1/2 place-items-center rounded-full bg-ink-soft transition-[left,width,height,background-color] duration-200 ease-out peer-checked:left-[24px] peer-checked:size-6 peer-checked:bg-surface"
+          className="pointer-events-none absolute top-1/2 left-1 grid size-6 -translate-y-1/2 scale-[0.67] place-items-center rounded-full bg-ink-soft transition-[translate,scale,background-color] duration-200 ease-out peer-checked:translate-x-5 peer-checked:scale-100 peer-checked:bg-surface peer-active:scale-[0.85] peer-checked:peer-active:scale-[0.9]"
         >
           {checked && <Check size={14} strokeWidth={3} className="text-ink" />}
         </span>

@@ -86,7 +86,6 @@ export const en: Dict = {
   closeDay: 'Close service',
   forceClose: 'Force close',
   activeOrdersLeft: 'There are still active orders.',
-  openScreens: 'Open screen',
 
   chooseTable: 'Choose a table',
   change: 'Change',
@@ -130,6 +129,24 @@ export const en: Dict = {
   minutes: '{min} min',
   openUnsent: 'Review order',
 
+  tabOverview: 'Overview',
+  tabDevices: 'Devices',
+  tabSettings: 'Settings',
+  screens: 'Screens',
+  notPaired: 'Not paired yet',
+  onlineCount: '{online} of {total} online',
+  openScreen: 'Open screen',
+  online: 'Online',
+  neverSeen: 'Never connected',
+  lastSeen: 'Last seen {time}',
+  pairSteps:
+    'Open the app address on the new device. A 6-digit code appears on its screen; enter it here.',
+  cancelHint:
+    'The order leaves the TV and the kitchen. Write the reason for the record.',
+  cancelReason: 'Reason',
+  orderCancelled: '{ticket} cancelled',
+  settingLineNotesHint: 'Waiters can add a note to each item.',
+  settingOrderNoteHint: 'One note for the whole order.',
   orderDetails: 'Order details',
   orderDetailsHint:
     'Choose which fields the tablet asks for. Keep it simple or detailed.',

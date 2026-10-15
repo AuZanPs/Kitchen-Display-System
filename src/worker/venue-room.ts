@@ -42,6 +42,7 @@ import {
   type Poll,
   pollChallenge,
   revokeDevice,
+  touchDevice,
   unauthenticated,
 } from './devices'
 import {
@@ -171,6 +172,9 @@ export class VenueRoom extends DurableObject<Env> {
     const { 0: client, 1: server } = new WebSocketPair()
     this.ctx.acceptWebSocket(server, [actor.role, `device:${actor.deviceId}`])
     server.serializeAttachment({ deviceId: actor.deviceId, role: actor.role })
+    this.ctx.storage.transactionSync(() =>
+      touchDevice(this.db, actor.deviceId, Date.now()),
+    )
     if (actor.role === 'tv') {
       // tvCount changed, so everyone gets a new board (this socket included).
       this.write(() => bumpRev(this.db))
@@ -206,6 +210,12 @@ export class VenueRoom extends DurableObject<Env> {
 
   async webSocketClose(ws: WebSocket) {
     const attachment = attachmentSchema.safeParse(ws.deserializeAttachment())
+    if (attachment.success) {
+      const { deviceId } = attachment.data
+      this.ctx.storage.transactionSync(() =>
+        touchDevice(this.db, deviceId, Date.now()),
+      )
+    }
     if (attachment.success && attachment.data.role === 'tv') {
       this.write(() => bumpRev(this.db))
     }
@@ -460,7 +470,14 @@ export class VenueRoom extends DurableObject<Env> {
 
   listDevices(credentials: Credentials) {
     if (credentials.kind !== 'admin') return unauthenticated()
-    return ok({ devices: listDevices(this.db) })
+    // Online = holds an open socket right now; no extra storage needed.
+    const devices = listDevices(this.db).map((device) => ({
+      ...device,
+      online: this.ctx
+        .getWebSockets(`device:${device.id}`)
+        .some((ws) => ws.readyState === WebSocket.OPEN),
+    }))
+    return ok({ devices })
   }
 
   /** Refuses the device from now on and drops its open sockets. */

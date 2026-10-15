@@ -202,6 +202,7 @@ export function listDevices(db: Db) {
       label: schema.devices.label,
       role: schema.devices.role,
       createdAt: schema.devices.createdAt,
+      lastSeenAt: schema.devices.lastSeenAt,
       revokedAt: schema.devices.revokedAt,
     })
     .from(schema.devices)
@@ -219,4 +220,12 @@ export function revokeDevice(db: Db, deviceId: string, now: number): boolean {
     .returning({ id: schema.devices.id })
     .all()
   return revoked.length > 0
+}
+
+/** Connect and disconnect only: heartbeats never write (free-tier row budget). */
+export function touchDevice(db: Db, deviceId: string, now: number) {
+  db.update(schema.devices)
+    .set({ lastSeenAt: now })
+    .where(eq(schema.devices.id, deviceId))
+    .run()
 }

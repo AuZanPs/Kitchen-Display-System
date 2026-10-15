@@ -6,6 +6,7 @@ import { LanguageToggle } from '../app-bar'
 import { formatTime, useI18n } from '../i18n'
 import { api } from '../lib/api'
 import { HOME_BY_ROLE, sessionSchema, useSession } from '../lib/session'
+import { stagger } from '../lib/stagger'
 import { Button } from '../ui/button'
 
 const POLL_MS = 2_000
@@ -185,7 +186,8 @@ function CodeTiles({ code }: { code: string }) {
             <span
               // biome-ignore lint/suspicious/noArrayIndexKey: digits repeat and never reorder
               key={i}
-              className="grid h-24 w-16 place-items-center rounded-md bg-tonal text-6xl font-extrabold tabular-nums sm:h-32 sm:w-22 sm:text-7xl"
+              style={stagger(groups.indexOf(group) * 3 + i)}
+              className="rise grid h-24 w-16 place-items-center rounded-md bg-tonal text-6xl font-extrabold tabular-nums sm:h-32 sm:w-22 sm:text-7xl"
             >
               {digit}
             </span>

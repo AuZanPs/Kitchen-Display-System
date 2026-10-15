@@ -20,6 +20,7 @@ import {
 import { formatIdr, formatTime, useI18n } from '../i18n'
 import { api } from '../lib/api'
 import { failureText } from '../lib/commands'
+import { stagger } from '../lib/stagger'
 import { Ticket } from '../ticket'
 import { Button, IconButton } from '../ui/button'
 import { Chip } from '../ui/chip'
@@ -156,13 +157,13 @@ export function Composer({
           <p className="py-10 text-ink-soft">{t('noResults')}</p>
         )}
         <ul className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
-          {visible.map((item) => (
-            <li key={item.id}>
+          {visible.map((item, index) => (
+            <li key={item.id} className="rise" style={stagger(index)}>
               <button
                 type="button"
                 disabled={!item.available}
                 onClick={() => setEditing({ item, line: null })}
-                className={`state group grid h-full min-h-36 w-full content-between gap-6 rounded-[20px] p-5 text-left transition-transform duration-150 ease-out active:scale-[0.98] disabled:active:scale-100 ${item.available ? '[--bg:var(--color-tonal)]' : 'border border-dashed border-ink-soft'}`}
+                className={`state group grid h-full min-h-36 w-full content-between gap-6 rounded-[20px] p-5 text-left transition-[background-color,scale] duration-150 ease-out active:scale-[0.98] disabled:active:scale-100 ${item.available ? '[--bg:var(--color-tonal)]' : 'border border-dashed border-ink-soft'}`}
               >
                 <span className="text-lg leading-snug">{item.name}</span>
                 <span className="flex items-end justify-between gap-2">
@@ -318,10 +319,11 @@ function Summary({
         {draft.lines.length === 0 && (
           <p className="py-6 text-[15px]">{t('emptyOrder')}</p>
         )}
-        {draft.lines.map((line) => (
+        {draft.lines.map((line, index) => (
           <div
             key={line.key}
-            className="grid gap-2.5 border-b border-ink-soft/40 py-4"
+            style={stagger(index)}
+            className="rise grid gap-2.5 border-b border-ink-soft/40 py-4"
           >
             <button
               type="button"

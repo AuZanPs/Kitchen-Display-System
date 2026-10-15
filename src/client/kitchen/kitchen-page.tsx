@@ -6,6 +6,7 @@ import { formatTime, useI18n } from '../i18n'
 import { boardLines, whereLabel } from '../lib/board'
 import { failureText, sendCommand } from '../lib/commands'
 import { RequireRole } from '../lib/session'
+import { stagger } from '../lib/stagger'
 import { STALE_AFTER_MS, useBoardSocket } from '../lib/use-board-socket'
 import { useNow } from '../lib/use-now'
 import { AllergyBlock, Ticket } from '../ticket'
@@ -94,7 +95,7 @@ function Kitchen({ device }: { device: string }) {
                     {section.orders.length}
                   </span>
                 </h2>
-                {section.orders.map((order) => {
+                {section.orders.map((order, index) => {
                   const minutes = Math.floor(
                     Math.max(0, now + serverOffsetMs - order.createdAt) /
                       60_000,
@@ -102,7 +103,8 @@ function Kitchen({ device }: { device: string }) {
                   return (
                     <div
                       key={order.id}
-                      className="grid gap-0 overflow-hidden rounded-md bg-wash"
+                      style={stagger(index)}
+                      className="rise grid gap-0 overflow-hidden rounded-md bg-wash"
                     >
                       <Ticket
                         size="paper"

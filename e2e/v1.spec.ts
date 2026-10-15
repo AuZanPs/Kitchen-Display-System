@@ -12,9 +12,7 @@ async function signInAdmin(browser: Browser) {
   await admin.goto('/admin')
   await admin.getByLabel('Kata sandi').fill(ADMIN_PASSWORD)
   await admin.getByRole('button', { name: 'Masuk' }).click()
-  await expect(
-    admin.getByRole('heading', { name: 'Pasang perangkat' }),
-  ).toBeVisible()
+  await expect(admin.getByRole('heading', { name: 'Layar' })).toBeVisible()
   return admin
 }
 
@@ -48,8 +46,10 @@ test('a paired tablet sends an order that appears on the paired TV without reloa
 }) => {
   const admin = await signInAdmin(browser)
   // Allergy is off by default; this venue wants the detailed form.
+  await admin.getByRole('button', { name: 'Pengaturan' }).click()
   await admin.getByRole('switch', { name: /Kolom alergi/ }).check()
   await expect(admin.getByText('Pengaturan tersimpan')).toBeVisible()
+  await admin.getByRole('button', { name: 'Perangkat' }).click()
   const tablet = await pair(browser, admin, 'Tablet pelayan', 'Tablet E2E', {
     width: 1280,
     height: 800,
@@ -62,7 +62,14 @@ test('a paired tablet sends an order that appears on the paired TV without reloa
     width: 390,
     height: 844,
   })
-  await admin.screenshot({ path: 'test-results/admin.png', fullPage: true })
+  // Presence: all three paired screens report online within one poll.
+  await expect(admin.getByText('Online', { exact: true })).toHaveCount(3, {
+    timeout: 10_000,
+  })
+  await admin.screenshot({
+    path: 'test-results/admin-devices.png',
+    fullPage: true,
+  })
 
   await expect(tablet).toHaveURL(/\/waiter/)
   await expect(tv).toHaveURL(/\/tv/)
@@ -122,4 +129,27 @@ test('a paired tablet sends an order that appears on the paired TV without reloa
   await expect(
     tv.getByRole('article').filter({ hasText: allergy }),
   ).toBeHidden()
+
+  // The admin can clear a stuck order from the overview; it leaves the TV.
+  await tablet.getByRole('button', { name: 'Pesanan', exact: true }).click()
+  await tablet.locator('label').filter({ hasText: 'Bawa pulang' }).click()
+  await tablet.getByRole('button', { name: /Es Teh Lemon/ }).click()
+  await tablet.getByRole('button', { name: /Tambah ke pesanan/ }).click()
+  await tablet.getByRole('button', { name: 'Periksa pesanan' }).click()
+  await tablet.getByRole('button', { name: 'Kirim ke dapur' }).click()
+  const takeaway = tv.getByRole('article').filter({ hasText: 'Es Teh Lemon' })
+  await expect(takeaway).toBeVisible()
+
+  await admin.getByRole('button', { name: 'Ringkasan' }).click()
+  await admin.screenshot({
+    path: 'test-results/admin-overview.png',
+    fullPage: true,
+  })
+  await admin.getByRole('button', { name: 'Batalkan pesanan' }).first().click()
+  await admin.getByLabel('Alasan').fill('Tamu batal')
+  await admin
+    .getByRole('dialog')
+    .getByRole('button', { name: 'Batalkan pesanan' })
+    .click()
+  await expect(takeaway).toBeHidden()
 })

@@ -5,6 +5,7 @@ import { ticketLabel } from '../../shared/order'
 import { type DictKey, useI18n } from '../i18n'
 import { whereLabel } from '../lib/board'
 import { failureText, sendCommand } from '../lib/commands'
+import { stagger } from '../lib/stagger'
 import { Button } from '../ui/button'
 import type { Draft } from './draft'
 
@@ -80,7 +81,7 @@ export function ServiceList({
         </p>
       )}
       <ul className="grid gap-3">
-        {orders.map((order) => {
+        {orders.map((order, index) => {
           const step = progress(order)
           const text = statusText(order, board?.tvCount ?? 0)
           const minutes = Math.floor(
@@ -91,7 +92,8 @@ export function ServiceList({
           return (
             <li
               key={order.id}
-              className={`grid gap-4 rounded-md p-5 ${order.status === 'ready' ? 'bg-tonal' : closed ? 'border border-line' : 'bg-wash'}`}
+              style={stagger(index)}
+              className={`rise grid gap-4 rounded-md p-5 ${order.status === 'ready' ? 'bg-tonal' : closed ? 'border border-line' : 'bg-wash'}`}
             >
               <div className="flex flex-wrap items-start gap-x-4 gap-y-1">
                 <div className="mr-auto grid">
@@ -129,7 +131,7 @@ export function ServiceList({
                   {STEPS.map((key, i) => (
                     <li key={key} className="grid gap-1.5">
                       <span
-                        className={`h-1.5 rounded-full ${i < step ? 'bg-ink' : 'bg-line'}`}
+                        className={`h-1.5 rounded-full transition-colors duration-300 ${i < step ? 'bg-ink' : 'bg-line'}`}
                         aria-hidden
                       />
                       <span
