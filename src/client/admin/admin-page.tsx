@@ -7,7 +7,14 @@ import {
   UsersRound,
   UtensilsCrossed,
 } from 'lucide-react'
-import { type SubmitEvent, useCallback, useEffect, useState } from 'react'
+import {
+  type SubmitEvent,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react'
 import { useSearchParams } from 'react-router'
 import { z } from 'zod'
 import { AppBar, LanguageToggle } from '../app-bar'
@@ -114,6 +121,29 @@ function Console({ onSignedOut }: { onSignedOut: () => void }) {
   const parsedTab = tabSchema.safeParse(params.get('tab'))
   const tab: Tab = parsedTab.success ? parsedTab.data : 'overview'
   const { board } = useBoardSocket()
+  const tabsRef = useRef<HTMLDivElement>(null)
+  const [indicator, setIndicator] = useState<{
+    left: number
+    width: number
+  } | null>(null)
+
+  // Follows the active tab, also when labels change width (language, fonts).
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `tab` and `t` move the active tab or its width
+  useLayoutEffect(() => {
+    const nav = tabsRef.current
+    const active = nav?.querySelector<HTMLElement>('[aria-current="page"]')
+    if (!nav || !active) return
+    const measure = () =>
+      setIndicator({
+        left: active.offsetLeft + 12,
+        width: active.offsetWidth - 24,
+      })
+    measure()
+    active.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+    const observer = new ResizeObserver(measure)
+    observer.observe(active)
+    return () => observer.disconnect()
+  }, [tab, t])
   const [devices, setDevices] = useState<Device[] | null>(null)
 
   const loadDevices = useCallback(async () => {
@@ -160,7 +190,10 @@ function Console({ onSignedOut }: { onSignedOut: () => void }) {
         aria-label={t('adminTitle')}
         className="sticky top-16 z-20 border-b border-line bg-surface/95 backdrop-blur"
       >
-        <div className="mx-auto flex max-w-5xl overflow-x-auto px-2 [scrollbar-width:none] sm:px-4">
+        <div
+          ref={tabsRef}
+          className="relative mx-auto flex max-w-5xl overflow-x-auto px-2 [scrollbar-width:none] sm:px-4"
+        >
           {tabs.map((item) => {
             const active = tab === item.id
             return (
@@ -175,13 +208,20 @@ function Console({ onSignedOut }: { onSignedOut: () => void }) {
               >
                 <item.icon size={20} aria-hidden />
                 {item.label}
-                <span
-                  aria-hidden
-                  className={`absolute inset-x-3 bottom-0 h-[3px] rounded-t-full bg-ink transition-opacity duration-200 ${active ? 'opacity-100' : 'opacity-0'}`}
-                />
               </button>
             )
           })}
+          {/* One indicator that slides to the active tab. */}
+          {indicator && (
+            <span
+              aria-hidden
+              style={{
+                translate: `${indicator.left}px 0`,
+                width: indicator.width,
+              }}
+              className="absolute bottom-0 left-0 h-[3px] rounded-t-full bg-ink transition-[translate,width] duration-300 ease-[var(--ease-standard)]"
+            />
+          )}
         </div>
       </nav>
 
