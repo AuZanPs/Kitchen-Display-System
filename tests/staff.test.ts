@@ -94,10 +94,18 @@ describe('staff PINs', () => {
     expect((await rejected(await order(stolen), 401)).code).toBe('pin_required')
   })
 
-  it('refuses kitchen staff on a waiter tablet', async () => {
+  it('refuses kitchen staff on a waiter tablet, and cannot lock them out', async () => {
     const staffId = await addStaff('Dapur', 'kitchen', '9753')
     const waiter = await pairDevice('waiter')
-    expect((await signIn(waiter.headers, staffId, '9753')).res.status).toBe(401)
+    for (let i = 0; i < 6; i++) {
+      expect((await signIn(waiter.headers, staffId, '0000')).res.status).toBe(
+        401,
+      )
+    }
+    const kitchen = await pairDevice('kitchen')
+    expect((await signIn(kitchen.headers, staffId, '9753')).res.status).toBe(
+      200,
+    )
   })
 
   it('a disabled staff member is signed out on the next action', async () => {

@@ -285,48 +285,28 @@ export class VenueRoom extends DurableObject<Env> {
     if (!actor || credentials.kind !== 'device') return unauthenticated()
     const keys = pinKeys(input.staffId, actor.deviceId)
     const now = Date.now()
+    // Only a device that could sign this person in spends their attempts, so
+    // a kitchen phone cannot lock out a waiter and made-up ids write nothing.
+    const row = staffRow(this.db, input.staffId)
+    const target = row && canSignIn(row, actor.role) ? row : undefined
+    const locked = (key: string, limit: number) =>
+      isLockedOut(this.db, key, limit, DAY_MS, now)
     // Short windows count every try, before the hash; daily caps count misses.
     const allowed =
-      !isLockedOut(
-        this.db,
-        keys.staffDay,
-        PIN_TRIES.staffWrongPerDay,
-        DAY_MS,
-        now,
-      ) &&
-      !isLockedOut(
-        this.db,
-        keys.deviceDay,
-        PIN_TRIES.deviceWrongPerDay,
-        DAY_MS,
-        now,
-      ) &&
+      !locked(keys.deviceDay, PIN_TRIES.deviceWrongPerDay) &&
+      !(target && locked(keys.staffDay, PIN_TRIES.staffWrongPerDay)) &&
       this.allowAttempt(keys.device, PIN_TRIES.device, MINUTE_MS) &&
-      this.allowAttempt(keys.staff, PIN_TRIES.staff, PIN_TRIES.staffWindowMs)
+      (!target ||
+        this.allowAttempt(keys.staff, PIN_TRIES.staff, PIN_TRIES.staffWindowMs))
     if (!allowed) {
       return fail(429, 'rate_limited', 'Terlalu banyak percobaan. Tunggu.')
     }
-    const row = staffRow(this.db, input.staffId)
-    if (
-      !row ||
-      !canSignIn(row, actor.role) ||
-      !(await pinMatches(row, input.pin))
-    ) {
+    if (!target || !(await pinMatches(target, input.pin))) {
       this.ctx.storage.transactionSync(() => {
-        allowAttempt(
-          this.db,
-          keys.staffDay,
-          PIN_TRIES.staffWrongPerDay,
-          DAY_MS,
-          now,
-        )
-        allowAttempt(
-          this.db,
-          keys.deviceDay,
-          PIN_TRIES.deviceWrongPerDay,
-          DAY_MS,
-          now,
-        )
+        const miss = (key: string, limit: number) =>
+          allowAttempt(this.db, key, limit, DAY_MS, now)
+        miss(keys.deviceDay, PIN_TRIES.deviceWrongPerDay)
+        if (target) miss(keys.staffDay, PIN_TRIES.staffWrongPerDay)
       })
       return fail(401, 'unauthenticated', 'Nama atau PIN salah.')
     }
@@ -337,9 +317,9 @@ export class VenueRoom extends DurableObject<Env> {
         .run(),
     )
     return ok({
-      staff: { id: row.id, name: row.name },
+      staff: { id: target.id, name: target.name },
       deviceId: actor.deviceId,
-      pinTag: pinTag(row),
+      pinTag: pinTag(target),
     })
   }
 
