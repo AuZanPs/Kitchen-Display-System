@@ -32,6 +32,7 @@ import {
   getMeta,
   getRev,
   recordMetric,
+  rollServiceDay,
   schema,
   setMeta,
 } from './db'
@@ -280,6 +281,8 @@ function insertOrder(
   },
   now: number,
 ) {
+  // A day left open past midnight rolls over with its first new ticket.
+  const serviceDay = rollServiceDay(db, now)
   const ticketNo = Number(getMeta(db, 'ticket_counter') ?? 0) + 1
   setMeta(db, 'ticket_counter', String(ticketNo))
   const orderId = crypto.randomUUID()
@@ -287,7 +290,7 @@ function insertOrder(
     .values({
       id: orderId,
       ticketNo,
-      serviceDay: getMeta(db, 'service_day') ?? '',
+      serviceDay,
       destination: order.destination,
       tableLabel: order.tableLabel,
       orderNote: order.orderNote,

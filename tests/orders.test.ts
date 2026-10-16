@@ -2,7 +2,11 @@ import { runInDurableObject } from 'cloudflare:test'
 import { env } from 'cloudflare:workers'
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
-import { createOrderResultSchema, LIMITS } from '../src/shared/order'
+import {
+  createOrderResultSchema,
+  jakartaDate,
+  LIMITS,
+} from '../src/shared/order'
 import {
   createOrder,
   deviceCredentials,
@@ -319,6 +323,23 @@ describe('service day', () => {
     expect(next).toMatchObject({ ok: true, body: { ticketNo: 1 } })
     expect(await stub().getBoard(manager)).toMatchObject({
       body: { serviceOpen: true },
+    })
+  })
+
+  it('rolls a day left open past midnight over with the next order', async () => {
+    await runInDurableObject(stub(), (_, state) => {
+      state.storage.sql.exec(
+        "UPDATE meta SET value = '2020-01-01' WHERE key = 'service_day'",
+      )
+      state.storage.sql.exec(
+        "UPDATE meta SET value = '41' WHERE key = 'ticket_counter'",
+      )
+    })
+
+    const next = await stub().createOrder(manager, orderBody(), Date.now())
+    expect(next).toMatchObject({ ok: true, body: { ticketNo: 1 } })
+    expect(await stub().getBoard(manager)).toMatchObject({
+      body: { serviceDay: jakartaDate(Date.now()), serviceOpen: true },
     })
   })
 

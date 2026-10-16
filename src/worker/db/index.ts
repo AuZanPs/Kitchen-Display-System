@@ -39,6 +39,16 @@ export function bumpRev(db: Db): number {
 
 export { jakartaDate } from '../../shared/order'
 
+/** Moves the service day to the date of `at`; a new date restarts tickets at A-001. */
+export function rollServiceDay(db: Db, at: number): string {
+  const day = jakartaDate(at)
+  if (getMeta(db, 'service_day') !== day) {
+    setMeta(db, 'service_day', day)
+    setMeta(db, 'ticket_counter', '0')
+  }
+  return day
+}
+
 export function recordMetric(db: Db, name: string, value: number, at: number) {
   const v = Math.max(0, Math.round(value))
   db.insert(schema.metrics)

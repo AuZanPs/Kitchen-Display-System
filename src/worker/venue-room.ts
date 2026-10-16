@@ -41,6 +41,7 @@ import {
   getRev,
   getSettings,
   jakartaDate,
+  rollServiceDay,
   schema,
   setMeta,
   setSettings,
@@ -474,11 +475,7 @@ export class VenueRoom extends DurableObject<Env> {
     if (actor.role !== 'manager')
       return fail(403, 'forbidden', 'Hanya manajer.')
     return this.write(() => {
-      const today = jakartaDate(Date.now())
-      if (getMeta(this.db, 'service_day') !== today) {
-        setMeta(this.db, 'service_day', today)
-        setMeta(this.db, 'ticket_counter', '0')
-      }
+      const today = rollServiceDay(this.db, Date.now())
       setMeta(this.db, 'service_open', '1')
       return {
         ok: true,
