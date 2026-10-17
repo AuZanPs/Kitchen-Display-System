@@ -38,9 +38,14 @@ export function canSignSessions(env: Env) {
   return sessionSecret(env) !== null
 }
 
+/** Too short to survive guessing from many addresses; the console stays locked. */
+const MIN_SUPER_PASSWORD_LENGTH = 16
+
 /** Constant-time super admin password check; false when none is configured. */
 export async function isSuperPassword(env: Env, candidate: string) {
-  if (!env.SUPER_ADMIN_PASSWORD || !sessionSecret(env)) return false
+  const configured = env.SUPER_ADMIN_PASSWORD
+  if (!configured || configured.length < MIN_SUPER_PASSWORD_LENGTH) return false
+  if (!sessionSecret(env)) return false
   const [a, b] = await Promise.all([
     sha256Hex(candidate),
     sha256Hex(env.SUPER_ADMIN_PASSWORD),
