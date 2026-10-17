@@ -24,7 +24,8 @@ export type Poll = z.infer<typeof pollSchema>
 /** Who is calling, as the Worker understood the request. */
 export type Credentials =
   | { kind: 'none' }
-  | { kind: 'admin' }
+  /** `epoch` is the dapur's admin session version the cookie was signed with. */
+  | { kind: 'admin'; epoch: string }
   | {
       kind: 'device'
       deviceId: string

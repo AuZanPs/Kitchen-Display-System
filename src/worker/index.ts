@@ -19,13 +19,13 @@ import {
   venueCreateSchema,
 } from '../shared/venue'
 import {
+  adminEpoch,
   canSignSessions,
   clearAdminSession,
   clearDeviceCookie,
   clearStaffSession,
   clearSuperSession,
   credentials,
-  hasAdminSession,
   hasSuperSession,
   ipHash,
   isSuperPassword,
@@ -34,7 +34,7 @@ import {
   setStaffSession,
   setSuperSession,
 } from './auth/session'
-import { approveSchema, pollSchema } from './devices'
+import { approveSchema, type Credentials, pollSchema } from './devices'
 import { toCsv } from './history'
 import type { Result } from './orders'
 
@@ -132,10 +132,16 @@ const sameOrigin: MiddlewareHandler<AppEnv> = async (c, next) => {
 }
 
 const requireAdmin: MiddlewareHandler<AppEnv> = async (c, next) => {
-  if (!(await hasAdminSession(c, roomOf(c)))) {
+  if ((await adminEpoch(c, roomOf(c))) === null) {
     return refuse(c, 401, 'Masuk sebagai admin.')
   }
   await next()
+}
+
+/** Admin credentials from the cookie; the room checks the epoch is current. */
+async function adminCredentials(c: Context<AppEnv>): Promise<Credentials> {
+  const epoch = await adminEpoch(c, roomOf(c))
+  return epoch === null ? { kind: 'none' } : { kind: 'admin', epoch }
 }
 
 const requireSuper: MiddlewareHandler<AppEnv> = async (c, next) => {
@@ -205,7 +211,7 @@ app.post(
       c.req.valid('json').password,
     )
     if (!result.ok) return reply(c, result)
-    await setAdminSession(c, roomOf(c))
+    await setAdminSession(c, roomOf(c), result.body.epoch)
     return c.body(null, 204)
   },
 )
@@ -216,7 +222,7 @@ app.post('/api/admin/logout', (c) => {
 })
 
 app.get('/api/admin/session', requireAdmin, async (c) =>
-  reply(c, await venueRoom(c).adminSession()),
+  reply(c, await venueRoom(c).adminSession(await adminCredentials(c))),
 )
 
 // Pairing: the device shows a code, the admin approves it, the device polls.
@@ -245,14 +251,14 @@ app.post(
     reply(
       c,
       await venueRoom(c).approveEnrollment(
-        { kind: 'admin' },
+        await adminCredentials(c),
         c.req.valid('json'),
       ),
     ),
 )
 
 app.get('/api/devices', requireAdmin, async (c) =>
-  reply(c, await venueRoom(c).listDevices({ kind: 'admin' })),
+  reply(c, await venueRoom(c).listDevices(await adminCredentials(c))),
 )
 
 app.post(
@@ -263,7 +269,7 @@ app.post(
     reply(
       c,
       await venueRoom(c).revokeDevice(
-        { kind: 'admin' },
+        await adminCredentials(c),
         c.req.valid('param').id,
       ),
     ),
@@ -317,7 +323,7 @@ app.get('/api/ws', async (c) => {
     if (name.startsWith('x-kds-')) headers.delete(name)
   }
   if (who.kind === 'admin') {
-    headers.set('x-kds-admin', '1')
+    headers.set('x-kds-admin', who.epoch)
   } else {
     headers.set('x-kds-device-id', who.deviceId)
     headers.set('x-kds-device-secret', who.secret)
@@ -399,13 +405,16 @@ app.post(
   async (c) =>
     reply(
       c,
-      await venueRoom(c).updateSettings({ kind: 'admin' }, c.req.valid('json')),
+      await venueRoom(c).updateSettings(
+        await adminCredentials(c),
+        c.req.valid('json'),
+      ),
     ),
 )
 
 // Menu and tables: changes bump menuVersion on the board so tablets refetch.
 app.get('/api/manager/menu', requireAdmin, async (c) =>
-  reply(c, await venueRoom(c).adminMenu({ kind: 'admin' })),
+  reply(c, await venueRoom(c).adminMenu(await adminCredentials(c))),
 )
 app.post(
   '/api/manager/menu',
@@ -415,7 +424,7 @@ app.post(
     reply(
       c,
       await venueRoom(c).saveMenuItem(
-        { kind: 'admin' },
+        await adminCredentials(c),
         null,
         c.req.valid('json'),
       ),
@@ -430,7 +439,7 @@ app.put(
     reply(
       c,
       await venueRoom(c).saveMenuItem(
-        { kind: 'admin' },
+        await adminCredentials(c),
         c.req.valid('param').id,
         c.req.valid('json'),
       ),
@@ -438,7 +447,7 @@ app.put(
 )
 
 app.get('/api/manager/tables', requireAdmin, async (c) =>
-  reply(c, await venueRoom(c).adminTables({ kind: 'admin' })),
+  reply(c, await venueRoom(c).adminTables(await adminCredentials(c))),
 )
 app.post(
   '/api/manager/tables',
@@ -448,7 +457,7 @@ app.post(
     reply(
       c,
       await venueRoom(c).saveTable(
-        { kind: 'admin' },
+        await adminCredentials(c),
         null,
         c.req.valid('json'),
       ),
@@ -463,7 +472,7 @@ app.put(
     reply(
       c,
       await venueRoom(c).saveTable(
-        { kind: 'admin' },
+        await adminCredentials(c),
         c.req.valid('param').id,
         c.req.valid('json'),
       ),
@@ -477,7 +486,10 @@ app.get(
   async (c) =>
     reply(
       c,
-      await venueRoom(c).history({ kind: 'admin' }, c.req.valid('query').day),
+      await venueRoom(c).history(
+        await adminCredentials(c),
+        c.req.valid('query').day,
+      ),
     ),
 )
 
@@ -487,7 +499,11 @@ app.get(
   invalidInput('query', exportQuerySchema),
   async (c) => {
     const { from, to, format } = c.req.valid('query')
-    const result = await venueRoom(c).exportRows({ kind: 'admin' }, from, to)
+    const result = await venueRoom(c).exportRows(
+      await adminCredentials(c),
+      from,
+      to,
+    )
     if (!result.ok) return reply(c, result)
     const file = `kds-${from}_${to}.${format}`
     c.header('Content-Disposition', `attachment; filename="${file}"`)
@@ -498,7 +514,7 @@ app.get(
 )
 
 app.get('/api/manager/staff', requireAdmin, async (c) =>
-  reply(c, await venueRoom(c).adminStaff({ kind: 'admin' })),
+  reply(c, await venueRoom(c).adminStaff(await adminCredentials(c))),
 )
 app.post(
   '/api/manager/staff',
@@ -508,7 +524,7 @@ app.post(
     reply(
       c,
       await venueRoom(c).saveStaff(
-        { kind: 'admin' },
+        await adminCredentials(c),
         null,
         c.req.valid('json'),
       ),
@@ -523,7 +539,7 @@ app.put(
     reply(
       c,
       await venueRoom(c).saveStaff(
-        { kind: 'admin' },
+        await adminCredentials(c),
         c.req.valid('param').id,
         c.req.valid('json'),
       ),
@@ -531,7 +547,7 @@ app.put(
 )
 
 app.post('/api/manager/service-day/open', requireAdmin, async (c) =>
-  reply(c, await venueRoom(c).openServiceDay({ kind: 'admin' })),
+  reply(c, await venueRoom(c).openServiceDay(await adminCredentials(c))),
 )
 
 app.post(
@@ -542,7 +558,7 @@ app.post(
     reply(
       c,
       await venueRoom(c).closeServiceDay(
-        { kind: 'admin' },
+        await adminCredentials(c),
         c.req.valid('json').force,
       ),
     ),

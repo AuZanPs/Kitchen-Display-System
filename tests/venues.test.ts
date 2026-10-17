@@ -209,6 +209,7 @@ describe('super admin', () => {
 
   it('resets a dapur admin password', async () => {
     const origin = await createVenue('reset')
+    const before = cookieOf(await adminLogin(origin, 'reset-password'))
     const res = await call(CONSOLE, '/api/super/venues/reset/password', {
       method: 'PUT',
       headers: { cookie: await superCookie() },
@@ -217,6 +218,11 @@ describe('super admin', () => {
     expect(res.status).toBe(200)
     expect((await adminLogin(origin, 'reset-password')).status).toBe(401)
     expect((await adminLogin(origin, 'brand-new-password')).status).toBe(204)
+    // Whoever was signed in with the old password is signed out.
+    const old = await call(origin, '/api/admin/session', {
+      headers: { cookie: before },
+    })
+    expect(old.status).toBe(401)
   })
 
   it('switches a dapur off for everyone and back on', async () => {

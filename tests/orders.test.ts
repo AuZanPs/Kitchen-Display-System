@@ -28,7 +28,7 @@ const zodIssues = z.object({
   ),
 })
 
-const manager = { kind: 'admin' } as const
+const manager = { kind: 'admin', epoch: '0' } as const
 
 async function countRows(table: string, orderId: string) {
   return runInDurableObject(room(), (_, state) =>

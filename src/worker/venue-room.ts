@@ -112,7 +112,8 @@ const ADMIN_ACTOR: Actor = {
 
 /** The Worker forwards socket credentials in headers only it can set. */
 function socketCredentials(headers: Headers): Credentials {
-  if (headers.get('x-kds-admin') === '1') return { kind: 'admin' }
+  const epoch = headers.get('x-kds-admin')
+  if (epoch) return { kind: 'admin', epoch }
   const deviceId = headers.get('x-kds-device-id')
   const secret = headers.get('x-kds-device-secret')
   return deviceId && secret
@@ -254,7 +255,10 @@ export class VenueRoom extends DurableObject<Env> {
     if (!this.provisioned)
       return fail(404, 'not_found', 'Dapur ini tidak ditemukan.')
     const hashed = await hashAdminPassword(password)
-    setMeta(this.db, 'admin_password', hashed)
+    this.ctx.storage.transactionSync(() => {
+      setMeta(this.db, 'admin_password', hashed)
+      this.newAdminEpoch()
+    })
     return ok(null)
   }
 
@@ -264,13 +268,26 @@ export class VenueRoom extends DurableObject<Env> {
       return fail(404, 'not_found', 'Dapur ini tidak ditemukan.')
     setMeta(this.db, 'disabled', disabled ? '1' : '0')
     if (disabled) {
+      this.newAdminEpoch()
       for (const ws of this.ctx.getWebSockets()) ws.close(1008, 'disabled')
     }
     return ok(null)
   }
 
+  /** Signs out every admin cookie of this dapur. */
+  private newAdminEpoch() {
+    setMeta(this.db, 'admin_epoch', randomHex(4))
+  }
+
+  private adminEpoch() {
+    return getMeta(this.db, 'admin_epoch') ?? '0'
+  }
+
   /** Admin sign-in for this dapur; the original dapur falls back to the secret. */
-  async adminLogin(ipHash: string, password: string): Promise<Result<null>> {
+  async adminLogin(
+    ipHash: string,
+    password: string,
+  ): Promise<Result<{ epoch: string }>> {
     const closed = this.closed()
     if (closed) return closed
     // Counted before checking, so a correct guess after the limit still fails.
@@ -286,14 +303,17 @@ export class VenueRoom extends DurableObject<Env> {
       ? await adminPasswordMatches(stored, password)
       : !this.tenant && (await envPasswordMatches(this.env, password))
     return matches
-      ? ok(null)
+      ? ok({ epoch: this.adminEpoch() })
       : fail(401, 'unauthenticated', 'Kata sandi salah.')
   }
 
   /** The signed-in admin's dapur name; refused once the dapur is closed. */
-  async adminSession(): Promise<Result<{ venueName: string | null }>> {
+  async adminSession(
+    credentials: Credentials,
+  ): Promise<Result<{ venueName: string | null }>> {
     const closed = this.closed()
     if (closed) return closed
+    if (!(await this.authenticate(credentials))) return unauthenticated()
     return ok({ venueName: getMeta(this.db, 'venue_name') ?? null })
   }
 
@@ -786,7 +806,12 @@ export class VenueRoom extends DurableObject<Env> {
   /** The Worker vouches for the admin; devices are checked against their row. */
   private async authenticate(credentials: Credentials): Promise<Actor | null> {
     if (this.closed()) return null
-    if (credentials.kind === 'admin') return ADMIN_ACTOR
+    if (credentials.kind === 'admin') {
+      // An admin password change or switch-off retires older admin cookies.
+      return safeEqual(credentials.epoch, this.adminEpoch())
+        ? ADMIN_ACTOR
+        : null
+    }
     if (credentials.kind === 'none') return null
     const tokenHash = await sha256Hex(credentials.secret)
     const device = this.db

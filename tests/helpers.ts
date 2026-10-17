@@ -24,8 +24,8 @@ export function room() {
 /** Same cookie the login route sets, signed with the test secret. */
 export async function adminHeaders(): Promise<HeaderMap> {
   const exp = Date.now() + 60 * 60 * 1000
-  const signature = await hmacHex(env.SESSION_SECRET, `admin.main.${exp}`)
-  return { cookie: `kds_admin=${exp}.${signature}` }
+  const signature = await hmacHex(env.SESSION_SECRET, `admin.main.0.${exp}`)
+  return { cookie: `kds_admin=${exp}.0.${signature}` }
 }
 
 /** A random client address, so enrollment rate limits don't leak between tests. */
@@ -98,7 +98,10 @@ export async function deviceCredentials(
   const started = await stub.startEnrollment(crypto.randomUUID())
   if (!started.ok) throw new Error('start failed')
   const { code, challengeId, pollSecret } = started.body
-  await stub.approveEnrollment({ kind: 'admin' }, { code, role, label: role })
+  await stub.approveEnrollment(
+    { kind: 'admin', epoch: '0' },
+    { code, role, label: role },
+  )
   const polled = await stub.pollEnrollment({ challengeId, pollSecret })
   if (!polled.ok || polled.body.status !== 'approved') {
     throw new Error('poll failed')

@@ -48,16 +48,19 @@ export async function isSuperPassword(env: Env, candidate: string) {
   return safeEqual(a, b)
 }
 
-/** The admin cookie names its dapur, so it never works at another one. */
-export async function setAdminSession(c: Ctx, room: string) {
+/**
+ * The admin cookie names its dapur, so it never works at another one, and the
+ * dapur's session epoch, so a password change or switch-off signs it out.
+ */
+export async function setAdminSession(c: Ctx, room: string, epoch: string) {
   const secret = sessionSecret(c.env)
   if (!secret) throw new Error('SESSION_SECRET is not configured')
   const exp = Date.now() + ADMIN_TTL_S * 1000
-  const signature = await hmacHex(secret, `admin.${room}.${exp}`)
+  const signature = await hmacHex(secret, `admin.${room}.${epoch}.${exp}`)
   setCookie(
     c,
     ADMIN_COOKIE,
-    `${exp}.${signature}`,
+    `${exp}.${epoch}.${signature}`,
     cookieOptions(c, ADMIN_TTL_S),
   )
 }
@@ -66,13 +69,15 @@ export function clearAdminSession(c: Ctx) {
   deleteCookie(c, ADMIN_COOKIE, { path: '/' })
 }
 
-export async function hasAdminSession(c: Ctx, room: string): Promise<boolean> {
+/** The signed epoch of a valid admin cookie for `room`; the room checks it is current. */
+export async function adminEpoch(c: Ctx, room: string): Promise<string | null> {
   const secret = sessionSecret(c.env)
   const value = getCookie(c, ADMIN_COOKIE)
-  if (!secret || !value) return false
-  const [exp, signature] = value.split('.')
-  if (!exp || !signature || !(Number(exp) > Date.now())) return false
-  return safeEqual(signature, await hmacHex(secret, `admin.${room}.${exp}`))
+  if (!secret || !value) return null
+  const [exp, epoch, signature] = value.split('.')
+  if (!exp || !epoch || !signature || !(Number(exp) > Date.now())) return null
+  const expected = await hmacHex(secret, `admin.${room}.${epoch}.${exp}`)
+  return safeEqual(signature, expected) ? epoch : null
 }
 
 export async function setSuperSession(c: Ctx) {
@@ -163,7 +168,8 @@ async function deviceCredentials(c: Ctx): Promise<Credentials> {
 export async function credentials(c: Ctx, room: string): Promise<Credentials> {
   const device = await deviceCredentials(c)
   if (device.kind === 'device') return device
-  return (await hasAdminSession(c, room)) ? { kind: 'admin' } : { kind: 'none' }
+  const epoch = await adminEpoch(c, room)
+  return epoch === null ? { kind: 'none' } : { kind: 'admin', epoch }
 }
 
 /** Hashed so raw client addresses never reach storage. */
