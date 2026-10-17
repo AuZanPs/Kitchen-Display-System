@@ -106,7 +106,7 @@ function Pairing() {
         <LanguageToggle />
       </div>
       <section className="mx-auto grid w-full max-w-2xl content-center justify-items-center gap-8 px-6 text-center">
-        <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
+        <h1 className="text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
           {t('enrollTitle')}
         </h1>
         {params.get('revoked') && (
@@ -131,7 +131,7 @@ function Pairing() {
             <CodeTiles code={state.challenge.code} />
             <p className="max-w-md text-lg text-ink-soft">{t('enrollSteps')}</p>
             <p
-              className="flex items-center gap-2 text-[15px] font-medium"
+              className="flex flex-wrap items-center justify-center gap-2 text-[15px] font-medium"
               role="status"
             >
               <LoaderCircle className="animate-spin" size={18} aria-hidden />
@@ -174,12 +174,12 @@ function Pairing() {
 function CodeTiles({ code }: { code: string }) {
   const groups = [code.slice(0, 3), code.slice(3)]
   return (
-    <p className="flex gap-4 sm:gap-6">
+    <p className="flex gap-3 sm:gap-6">
       <span className="sr-only">{code.split('').join(' ')}</span>
       {groups.map((group) => (
         <span
           key={group + groups.indexOf(group)}
-          className="flex gap-2"
+          className="flex gap-1.5 sm:gap-2"
           aria-hidden
         >
           {group.split('').map((digit, i) => (
@@ -187,7 +187,7 @@ function CodeTiles({ code }: { code: string }) {
               // biome-ignore lint/suspicious/noArrayIndexKey: digits repeat and never reorder
               key={i}
               style={stagger(groups.indexOf(group) * 3 + i)}
-              className="rise grid h-24 w-16 place-items-center rounded-md bg-tonal text-6xl font-extrabold tabular-nums sm:h-32 sm:w-22 sm:text-7xl"
+              className="rise grid h-[min(6rem,18vw)] w-[min(4rem,12.5vw)] place-items-center rounded-md bg-tonal text-[min(3.75rem,11vw)] font-extrabold tabular-nums sm:h-32 sm:w-22 sm:text-7xl"
             >
               {digit}
             </span>

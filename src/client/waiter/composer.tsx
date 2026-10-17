@@ -129,12 +129,12 @@ export function Composer({
             <Button variant="outlined" onClick={() => setPickingTable(true)}>
               {draft.destination?.type === 'table' ? where : t('chooseTable')}
             </Button>
-            <fieldset className="ml-auto grid grid-cols-2 rounded-full border border-ink-soft p-1">
+            <fieldset className="grid w-full grid-cols-2 rounded-full border border-ink-soft p-1 sm:ml-auto sm:w-auto">
               <legend className="sr-only">{t('table')}</legend>
               {(['table', 'takeaway'] as const).map((type) => (
                 <label
                   key={type}
-                  className={`state flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-full px-4 text-sm font-medium has-focus-visible:outline-3 has-focus-visible:outline-ink ${draft.destination?.type === type ? '[--bg:var(--color-tonal)]' : ''}`}
+                  className={`state flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-full px-3 text-sm font-medium whitespace-nowrap sm:px-4 has-focus-visible:outline-3 has-focus-visible:outline-ink ${draft.destination?.type === type ? '[--bg:var(--color-tonal)]' : ''}`}
                 >
                   <input
                     type="radio"
@@ -674,11 +674,16 @@ function CartBar({
         <span className="grid size-9 shrink-0 place-items-center rounded-full bg-surface text-[15px] font-semibold text-ink tabular-nums">
           {count}
         </span>
-        <span className="truncate text-base font-medium tabular-nums">
+        <span className="text-base font-medium whitespace-nowrap tabular-nums">
           {formatIdr(draftTotal(draft))}
         </span>
       </button>
-      <Button variant="tonal" disabled={!canReview} onClick={onReview}>
+      <Button
+        variant="tonal"
+        disabled={!canReview}
+        onClick={onReview}
+        className="shrink-0 whitespace-nowrap"
+      >
         {t('review')}
       </Button>
     </div>

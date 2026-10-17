@@ -127,7 +127,7 @@ export function Ticket({
           {lines.map((line) => (
             <li
               key={line.key}
-              className={`${s.item} grid grid-cols-[2.2em_1fr] gap-x-2`}
+              className={`${s.item} grid grid-cols-[minmax(1.5em,auto)_1fr] gap-x-[0.35em]`}
             >
               <span className="tabular-nums">{line.qty}×</span>
               <span>{line.name}</span>

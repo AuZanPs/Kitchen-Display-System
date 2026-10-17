@@ -89,13 +89,13 @@ function PairCard({ onPaired }: { onPaired: (message: string) => void }) {
         />
         <fieldset className="grid gap-1.5">
           <legend className="mb-1.5 text-sm font-medium">{t('role')}</legend>
-          <div className="grid grid-cols-3 overflow-hidden rounded-full border border-ink-soft">
+          <div className="grid overflow-hidden rounded-md border border-ink-soft">
             {PAIR_ROLES.map((r) => {
               const Icon = ROLE_ICON[r]
               return (
                 <label
                   key={r}
-                  className={`flex min-h-12 cursor-pointer items-center justify-center gap-2 border-ink-soft px-2 text-sm font-medium not-first:border-l has-focus-visible:outline-3 has-focus-visible:-outline-offset-4 has-focus-visible:outline-ink ${role === r ? 'bg-tonal' : ''}`}
+                  className={`flex min-h-12 cursor-pointer items-center gap-3 border-ink-soft px-4 text-sm font-medium not-first:border-t has-focus-visible:outline-3 has-focus-visible:-outline-offset-4 has-focus-visible:outline-ink ${role === r ? 'bg-tonal' : ''}`}
                 >
                   <input
                     type="radio"
@@ -192,21 +192,25 @@ function DeviceList({
               className="rise flex min-h-16 items-center gap-4 rounded-md bg-wash px-4 py-2"
             >
               <Icon size={22} aria-hidden />
-              <div className="mr-auto grid min-w-0">
-                <span className="font-medium break-words">{device.label}</span>
-                <span className="text-sm text-ink-soft">
-                  {roleName(device.role, t)}
+              <div className="flex min-w-0 flex-1 flex-col items-start gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                <div className="grid min-w-0">
+                  <span className="font-medium break-words">
+                    {device.label}
+                  </span>
+                  <span className="text-sm text-ink-soft">
+                    {roleName(device.role, t)}
+                  </span>
+                </div>
+                <span
+                  className={`flex shrink-0 items-center gap-2 rounded-full px-3 py-1 text-sm ${device.online ? 'bg-tonal font-medium' : 'border border-line text-ink-soft'}`}
+                >
+                  <span
+                    aria-hidden
+                    className={`size-2 rounded-full ${device.online ? 'bg-ink' : 'border border-ink-soft'}`}
+                  />
+                  {lastSeen(device, now, t)}
                 </span>
               </div>
-              <span
-                className={`flex shrink-0 items-center gap-2 rounded-full px-3 py-1 text-sm ${device.online ? 'bg-tonal font-medium' : 'border border-line text-ink-soft'}`}
-              >
-                <span
-                  aria-hidden
-                  className={`size-2 rounded-full ${device.online ? 'bg-ink' : 'border border-ink-soft'}`}
-                />
-                {lastSeen(device, now, t)}
-              </span>
               <Button
                 variant="text"
                 icon={<Trash2 size={18} aria-hidden />}

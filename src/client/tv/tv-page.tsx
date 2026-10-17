@@ -98,10 +98,10 @@ function BoardView({
   )
 
   return (
-    <main className="on-ink flex h-dvh flex-col gap-6 overflow-hidden bg-ink px-12 pt-8 pb-10 text-surface">
-      <header className="flex items-center gap-6 border-b border-surface-soft/40 pb-6">
+    <main className="on-ink flex h-dvh flex-col gap-6 overflow-hidden bg-ink px-5 pt-8 pb-10 text-surface sm:px-12">
+      <header className="flex flex-wrap items-center gap-x-6 gap-y-3 border-b border-surface-soft/40 pb-6">
         <h1 translate="no" className="text-[32px] font-semibold tracking-tight">
-          KDS
+          Layar Dapur
         </h1>
         <span className="mr-auto text-[28px] text-surface-soft">/ {place}</span>
         {disconnected ? (
@@ -135,7 +135,12 @@ function BoardView({
       {attention.length > 0 && <AttentionStrip orders={attention} t={t} />}
 
       {board ? (
-        <div className="grid min-h-0 flex-1 grid-cols-3 gap-8">
+        // Narrower than a laptop, the lanes swipe sideways one at a time.
+        <div
+          // biome-ignore lint/a11y/noNoninteractiveTabindex: lets keyboard users scroll the lanes
+          tabIndex={0}
+          className="grid min-h-0 flex-1 snap-x snap-mandatory auto-cols-[minmax(min(20rem,100%),1fr)] grid-flow-col gap-8 overflow-x-auto"
+        >
           {LANES.map((lane) => (
             <Lane
               key={lane.status}
@@ -236,7 +241,10 @@ function Lane({
     }))
 
   return (
-    <section className="flex min-h-0 flex-col gap-5" aria-label={label}>
+    <section
+      className="flex min-h-0 snap-start flex-col gap-5"
+      aria-label={label}
+    >
       <h2 className="flex items-center gap-3 text-[30px]">
         <span className="size-3 rounded-full bg-tonal" aria-hidden />
         <span className="mr-auto">{label}</span>

@@ -1,4 +1,4 @@
-import { ChefHat, ConciergeBell, Plus } from 'lucide-react'
+import { ChefHat, ConciergeBell, LoaderCircle, Plus } from 'lucide-react'
 import { type SubmitEvent, useCallback, useEffect, useState } from 'react'
 import { z } from 'zod'
 import {
@@ -53,6 +53,13 @@ export function StaffTab({ notify }: { notify: (text: string) => void }) {
           {t('addStaff')}
         </Button>
       </div>
+      {staff === null && (
+        <LoaderCircle
+          className="animate-spin text-ink-soft"
+          size={28}
+          aria-label={t('loading')}
+        />
+      )}
       {staff && staff.length === 0 && (
         <p className="text-ink-soft">{t('noStaff')}</p>
       )}
