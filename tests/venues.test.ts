@@ -2,6 +2,7 @@ import { runInDurableObject } from 'cloudflare:test'
 import { env, exports } from 'cloudflare:workers'
 import { describe, expect, it } from 'vitest'
 import { placeFromHost, suggestSlug } from '../src/shared/venue'
+import { clientNetwork } from '../src/worker/auth/session'
 import { freshIp } from './helpers'
 
 const BASE = 'layardapur.web.id'
@@ -85,6 +86,16 @@ describe('placeFromHost', () => {
   it('suggests an address from a name', () => {
     expect(suggestSlug('Warung Bu Sri!')).toBe('warung-bu-sri')
     expect(suggestSlug('  Café Ánda  ')).toBe('cafe-anda')
+  })
+})
+
+describe('clientNetwork', () => {
+  it('limits IPv6 clients by their /64 and IPv4 by address', () => {
+    expect(clientNetwork('203.0.113.7')).toBe('203.0.113.7')
+    expect(clientNetwork('2001:db8:aa:bb:1:2:3:4')).toBe('2001:db8:aa:bb::/64')
+    expect(clientNetwork('2001:DB8:AA:BB::99')).toBe('2001:db8:aa:bb::/64')
+    expect(clientNetwork('2001:db8::1')).toBe('2001:db8:0:0::/64')
+    expect(clientNetwork('::1')).toBe('0:0:0:0::/64')
   })
 })
 

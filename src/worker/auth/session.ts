@@ -177,8 +177,26 @@ export async function credentials(c: Ctx, room: string): Promise<Credentials> {
   return epoch === null ? { kind: 'none' } : { kind: 'admin', epoch }
 }
 
+/**
+ * The part of an address one client controls: IPv4 as is, IPv6 by its /64,
+ * since one connection usually owns a whole /64 and could rotate through it.
+ */
+export function clientNetwork(ip: string) {
+  if (!ip.includes(':')) return ip
+  const [head = '', tail = ''] = ip.toLowerCase().split('::')
+  const left = head ? head.split(':') : []
+  const right = tail ? tail.split(':') : []
+  const groups = ip.includes('::')
+    ? [...left, ...Array(8 - left.length - right.length).fill('0'), ...right]
+    : left
+  return `${groups
+    .slice(0, 4)
+    .map((g) => g.replace(/^0+(?=.)/, ''))
+    .join(':')}::/64`
+}
+
 /** Hashed so raw client addresses never reach storage. */
 export async function ipHash(c: Ctx) {
   const ip = c.req.header('cf-connecting-ip') ?? 'unknown'
-  return (await sha256Hex(ip)).slice(0, 16)
+  return (await sha256Hex(clientNetwork(ip))).slice(0, 16)
 }
