@@ -1,5 +1,11 @@
-import { Eye, Plus } from 'lucide-react'
-import { type SubmitEvent, useCallback, useEffect, useState } from 'react'
+import { Eye, LoaderCircle, Plus } from 'lucide-react'
+import {
+  type SubmitEvent,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react'
 import { z } from 'zod'
 import {
   type AdminMenuItem,
@@ -33,12 +39,16 @@ export function MenuTab({
   const { t } = useI18n()
   const [items, setItems] = useState<AdminMenuItem[] | null>(null)
   const [tables, setTables] = useState<AdminTable[] | null>(null)
+  // A local edit outdates any load still in flight, so it can't flip a switch back.
+  const generation = useRef(0)
 
   const load = useCallback(async () => {
+    const started = ++generation.current
     const [m, tb] = await Promise.all([
       api('/api/manager/menu', adminMenuSchema),
       api('/api/manager/tables', adminTablesSchema),
     ])
+    if (started !== generation.current) return
     if (m.ok) setItems(m.data.items)
     if (tb.ok) setTables(tb.data.tables)
     if (!m.ok || !tb.ok) notify(t('networkError'))
@@ -54,7 +64,10 @@ export function MenuTab({
     <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)] lg:items-start">
       <MenuItems
         items={items}
-        setItems={setItems}
+        setItems={(update) => {
+          generation.current++
+          setItems(update)
+        }}
         reload={load}
         notify={notify}
       />
@@ -115,6 +128,13 @@ function MenuItems({
         </Button>
       </div>
 
+      {items === null && (
+        <LoaderCircle
+          className="animate-spin text-ink-soft"
+          size={28}
+          aria-label={t('loading')}
+        />
+      )}
       {items && shown.length === 0 && (
         <p className="text-ink-soft">{t('emptyMenu')}</p>
       )}
