@@ -158,6 +158,28 @@ describe('kitchen TV', () => {
     tv.ws.close()
   })
 
+  it('ignores a TV that reports faster than twice a second', async () => {
+    const tv = await openBoardSocket('tv')
+    await tv.nextBoard()
+    const first = await createOrder()
+    const second = await createOrder()
+    await tv.boardWhere((b) => b.rev >= second.rev)
+    const rendered = (orderId: string) =>
+      JSON.stringify({ type: 'rendered', items: [{ id: orderId, version: 1 }] })
+
+    tv.ws.send(rendered(first.orderId))
+    tv.ws.send(rendered(second.orderId))
+    const shown = await tv.boardWhere((b) => b.rev > second.rev)
+    // The burst's second report was dropped, so only one write happened.
+    const next = await createOrder()
+    expect((await tv.nextBoard()).rev).toBe(next.rev)
+    expect(next.rev).toBe(shown.rev + 1)
+    expect(shown.orders.find((o) => o.id === second.orderId)?.shownOnTv).toBe(
+      false,
+    )
+    tv.ws.close()
+  })
+
   it('pauses and pages through kitchen control', async () => {
     const res = await postJson('/api/tv/control', { action: 'pause' })
     expect(res.status).toBe(200)

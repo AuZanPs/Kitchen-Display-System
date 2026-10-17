@@ -196,6 +196,15 @@ app.use(
   }),
 )
 
+// An unexpected failure answers without internals; only its name reaches the logs.
+app.onError((err, c) => {
+  console.error('unhandled', err.name)
+  return c.json(
+    { error: { code: 'internal', message: 'Terjadi kesalahan. Coba lagi.' } },
+    500,
+  )
+})
+
 app.get('/api/health', (c) =>
   c.json({ ok: true, environment: c.env.ENVIRONMENT }),
 )
@@ -572,9 +581,14 @@ app.post(
   '/api/super/login',
   invalidInput('json', z.object({ password: z.string().min(1).max(200) })),
   async (c) => {
+    const dir = directory(c.env)
     const key = `super-login:${await ipHash(c)}`
     // Counted before checking, so a correct guess after the limit still fails.
-    if (!(await directory(c.env).allowAttempt(key, 5, SUPER_LOGIN_WINDOW_MS))) {
+    // The second cap holds when guesses come from many addresses at once.
+    if (
+      !(await dir.allowAttempt(key, 5, SUPER_LOGIN_WINDOW_MS)) ||
+      !(await dir.allowAttempt('super-login:all', 30, SUPER_LOGIN_WINDOW_MS))
+    ) {
       return c.json(
         {
           error: {

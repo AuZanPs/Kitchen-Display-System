@@ -95,6 +95,7 @@ import {
 const DAY_MS = 24 * 60 * 60 * 1000
 const MINUTE_MS = 60 * 1000
 const MAX_CLIENT_MESSAGE = 16 * 1024
+const RECEIPT_GAP_MS = 500
 /** WebSocket close code sent to a revoked device. */
 export const CLOSE_REVOKED = 4001
 
@@ -179,6 +180,8 @@ export class VenueRoom extends DurableObject<Env> {
   private instanceStartedAt = Date.now()
   // Lost on hibernation, which only resets the TV to page 1 and unpaused.
   private tvControl: TvControl = { paused: false, page: 0 }
+  /** Last receipt write per TV; a TV sends at most one a second, so more is noise. */
+  private lastReceiptAt = new Map<string, number>()
   /** Rooms named `venue:<slug>` belong to a dapur the super admin created. */
   private readonly tenant: boolean
   private provisioned = true
@@ -368,6 +371,9 @@ export class VenueRoom extends DurableObject<Env> {
     const rendered = renderedMessageSchema.safeParse(parsed)
     if (!rendered.success) return
     const { deviceId } = attachment.data
+    const now = Date.now()
+    if (now - (this.lastReceiptAt.get(deviceId) ?? 0) < RECEIPT_GAP_MS) return
+    this.lastReceiptAt.set(deviceId, now)
     this.write(() => {
       if (this.applyReceipts(deviceId, rendered.data.items)) bumpRev(this.db)
     })
