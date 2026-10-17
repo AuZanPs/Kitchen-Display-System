@@ -274,9 +274,12 @@ export class VenueRoom extends DurableObject<Env> {
     return ok(null)
   }
 
-  /** Signs out every admin cookie of this dapur. */
+  /** Signs out every admin cookie of this dapur, open admin pages included. */
   private newAdminEpoch() {
     setMeta(this.db, 'admin_epoch', randomHex(4))
+    for (const ws of this.ctx.getWebSockets(`device:${ADMIN_ACTOR.deviceId}`)) {
+      ws.close(1008, 'signed out')
+    }
   }
 
   private adminEpoch() {

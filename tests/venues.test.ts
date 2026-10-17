@@ -225,6 +225,26 @@ describe('super admin', () => {
     expect(old.status).toBe(401)
   })
 
+  it('closes open admin pages when the password changes', async () => {
+    const origin = await createVenue('soket')
+    const admin = cookieOf(await adminLogin(origin, 'soket-password'))
+    const res = await exports.default.fetch(`${origin}/api/ws`, {
+      headers: { Upgrade: 'websocket', Origin: origin, cookie: admin },
+    })
+    const ws = res.webSocket
+    if (!ws) throw new Error(`Upgrade failed with ${res.status}`)
+    const closed = new Promise<number>((resolve) =>
+      ws.addEventListener('close', (event) => resolve(event.code)),
+    )
+    ws.accept()
+    await call(CONSOLE, '/api/super/venues/soket/password', {
+      method: 'PUT',
+      headers: { cookie: await superCookie() },
+      body: { adminPassword: 'another-password' },
+    })
+    expect(await closed).toBe(1008)
+  })
+
   it('switches a dapur off for everyone and back on', async () => {
     const origin = await createVenue('libur')
     const admin = cookieOf(await adminLogin(origin, 'libur-password'))
