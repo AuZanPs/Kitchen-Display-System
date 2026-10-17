@@ -1,6 +1,6 @@
 // Indonesian is the default UI language. Every other dictionary has these keys.
 export const id = {
-  appName: 'KDS',
+  appName: 'Layar Dapur',
   language: 'Bahasa',
   retry: 'Coba lagi',
   cancel: 'Batal',

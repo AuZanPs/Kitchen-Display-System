@@ -17,7 +17,7 @@ import {
 } from 'react'
 import { useSearchParams } from 'react-router'
 import { z } from 'zod'
-import { AppBar, LanguageToggle } from '../app-bar'
+import { AppBar, BrandMark, LanguageToggle } from '../app-bar'
 import { useI18n } from '../i18n'
 import { api } from '../lib/api'
 import { CenterNote } from '../lib/session'
@@ -90,9 +90,18 @@ function Login({ onSignedIn }: { onSignedIn: () => void }) {
         onSubmit={submit}
         className="grid w-[min(24rem,calc(100vw-3rem))] gap-6 text-left"
       >
-        <h1 className="text-4xl font-semibold tracking-tight">
-          {t('adminTitle')}
-        </h1>
+        <div className="grid gap-5">
+          <span
+            translate="no"
+            className="flex items-center gap-3 text-lg font-semibold"
+          >
+            <BrandMark />
+            {t('appName')}
+          </span>
+          <h1 className="text-4xl font-semibold tracking-tight">
+            {t('adminTitle')}
+          </h1>
+        </div>
         <TextField
           label={t('password')}
           type="password"
@@ -204,7 +213,7 @@ function Console({ onSignedOut }: { onSignedOut: () => void }) {
                 onClick={() =>
                   setParams(item.id === 'overview' ? {} : { tab: item.id })
                 }
-                className="state relative flex min-h-16 min-w-max flex-1 flex-col items-center justify-center gap-1 px-1 text-[13px] font-medium sm:min-h-14 sm:flex-none sm:flex-row sm:gap-2 sm:px-6 sm:text-[15px]"
+                className="state relative flex min-h-16 min-w-max flex-1 flex-col items-center justify-center gap-1 px-3 text-[13px] font-medium sm:min-h-14 sm:flex-none sm:flex-row sm:gap-2 sm:px-6 sm:text-[15px]"
               >
                 <item.icon size={20} aria-hidden />
                 {item.label}

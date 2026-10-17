@@ -38,12 +38,7 @@ export function AppBar({
 }) {
   return (
     <header className="sticky top-0 z-30 flex min-h-16 items-center gap-3 border-b border-line bg-surface/95 px-4 backdrop-blur sm:px-6">
-      <span
-        translate="no"
-        className="grid size-9 place-items-center rounded-sm bg-ink text-[13px] font-extrabold tracking-wider text-surface"
-      >
-        KDS
-      </span>
+      <BrandMark />
       <div className="mr-auto grid leading-tight">
         <h1 className="text-lg font-semibold">{title}</h1>
         {device && <span className="text-[13px] text-ink-soft">{device}</span>}
@@ -51,5 +46,18 @@ export function AppBar({
       {children}
       <LanguageToggle />
     </header>
+  )
+}
+
+/** The Layar Dapur monogram tile. */
+export function BrandMark() {
+  return (
+    <span
+      translate="no"
+      aria-hidden
+      className="grid size-9 shrink-0 place-items-center rounded-sm bg-ink text-[13px] font-extrabold tracking-wider text-surface"
+    >
+      LD
+    </span>
   )
 }

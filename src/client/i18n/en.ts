@@ -1,7 +1,7 @@
 import type { Dict } from './id'
 
 export const en: Dict = {
-  appName: 'KDS',
+  appName: 'Layar Dapur',
   language: 'Language',
   retry: 'Try again',
   cancel: 'Cancel',
