@@ -50,7 +50,15 @@ pnpm exec wrangler secret put SESSION_SECRET   # 64 hex characters
 pnpm exec wrangler secret put ADMIN_PASSWORD
 ```
 
+```sh
+pnpm exec wrangler secret put SUPER_ADMIN_PASSWORD   # the console for every dapur
+```
+
 Database migrations run inside the Durable Object on first use. Without both secrets the admin console stays locked.
+
+### Several dapur
+
+One deploy serves every dapur. The bare domain (`BASE_HOST` in `wrangler.jsonc`) is the original dapur, each new one lives at `<address>.<BASE_HOST>` with its own data, devices and admin password, and the super admin works at `console.<BASE_HOST>`. In Cloudflare, add a proxied DNS record for `*` and a Worker route `*.<BASE_HOST>/*`. Locally the same works on `console.localhost:5173` and `<address>.localhost:5173`.
 
 ## Layout
 

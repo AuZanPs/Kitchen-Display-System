@@ -43,19 +43,24 @@ const TABS = [
 ] as const
 type Tab = (typeof TABS)[number]
 const tabSchema = z.enum(TABS)
+const adminSessionSchema = z.object({ venueName: z.string().nullable() })
 // Presence is admin-only data, so it is polled rather than put on the board.
 const DEVICES_EVERY_MS = 5_000
 
 export function AdminPage() {
   const [state, setState] = useState<'loading' | 'out' | 'in'>('loading')
-  useEffect(() => {
-    void api('/api/admin/session', z.null()).then((r) =>
-      setState(r.ok ? 'in' : 'out'),
-    )
+  const [venueName, setVenueName] = useState<string | null>(null)
+  const check = useCallback(async () => {
+    const result = await api('/api/admin/session', adminSessionSchema)
+    if (result.ok) setVenueName(result.data.venueName)
+    setState(result.ok ? 'in' : 'out')
   }, [])
+  useEffect(() => {
+    void check()
+  }, [check])
   if (state === 'loading') return null
-  if (state === 'out') return <Login onSignedIn={() => setState('in')} />
-  return <Console onSignedOut={() => setState('out')} />
+  if (state === 'out') return <Login onSignedIn={() => void check()} />
+  return <Console venueName={venueName} onSignedOut={() => setState('out')} />
 }
 
 function Login({ onSignedIn }: { onSignedIn: () => void }) {
@@ -77,7 +82,10 @@ function Login({ onSignedIn }: { onSignedIn: () => void }) {
         ? t('tooManyAttempts')
         : result.status === 0
           ? t('networkError')
-          : t('wrongPassword'),
+          : // A switched-off or unknown dapur says so itself.
+            result.status === 403 || result.status === 404
+            ? result.message
+            : t('wrongPassword'),
     )
   }
 
@@ -123,7 +131,13 @@ function Login({ onSignedIn }: { onSignedIn: () => void }) {
   )
 }
 
-function Console({ onSignedOut }: { onSignedOut: () => void }) {
+function Console({
+  venueName,
+  onSignedOut,
+}: {
+  venueName: string | null
+  onSignedOut: () => void
+}) {
   const { t } = useI18n()
   const snackbar = useSnackbar()
   const [params, setParams] = useSearchParams()
@@ -183,7 +197,7 @@ function Console({ onSignedOut }: { onSignedOut: () => void }) {
 
   return (
     <div className="min-h-dvh bg-surface pb-16">
-      <AppBar title={t('adminTitle')}>
+      <AppBar title={t('adminTitle')} device={venueName ?? undefined}>
         <Button
           variant="text"
           icon={<LogOut size={18} aria-hidden />}

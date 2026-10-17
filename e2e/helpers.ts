@@ -9,6 +9,11 @@ export const ADMIN_PASSWORD =
     .exec(readFileSync('.dev.vars', 'utf8'))?.[1]
     ?.trim() ?? ''
 
+export const SUPER_ADMIN_PASSWORD =
+  /^SUPER_ADMIN_PASSWORD=(.*)$/m
+    .exec(readFileSync('.dev.vars', 'utf8'))?.[1]
+    ?.trim() ?? ''
+
 /** Waits for entrance motion to finish; endless spinners are ignored. */
 export async function settle(page: Page) {
   await page.waitForFunction(() =>

@@ -40,7 +40,9 @@ export function AppBar({
     <header className="sticky top-0 z-30 flex min-h-16 items-center gap-3 border-b border-line bg-surface/95 px-4 backdrop-blur sm:px-6">
       <BrandMark />
       <div className="mr-auto grid leading-tight">
-        <h1 className="text-lg font-semibold">{title}</h1>
+        <h1 className="text-base font-semibold whitespace-nowrap sm:text-lg">
+          {title}
+        </h1>
         {device && <span className="text-[13px] text-ink-soft">{device}</span>}
       </div>
       {children}

@@ -7,14 +7,19 @@ import { AdminPage } from './admin/admin-page'
 import { EnrollPage } from './enroll/enroll-page'
 import { I18nProvider } from './i18n'
 import { KitchenPage } from './kitchen/kitchen-page'
-import { HOME_BY_ROLE, useSession } from './lib/session'
+import { CenterNote, HOME_BY_ROLE, useSession } from './lib/session'
+import { SuperPage } from './super/super-page'
 import { TvPage } from './tv/tv-page'
 import { WaiterPage } from './waiter/waiter-page'
 
 /** Sends each device to its own screen; unpaired browsers go to pairing. */
 function Home() {
   const { state } = useSession()
+  if (window.location.hostname.startsWith('console.')) {
+    return <Navigate to="/super" replace />
+  }
   if (state.status === 'loading') return null
+  if (state.status === 'closed') return <CenterNote>{state.message}</CenterNote>
   if (state.status === 'ok') {
     return <Navigate to={HOME_BY_ROLE[state.session.role]} replace />
   }
@@ -28,6 +33,7 @@ const router = createBrowserRouter([
   { path: '/waiter', element: <WaiterPage /> },
   { path: '/kitchen', element: <KitchenPage /> },
   { path: '/tv', element: <TvPage /> },
+  { path: '/super', element: <SuperPage /> },
   { path: '*', element: <Navigate to="/" replace /> },
 ])
 

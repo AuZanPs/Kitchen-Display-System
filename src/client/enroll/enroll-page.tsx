@@ -5,7 +5,12 @@ import { z } from 'zod'
 import { LanguageToggle } from '../app-bar'
 import { formatTime, useI18n } from '../i18n'
 import { api } from '../lib/api'
-import { HOME_BY_ROLE, sessionSchema, useSession } from '../lib/session'
+import {
+  CenterNote,
+  HOME_BY_ROLE,
+  sessionSchema,
+  useSession,
+} from '../lib/session'
 import { stagger } from '../lib/stagger'
 import { Button } from '../ui/button'
 
@@ -36,6 +41,9 @@ export function EnrollPage() {
     return <Navigate to={HOME_BY_ROLE[session.session.role]} replace />
   }
   if (session.status === 'loading') return null
+  if (session.status === 'closed') {
+    return <CenterNote>{session.message}</CenterNote>
+  }
   return <Pairing />
 }
 

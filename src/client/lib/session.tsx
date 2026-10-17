@@ -25,6 +25,8 @@ type State =
   | { status: 'loading' }
   | { status: 'none' }
   | { status: 'error' }
+  /** The dapur is switched off or does not exist; the server says which. */
+  | { status: 'closed'; message: string }
   | { status: 'ok'; session: Session }
 
 export function useSession() {
@@ -39,7 +41,9 @@ export function useSession() {
         if (controller.signal.aborted) return
         if (result.ok) setState({ status: 'ok', session: result.data })
         else if (result.status === 401) setState({ status: 'none' })
-        else setState({ status: 'error' })
+        else if (result.status === 403 || result.status === 404) {
+          setState({ status: 'closed', message: result.message })
+        } else setState({ status: 'error' })
       },
     )
     return () => controller.abort()
@@ -71,6 +75,7 @@ export function RequireRole({
   }, [state])
   if (state.status === 'loading' && last) return children(last, retry)
   if (state.status === 'loading') return <CenterNote>{t('loading')}</CenterNote>
+  if (state.status === 'closed') return <CenterNote>{state.message}</CenterNote>
   if (state.status === 'error') {
     return (
       <CenterNote>
