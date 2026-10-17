@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { expectAccessible, pair, settle, signInAdmin } from './helpers.ts'
 
-const PHONE = { width: 390, height: 844 }
+const PHONE = { width: 360, height: 800 }
 const TABLET = { width: 820, height: 1180 }
 const DESKTOP = { width: 1280, height: 800 }
 
@@ -11,7 +11,27 @@ test('every screen at phone, tablet and desktop widths', async ({
   browser,
   baseURL,
 }) => {
-  test.setTimeout(180_000)
+  test.setTimeout(240_000)
+  // Screens seen before pairing or signing in.
+  const fresh = await (await browser.newContext()).newPage()
+  for (const size of [PHONE, TABLET, DESKTOP]) {
+    await fresh.setViewportSize(size)
+    await fresh.goto('/admin')
+    await expectAccessible(fresh, `sign-in ${size.width}`)
+    await fresh.screenshot({
+      path: `test-results/screen-signin-${size.width}.png`,
+    })
+  }
+  await fresh.goto('/enroll')
+  await expect(fresh.getByText(/^\d \d \d \d \d \d$/)).toBeAttached()
+  for (const size of [PHONE, TABLET, DESKTOP]) {
+    await fresh.setViewportSize(size)
+    await expectAccessible(fresh, `enroll ${size.width}`)
+    await fresh.screenshot({
+      path: `test-results/screen-enroll-${size.width}.png`,
+    })
+  }
+
   const admin = await signInAdmin(browser)
   const settings = await admin.request.post('/api/admin/settings', {
     data: { allergy: true, lineNotes: true, orderNote: true, staffPins: false },
@@ -27,6 +47,7 @@ test('every screen at phone, tablet and desktop widths', async ({
     PHONE,
   )
   const kitchen = await pair(browser, admin, 'HP dapur', 'HP layar', PHONE)
+  const tv = await pair(browser, admin, 'TV dapur', 'TV layar', DESKTOP)
 
   // An order placed on a phone-sized tablet, with an allergy and a note.
   await expect(tablet).toHaveURL(/\/waiter/)
@@ -61,13 +82,20 @@ test('every screen at phone, tablet and desktop widths', async ({
   await tablet.getByRole('button', { name: /Es Teh Lemon/ }).click()
   await tablet.getByRole('button', { name: /Tambah ke pesanan/ }).click()
   await settle(tablet)
-  await tablet.screenshot({ path: 'test-results/screen-cartbar-390.png' })
+  await tablet.screenshot({ path: 'test-results/screen-cartbar-360.png' })
   await tablet.getByRole('button', { name: /1 item dipilih/ }).click()
-  await expectAccessible(tablet, 'summary sheet 390')
-  await tablet.screenshot({ path: 'test-results/screen-sheet-390.png' })
+  await expectAccessible(tablet, 'summary sheet 360')
+  await tablet.screenshot({ path: 'test-results/screen-sheet-360.png' })
   await tablet.keyboard.press('Escape')
 
-  for (const size of [PHONE, TABLET]) {
+  for (const size of [PHONE, TABLET, DESKTOP]) {
+    await tv.setViewportSize(size)
+    await expect(tv.getByText('Live')).toBeVisible()
+    await expectAccessible(tv, `tv ${size.width}`)
+    await tv.screenshot({ path: `test-results/screen-tv-${size.width}.png` })
+  }
+
+  for (const size of [PHONE, TABLET, DESKTOP]) {
     await kitchen.setViewportSize(size)
     await expectAccessible(kitchen, `kitchen ${size.width}`)
     await kitchen.screenshot({
@@ -93,8 +121,7 @@ test('every screen at phone, tablet and desktop widths', async ({
         path: `test-results/screen-admin-${tab.toLowerCase()}-${size.width}.png`,
         fullPage: true,
       })
-      if (size === PHONE)
-        await expectAccessible(admin, `admin ${tab} ${size.width}`)
+      await expectAccessible(admin, `admin ${tab} ${size.width}`)
     }
   }
 })

@@ -30,6 +30,11 @@ export async function expectAccessible(page: Page, screen: string) {
   const { violations } = await new AxeBuilder({ page })
     .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
     .analyze()
+  // Nothing may push the page wider than the screen.
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - window.innerWidth,
+  )
+  expect.soft(overflow, `${screen}: sideways scroll`).toBeLessThanOrEqual(0)
   // Soft, so one run reports every screen.
   expect
     .soft(
