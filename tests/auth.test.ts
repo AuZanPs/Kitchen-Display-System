@@ -285,7 +285,8 @@ describe('admin login', () => {
     const session = await request('/api/admin/session', {
       headers: { cookie: cookie.split(';')[0] ?? '' },
     })
-    expect(session.status).toBe(204)
+    expect(session.status).toBe(200)
+    expect(await session.json()).toEqual({ venueName: null })
   })
 
   it('locks out after five attempts a minute, even with the right password', async () => {

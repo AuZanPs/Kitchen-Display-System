@@ -32,7 +32,13 @@ import type {
   StaffLogin,
   StaffMember,
 } from '../shared/staff'
-import { randomCode, randomHex, safeEqual, sha256Hex } from './auth/crypto'
+import {
+  pbkdf2Hex,
+  randomCode,
+  randomHex,
+  safeEqual,
+  sha256Hex,
+} from './auth/crypto'
 import { buildBoard } from './board'
 import {
   bumpRev,
@@ -67,6 +73,7 @@ import { adminMenu, adminTables, saveMenuItem, saveTable } from './menu'
 import {
   type Actor,
   createOrder,
+  type Failure,
   fail,
   orderHistory,
   type Result,
@@ -171,23 +178,127 @@ export class VenueRoom extends DurableObject<Env> {
   private instanceStartedAt = Date.now()
   // Lost on hibernation, which only resets the TV to page 1 and unpaused.
   private tvControl: TvControl = { paused: false, page: 0 }
+  /** Rooms named `venue:<slug>` belong to a dapur the super admin created. */
+  private readonly tenant: boolean
+  private provisioned = true
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env)
     this.db = drizzle(ctx.storage, { schema })
+    this.tenant = (ctx.id.name ?? '').startsWith('venue:')
     // Answered by the runtime without waking the object.
     ctx.setWebSocketAutoResponse(
       new WebSocketRequestResponsePair('ping', 'pong'),
     )
     ctx.blockConcurrencyWhile(async () => {
-      migrate(this.db, migrations)
-      if ((await ctx.storage.getAlarm()) === null) {
-        await ctx.storage.setAlarm(nextCleanupAt(Date.now()))
+      // A dapur nobody created stays empty, so probing addresses writes nothing.
+      if (this.tenant && !this.hasTables()) {
+        this.provisioned = false
+        return
       }
+      await this.setUp()
+      if (this.tenant)
+        this.provisioned = getMeta(this.db, 'provisioned') === '1'
     })
   }
 
+  private hasTables() {
+    return (
+      this.ctx.storage.sql
+        .exec(
+          "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'meta'",
+        )
+        .toArray().length > 0
+    )
+  }
+
+  private async setUp() {
+    migrate(this.db, migrations)
+    if ((await this.ctx.storage.getAlarm()) === null) {
+      await this.ctx.storage.setAlarm(nextCleanupAt(Date.now()))
+    }
+  }
+
+  /** Why this dapur answers nobody right now, if it doesn't. */
+  private closed(): Failure | null {
+    if (!this.provisioned) {
+      return fail(404, 'not_found', 'Dapur ini tidak ditemukan.')
+    }
+    if (getMeta(this.db, 'disabled') === '1') {
+      return fail(403, 'forbidden', 'Dapur ini sedang dinonaktifkan.')
+    }
+    return null
+  }
+
+  /** The super admin creates the dapur: tables, sample menu, name, admin password. */
+  async provision(input: {
+    name: string
+    adminPassword: string
+  }): Promise<Result<{ name: string }>> {
+    if (!this.tenant || this.provisioned) {
+      return fail(409, 'operation_conflict', 'Alamat ini sudah dipakai.')
+    }
+    await this.setUp()
+    const password = await hashAdminPassword(input.adminPassword)
+    this.ctx.storage.transactionSync(() => {
+      setMeta(this.db, 'venue_name', input.name)
+      setMeta(this.db, 'admin_password', password)
+      setMeta(this.db, 'provisioned', '1')
+    })
+    this.provisioned = true
+    return ok({ name: input.name })
+  }
+
+  /** Super admin: a new admin password signs nobody out but works at once. */
+  async setAdminPassword(password: string): Promise<Result<null>> {
+    if (!this.provisioned)
+      return fail(404, 'not_found', 'Dapur ini tidak ditemukan.')
+    const hashed = await hashAdminPassword(password)
+    setMeta(this.db, 'admin_password', hashed)
+    return ok(null)
+  }
+
+  /** Super admin: a disabled dapur refuses every screen until switched back on. */
+  async setDisabled(disabled: boolean): Promise<Result<null>> {
+    if (!this.provisioned)
+      return fail(404, 'not_found', 'Dapur ini tidak ditemukan.')
+    setMeta(this.db, 'disabled', disabled ? '1' : '0')
+    if (disabled) {
+      for (const ws of this.ctx.getWebSockets()) ws.close(1008, 'disabled')
+    }
+    return ok(null)
+  }
+
+  /** Admin sign-in for this dapur; the original dapur falls back to the secret. */
+  async adminLogin(ipHash: string, password: string): Promise<Result<null>> {
+    const closed = this.closed()
+    if (closed) return closed
+    // Counted before checking, so a correct guess after the limit still fails.
+    if (!this.allowAttempt(`admin-login:${ipHash}`, 5, MINUTE_MS)) {
+      return fail(
+        429,
+        'rate_limited',
+        'Terlalu banyak percobaan. Tunggu satu menit.',
+      )
+    }
+    const stored = getMeta(this.db, 'admin_password')
+    const matches = stored
+      ? await adminPasswordMatches(stored, password)
+      : !this.tenant && (await envPasswordMatches(this.env, password))
+    return matches
+      ? ok(null)
+      : fail(401, 'unauthenticated', 'Kata sandi salah.')
+  }
+
+  /** The signed-in admin's dapur name; refused once the dapur is closed. */
+  async adminSession(): Promise<Result<{ venueName: string | null }>> {
+    const closed = this.closed()
+    if (closed) return closed
+    return ok({ venueName: getMeta(this.db, 'venue_name') ?? null })
+  }
+
   async alarm() {
+    if (!this.provisioned) return
     this.ctx.storage.transactionSync(() => cleanup(this.db, Date.now()))
     await this.ctx.storage.setAlarm(nextCleanupAt(Date.now()))
   }
@@ -255,6 +366,8 @@ export class VenueRoom extends DurableObject<Env> {
   async session(
     credentials: Credentials,
   ): Promise<Result<{ role: Role; label: string; staff: StaffMember | null }>> {
+    const closed = this.closed()
+    if (closed) return closed
     const actor = await this.authenticate(credentials)
     if (!actor) return unauthenticated()
     const device = this.db
@@ -580,6 +693,8 @@ export class VenueRoom extends DurableObject<Env> {
       expiresAt: number
     }>
   > {
+    const closed = this.closed()
+    if (closed) return closed
     if (!this.allowAttempt(`enroll:${ipHash}`, 10, 10 * MINUTE_MS)) {
       return fail(429, 'rate_limited', 'Terlalu banyak percobaan. Tunggu.')
     }
@@ -615,6 +730,8 @@ export class VenueRoom extends DurableObject<Env> {
   }
 
   async pollEnrollment(input: Poll) {
+    const closed = this.closed()
+    if (closed) return closed
     const secretHash = await sha256Hex(input.pollSecret)
     const secret = randomHex(32)
     const device = {
@@ -668,6 +785,7 @@ export class VenueRoom extends DurableObject<Env> {
 
   /** The Worker vouches for the admin; devices are checked against their row. */
   private async authenticate(credentials: Credentials): Promise<Actor | null> {
+    if (this.closed()) return null
     if (credentials.kind === 'admin') return ADMIN_ACTOR
     if (credentials.kind === 'none') return null
     const tokenHash = await sha256Hex(credentials.secret)
@@ -781,4 +899,25 @@ export class VenueRoom extends DurableObject<Env> {
       if (ws.readyState === WebSocket.OPEN) ws.send(message)
     }
   }
+}
+
+async function hashAdminPassword(password: string) {
+  const salt = randomHex(16)
+  return `${salt}.${await pbkdf2Hex(password, salt)}`
+}
+
+async function adminPasswordMatches(stored: string, candidate: string) {
+  const [salt, hash] = stored.split('.')
+  if (!salt || !hash) return false
+  return safeEqual(hash, await pbkdf2Hex(candidate, salt))
+}
+
+/** The original dapur's password from the ADMIN_PASSWORD secret, until one is set. */
+async function envPasswordMatches(env: Env, candidate: string) {
+  if (!env.ADMIN_PASSWORD) return false
+  const [a, b] = await Promise.all([
+    sha256Hex(candidate),
+    sha256Hex(env.ADMIN_PASSWORD),
+  ])
+  return safeEqual(a, b)
 }

@@ -10,33 +10,63 @@ import { menuItemInputSchema, tableInputSchema } from '../shared/menu'
 import { createOrderSchema } from '../shared/order'
 import { staffInputSchema, staffLoginSchema } from '../shared/staff'
 import {
+  adminPasswordSchema,
+  MAIN_SLUG,
+  type Place,
+  placeFromHost,
+  roomFor,
+  SLUG_PATTERN,
+  venueCreateSchema,
+} from '../shared/venue'
+import {
+  canSignSessions,
   clearAdminSession,
   clearDeviceCookie,
   clearStaffSession,
+  clearSuperSession,
   credentials,
   hasAdminSession,
+  hasSuperSession,
   ipHash,
-  isAdminPassword,
+  isSuperPassword,
   setAdminSession,
   setDeviceCookie,
   setStaffSession,
+  setSuperSession,
 } from './auth/session'
 import { approveSchema, pollSchema } from './devices'
 import { toCsv } from './history'
 import type { Result } from './orders'
 
+export { Directory } from './directory'
 export { VenueRoom } from './venue-room'
 
-// Single restaurant pilot: every device talks to the same room.
-const VENUE_ID = 'main'
 const MAX_BODY_BYTES = 64 * 1024
 
 type AppEnv = { Bindings: Env }
 
-function venueRoom(env: Env) {
-  // Placement hint only applies when the object is first created.
-  return env.VENUE_ROOM.getByName(VENUE_ID, { locationHint: 'apac-se' })
+/** This request's dapur room; the hostname decides it (see `placeFromHost`). */
+function roomOf(c: Context<AppEnv>) {
+  const place = placeOf(c)
+  // `scope` already turned every other host away from dapur routes.
+  return place.kind === 'venue' ? place.room : MAIN_SLUG
 }
+
+function venueRoom(c: Context<AppEnv>) {
+  // Placement hint only applies when the object is first created.
+  return c.env.VENUE_ROOM.getByName(roomOf(c), { locationHint: 'apac-se' })
+}
+
+function directory(env: Env) {
+  return env.DIRECTORY.getByName('directory', { locationHint: 'apac-se' })
+}
+
+function placeOf(c: Context<AppEnv>): Place {
+  return placeFromHost(new URL(c.req.url).hostname, c.env.BASE_HOST)
+}
+
+const notFound = (c: Context) =>
+  c.json({ error: { code: 'not_found', message: 'Tidak ditemukan.' } }, 404)
 
 function invalidInput<T extends z.ZodType>(
   target: 'json' | 'param' | 'query',
@@ -102,7 +132,29 @@ const sameOrigin: MiddlewareHandler<AppEnv> = async (c, next) => {
 }
 
 const requireAdmin: MiddlewareHandler<AppEnv> = async (c, next) => {
-  if (!(await hasAdminSession(c))) return refuse(c, 401, 'Masuk sebagai admin.')
+  if (!(await hasAdminSession(c, roomOf(c)))) {
+    return refuse(c, 401, 'Masuk sebagai admin.')
+  }
+  await next()
+}
+
+const requireSuper: MiddlewareHandler<AppEnv> = async (c, next) => {
+  if (!(await hasSuperSession(c)))
+    return refuse(c, 401, 'Masuk sebagai super admin.')
+  await next()
+}
+
+/**
+ * Dapur routes answer only on a dapur's host, console routes only on the
+ * console host, so a cookie or request can never cross between them.
+ */
+const scope: MiddlewareHandler<AppEnv> = async (c, next) => {
+  const path = new URL(c.req.url).pathname
+  if (path === '/api/health') return next()
+  const place = placeOf(c)
+  const consoleRoute = path.startsWith('/api/super/')
+  if (consoleRoute !== (place.kind === 'console')) return notFound(c)
+  if (place.kind === 'unknown') return notFound(c)
   await next()
 }
 
@@ -119,6 +171,7 @@ app.use('/api/*', async (c, next) => {
   await apiHeaders(c, next)
   c.header('Cache-Control', 'no-store')
 })
+app.use('/api/*', scope)
 app.use('/api/*', sameOrigin)
 app.use(
   '/api/*',
@@ -141,29 +194,18 @@ app.get('/api/health', (c) =>
   c.json({ ok: true, environment: c.env.ENVIRONMENT }),
 )
 
-// Admin: one password from a secret, a signed 12-hour cookie.
+// Admin: each dapur has its own password, checked in its room; a signed 12-hour cookie.
 app.post(
   '/api/admin/login',
   invalidInput('json', z.object({ password: z.string().min(1).max(200) })),
   async (c) => {
-    const room = venueRoom(c.env)
-    // Counted before checking, so a correct guess after the limit still fails.
-    const key = `admin-login:${await ipHash(c)}`
-    if (!(await room.allowAttempt(key, 5, 60 * 1000))) {
-      return c.json(
-        {
-          error: {
-            code: 'rate_limited',
-            message: 'Terlalu banyak percobaan. Tunggu satu menit.',
-          },
-        },
-        429,
-      )
-    }
-    if (!(await isAdminPassword(c.env, c.req.valid('json').password))) {
-      return refuse(c, 401, 'Kata sandi salah.')
-    }
-    await setAdminSession(c)
+    if (!canSignSessions(c.env)) return refuse(c, 401, 'Admin belum disiapkan.')
+    const result = await venueRoom(c).adminLogin(
+      await ipHash(c),
+      c.req.valid('json').password,
+    )
+    if (!result.ok) return reply(c, result)
+    await setAdminSession(c, roomOf(c))
     return c.body(null, 204)
   },
 )
@@ -173,18 +215,20 @@ app.post('/api/admin/logout', (c) => {
   return c.body(null, 204)
 })
 
-app.get('/api/admin/session', requireAdmin, (c) => c.body(null, 204))
+app.get('/api/admin/session', requireAdmin, async (c) =>
+  reply(c, await venueRoom(c).adminSession()),
+)
 
 // Pairing: the device shows a code, the admin approves it, the device polls.
 app.post('/api/devices/enroll/start', async (c) =>
-  reply(c, await venueRoom(c.env).startEnrollment(await ipHash(c))),
+  reply(c, await venueRoom(c).startEnrollment(await ipHash(c))),
 )
 
 app.post(
   '/api/devices/enroll/poll',
   invalidInput('json', pollSchema),
   async (c) => {
-    const result = await venueRoom(c.env).pollEnrollment(c.req.valid('json'))
+    const result = await venueRoom(c).pollEnrollment(c.req.valid('json'))
     if (!result.ok || result.body.status === 'pending') return reply(c, result)
     // The device token only ever travels in the HttpOnly cookie.
     const { token, ...device } = result.body
@@ -200,7 +244,7 @@ app.post(
   async (c) =>
     reply(
       c,
-      await venueRoom(c.env).approveEnrollment(
+      await venueRoom(c).approveEnrollment(
         { kind: 'admin' },
         c.req.valid('json'),
       ),
@@ -208,7 +252,7 @@ app.post(
 )
 
 app.get('/api/devices', requireAdmin, async (c) =>
-  reply(c, await venueRoom(c.env).listDevices({ kind: 'admin' })),
+  reply(c, await venueRoom(c).listDevices({ kind: 'admin' })),
 )
 
 app.post(
@@ -218,7 +262,7 @@ app.post(
   async (c) =>
     reply(
       c,
-      await venueRoom(c.env).revokeDevice(
+      await venueRoom(c).revokeDevice(
         { kind: 'admin' },
         c.req.valid('param').id,
       ),
@@ -233,14 +277,14 @@ app.post('/api/devices/forget', (c) => {
 
 // Staff PINs: the room checks the PIN, the Worker signs the cookie.
 app.get('/api/staff', async (c) =>
-  reply(c, await venueRoom(c.env).listStaff(await credentials(c))),
+  reply(c, await venueRoom(c).listStaff(await credentials(c, roomOf(c)))),
 )
 app.post(
   '/api/staff/login',
   invalidInput('json', staffLoginSchema),
   async (c) => {
-    const result = await venueRoom(c.env).staffLogin(
-      await credentials(c),
+    const result = await venueRoom(c).staffLogin(
+      await credentials(c, roomOf(c)),
       c.req.valid('json'),
     )
     if (!result.ok) return reply(c, result)
@@ -258,14 +302,14 @@ app.post('/api/staff/logout', (c) => {
 })
 
 app.get('/api/session', async (c) =>
-  reply(c, await venueRoom(c.env).session(await credentials(c))),
+  reply(c, await venueRoom(c).session(await credentials(c, roomOf(c)))),
 )
 
 app.get('/api/ws', async (c) => {
   if (c.req.header('Upgrade') !== 'websocket') {
     return c.text('Expected websocket', 426)
   }
-  const who = await credentials(c)
+  const who = await credentials(c, roomOf(c))
   if (who.kind === 'none') return c.text('Unauthenticated', 401)
   // The room trusts only headers the Worker sets itself.
   const headers = new Headers(c.req.raw.headers)
@@ -278,22 +322,22 @@ app.get('/api/ws', async (c) => {
     headers.set('x-kds-device-id', who.deviceId)
     headers.set('x-kds-device-secret', who.secret)
   }
-  return venueRoom(c.env).fetch(new Request(c.req.raw, { headers }))
+  return venueRoom(c).fetch(new Request(c.req.raw, { headers }))
 })
 
 app.get('/api/board', async (c) =>
-  reply(c, await venueRoom(c.env).getBoard(await credentials(c))),
+  reply(c, await venueRoom(c).getBoard(await credentials(c, roomOf(c)))),
 )
 app.get('/api/menu', async (c) =>
-  reply(c, await venueRoom(c.env).getMenu(await credentials(c))),
+  reply(c, await venueRoom(c).getMenu(await credentials(c, roomOf(c)))),
 )
 app.get('/api/tables', async (c) =>
-  reply(c, await venueRoom(c.env).getTables(await credentials(c))),
+  reply(c, await venueRoom(c).getTables(await credentials(c, roomOf(c)))),
 )
 
 app.post('/api/orders', invalidInput('json', createOrderSchema), async (c) => {
-  const result = await venueRoom(c.env).createOrder(
-    await credentials(c),
+  const result = await venueRoom(c).createOrder(
+    await credentials(c, roomOf(c)),
     c.req.valid('json'),
     Date.now(),
   )
@@ -303,8 +347,8 @@ app.post('/api/orders', invalidInput('json', createOrderSchema), async (c) => {
 app.get('/api/orders/:id', invalidInput('param', idParam), async (c) =>
   reply(
     c,
-    await venueRoom(c.env).getOrder(
-      await credentials(c),
+    await venueRoom(c).getOrder(
+      await credentials(c, roomOf(c)),
       c.req.valid('param').id,
     ),
   ),
@@ -315,8 +359,8 @@ app.post(
   invalidInput('param', idParam),
   invalidInput('json', commandSchema),
   async (c) => {
-    const result = await venueRoom(c.env).command(
-      await credentials(c),
+    const result = await venueRoom(c).command(
+      await credentials(c, roomOf(c)),
       c.req.valid('param').id,
       c.req.valid('json'),
       Date.now(),
@@ -336,7 +380,7 @@ app.post(
     ]),
   ),
   async (c) => {
-    const room = venueRoom(c.env)
+    const room = venueRoom(c)
     const body = c.req.valid('json')
     const tvControl = await room.getTvControl()
     const next = tvControlSchema.parse(
@@ -344,7 +388,7 @@ app.post(
         ? { ...tvControl, page: body.page }
         : { ...tvControl, paused: body.action === 'pause' },
     )
-    return reply(c, await room.controlTv(await credentials(c), next))
+    return reply(c, await room.controlTv(await credentials(c, roomOf(c)), next))
   },
 )
 
@@ -355,16 +399,13 @@ app.post(
   async (c) =>
     reply(
       c,
-      await venueRoom(c.env).updateSettings(
-        { kind: 'admin' },
-        c.req.valid('json'),
-      ),
+      await venueRoom(c).updateSettings({ kind: 'admin' }, c.req.valid('json')),
     ),
 )
 
 // Menu and tables: changes bump menuVersion on the board so tablets refetch.
 app.get('/api/manager/menu', requireAdmin, async (c) =>
-  reply(c, await venueRoom(c.env).adminMenu({ kind: 'admin' })),
+  reply(c, await venueRoom(c).adminMenu({ kind: 'admin' })),
 )
 app.post(
   '/api/manager/menu',
@@ -373,7 +414,7 @@ app.post(
   async (c) =>
     reply(
       c,
-      await venueRoom(c.env).saveMenuItem(
+      await venueRoom(c).saveMenuItem(
         { kind: 'admin' },
         null,
         c.req.valid('json'),
@@ -388,7 +429,7 @@ app.put(
   async (c) =>
     reply(
       c,
-      await venueRoom(c.env).saveMenuItem(
+      await venueRoom(c).saveMenuItem(
         { kind: 'admin' },
         c.req.valid('param').id,
         c.req.valid('json'),
@@ -397,7 +438,7 @@ app.put(
 )
 
 app.get('/api/manager/tables', requireAdmin, async (c) =>
-  reply(c, await venueRoom(c.env).adminTables({ kind: 'admin' })),
+  reply(c, await venueRoom(c).adminTables({ kind: 'admin' })),
 )
 app.post(
   '/api/manager/tables',
@@ -406,7 +447,7 @@ app.post(
   async (c) =>
     reply(
       c,
-      await venueRoom(c.env).saveTable(
+      await venueRoom(c).saveTable(
         { kind: 'admin' },
         null,
         c.req.valid('json'),
@@ -421,7 +462,7 @@ app.put(
   async (c) =>
     reply(
       c,
-      await venueRoom(c.env).saveTable(
+      await venueRoom(c).saveTable(
         { kind: 'admin' },
         c.req.valid('param').id,
         c.req.valid('json'),
@@ -436,10 +477,7 @@ app.get(
   async (c) =>
     reply(
       c,
-      await venueRoom(c.env).history(
-        { kind: 'admin' },
-        c.req.valid('query').day,
-      ),
+      await venueRoom(c).history({ kind: 'admin' }, c.req.valid('query').day),
     ),
 )
 
@@ -449,11 +487,7 @@ app.get(
   invalidInput('query', exportQuerySchema),
   async (c) => {
     const { from, to, format } = c.req.valid('query')
-    const result = await venueRoom(c.env).exportRows(
-      { kind: 'admin' },
-      from,
-      to,
-    )
+    const result = await venueRoom(c).exportRows({ kind: 'admin' }, from, to)
     if (!result.ok) return reply(c, result)
     const file = `kds-${from}_${to}.${format}`
     c.header('Content-Disposition', `attachment; filename="${file}"`)
@@ -464,7 +498,7 @@ app.get(
 )
 
 app.get('/api/manager/staff', requireAdmin, async (c) =>
-  reply(c, await venueRoom(c.env).adminStaff({ kind: 'admin' })),
+  reply(c, await venueRoom(c).adminStaff({ kind: 'admin' })),
 )
 app.post(
   '/api/manager/staff',
@@ -473,7 +507,7 @@ app.post(
   async (c) =>
     reply(
       c,
-      await venueRoom(c.env).saveStaff(
+      await venueRoom(c).saveStaff(
         { kind: 'admin' },
         null,
         c.req.valid('json'),
@@ -488,7 +522,7 @@ app.put(
   async (c) =>
     reply(
       c,
-      await venueRoom(c.env).saveStaff(
+      await venueRoom(c).saveStaff(
         { kind: 'admin' },
         c.req.valid('param').id,
         c.req.valid('json'),
@@ -497,7 +531,7 @@ app.put(
 )
 
 app.post('/api/manager/service-day/open', requireAdmin, async (c) =>
-  reply(c, await venueRoom(c.env).openServiceDay({ kind: 'admin' })),
+  reply(c, await venueRoom(c).openServiceDay({ kind: 'admin' })),
 )
 
 app.post(
@@ -507,11 +541,117 @@ app.post(
   async (c) =>
     reply(
       c,
-      await venueRoom(c.env).closeServiceDay(
+      await venueRoom(c).closeServiceDay(
         { kind: 'admin' },
         c.req.valid('json').force,
       ),
     ),
+)
+
+// Super admin console (console.<base domain>): creates and manages every dapur.
+const slugParam = z.object({ slug: z.string().regex(SLUG_PATTERN) })
+const SUPER_LOGIN_WINDOW_MS = 15 * 60 * 1000
+
+app.post(
+  '/api/super/login',
+  invalidInput('json', z.object({ password: z.string().min(1).max(200) })),
+  async (c) => {
+    const key = `super-login:${await ipHash(c)}`
+    // Counted before checking, so a correct guess after the limit still fails.
+    if (!(await directory(c.env).allowAttempt(key, 5, SUPER_LOGIN_WINDOW_MS))) {
+      return c.json(
+        {
+          error: {
+            code: 'rate_limited',
+            message: 'Terlalu banyak percobaan. Tunggu 15 menit.',
+          },
+        },
+        429,
+      )
+    }
+    if (!(await isSuperPassword(c.env, c.req.valid('json').password))) {
+      return refuse(c, 401, 'Kata sandi salah.')
+    }
+    await setSuperSession(c)
+    return c.body(null, 204)
+  },
+)
+
+app.post('/api/super/logout', (c) => {
+  clearSuperSession(c)
+  return c.body(null, 204)
+})
+
+app.get('/api/super/session', requireSuper, (c) => c.body(null, 204))
+
+app.get('/api/super/venues', requireSuper, async (c) =>
+  c.json({ venues: await directory(c.env).list() }),
+)
+
+app.post(
+  '/api/super/venues',
+  requireSuper,
+  invalidInput('json', venueCreateSchema),
+  async (c) => {
+    const { slug, name, adminPassword } = c.req.valid('json')
+    const dir = directory(c.env)
+    if (!(await dir.add(slug, name))) {
+      return c.json(
+        {
+          error: {
+            code: 'operation_conflict',
+            message: 'Alamat ini sudah dipakai dapur lain.',
+          },
+        },
+        409,
+      )
+    }
+    const result = await c.env.VENUE_ROOM.getByName(roomFor(slug), {
+      locationHint: 'apac-se',
+    }).provision({ name, adminPassword })
+    if (!result.ok) {
+      await dir.remove(slug)
+      return reply(c, result)
+    }
+    return c.json({ slug, name }, 201)
+  },
+)
+
+/** The room of a dapur the directory knows, or null. */
+async function knownRoom(env: Env, slug: string) {
+  if (slug !== MAIN_SLUG && !(await directory(env).has(slug))) return null
+  return env.VENUE_ROOM.getByName(roomFor(slug))
+}
+
+app.put(
+  '/api/super/venues/:slug/password',
+  requireSuper,
+  invalidInput('param', slugParam),
+  invalidInput('json', z.object({ adminPassword: adminPasswordSchema })),
+  async (c) => {
+    const room = await knownRoom(c.env, c.req.valid('param').slug)
+    if (!room) return notFound(c)
+    return reply(
+      c,
+      await room.setAdminPassword(c.req.valid('json').adminPassword),
+    )
+  },
+)
+
+app.put(
+  '/api/super/venues/:slug/status',
+  requireSuper,
+  invalidInput('param', slugParam),
+  invalidInput('json', z.object({ disabled: z.boolean() })),
+  async (c) => {
+    const { slug } = c.req.valid('param')
+    const { disabled } = c.req.valid('json')
+    const room = await knownRoom(c.env, slug)
+    if (!room) return notFound(c)
+    const result = await room.setDisabled(disabled)
+    if (result.ok) await directory(c.env).setDisabled(slug, disabled)
+    return reply(c, result)
+  },
 )
 
 export default app

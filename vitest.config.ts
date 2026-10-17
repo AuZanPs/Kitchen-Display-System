@@ -10,6 +10,8 @@ export default defineConfig({
           ENVIRONMENT: 'development',
           ADMIN_PASSWORD: 'test-admin-password',
           SESSION_SECRET: 'test-session-secret-that-is-at-least-32-chars',
+          SUPER_ADMIN_PASSWORD: 'test-super-password',
+          BASE_HOST: 'layardapur.web.id',
         },
       },
     }),

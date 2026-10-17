@@ -24,7 +24,7 @@ export function room() {
 /** Same cookie the login route sets, signed with the test secret. */
 export async function adminHeaders(): Promise<HeaderMap> {
   const exp = Date.now() + 60 * 60 * 1000
-  const signature = await hmacHex(env.SESSION_SECRET, `admin.${exp}`)
+  const signature = await hmacHex(env.SESSION_SECRET, `admin.main.${exp}`)
   return { cookie: `kds_admin=${exp}.${signature}` }
 }
 

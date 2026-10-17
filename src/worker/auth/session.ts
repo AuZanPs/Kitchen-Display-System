@@ -6,8 +6,10 @@ import { hmacHex, safeEqual, sha256Hex } from './crypto'
 export const ADMIN_COOKIE = 'kds_admin'
 export const DEVICE_COOKIE = 'kds_device'
 export const STAFF_COOKIE = 'kds_staff'
+export const SUPER_COOKIE = 'kds_super'
 const ADMIN_TTL_S = 12 * 60 * 60
 const STAFF_TTL_S = 12 * 60 * 60
+const SUPER_TTL_S = 4 * 60 * 60
 const DEVICE_TTL_S = 400 * 24 * 60 * 60 // browsers cap cookie lifetime at 400 days
 const DEVICE_TOKEN = /^main\.([0-9a-f-]{36})\.([0-9a-f]{64})$/
 // Short secrets would make the session signature guessable.
@@ -31,21 +33,27 @@ function sessionSecret(env: Env): string | null {
   return secret && secret.length >= MIN_SECRET_LENGTH ? secret : null
 }
 
-/** Constant-time password check; false when no password is configured. */
-export async function isAdminPassword(env: Env, candidate: string) {
-  if (!env.ADMIN_PASSWORD || !sessionSecret(env)) return false
+/** Without a long enough SESSION_SECRET nobody can sign in anywhere. */
+export function canSignSessions(env: Env) {
+  return sessionSecret(env) !== null
+}
+
+/** Constant-time super admin password check; false when none is configured. */
+export async function isSuperPassword(env: Env, candidate: string) {
+  if (!env.SUPER_ADMIN_PASSWORD || !sessionSecret(env)) return false
   const [a, b] = await Promise.all([
     sha256Hex(candidate),
-    sha256Hex(env.ADMIN_PASSWORD),
+    sha256Hex(env.SUPER_ADMIN_PASSWORD),
   ])
   return safeEqual(a, b)
 }
 
-export async function setAdminSession(c: Ctx) {
+/** The admin cookie names its dapur, so it never works at another one. */
+export async function setAdminSession(c: Ctx, room: string) {
   const secret = sessionSecret(c.env)
   if (!secret) throw new Error('SESSION_SECRET is not configured')
   const exp = Date.now() + ADMIN_TTL_S * 1000
-  const signature = await hmacHex(secret, `admin.${exp}`)
+  const signature = await hmacHex(secret, `admin.${room}.${exp}`)
   setCookie(
     c,
     ADMIN_COOKIE,
@@ -58,13 +66,37 @@ export function clearAdminSession(c: Ctx) {
   deleteCookie(c, ADMIN_COOKIE, { path: '/' })
 }
 
-export async function hasAdminSession(c: Ctx): Promise<boolean> {
+export async function hasAdminSession(c: Ctx, room: string): Promise<boolean> {
   const secret = sessionSecret(c.env)
   const value = getCookie(c, ADMIN_COOKIE)
   if (!secret || !value) return false
   const [exp, signature] = value.split('.')
   if (!exp || !signature || !(Number(exp) > Date.now())) return false
-  return safeEqual(signature, await hmacHex(secret, `admin.${exp}`))
+  return safeEqual(signature, await hmacHex(secret, `admin.${room}.${exp}`))
+}
+
+export async function setSuperSession(c: Ctx) {
+  const secret = sessionSecret(c.env)
+  if (!secret) throw new Error('SESSION_SECRET is not configured')
+  const exp = Date.now() + SUPER_TTL_S * 1000
+  const signature = await hmacHex(secret, `super.${exp}`)
+  setCookie(c, SUPER_COOKIE, `${exp}.${signature}`, {
+    ...cookieOptions(c, SUPER_TTL_S),
+    sameSite: 'Strict',
+  })
+}
+
+export function clearSuperSession(c: Ctx) {
+  deleteCookie(c, SUPER_COOKIE, { path: '/' })
+}
+
+export async function hasSuperSession(c: Ctx): Promise<boolean> {
+  const secret = sessionSecret(c.env)
+  const value = getCookie(c, SUPER_COOKIE)
+  if (!secret || !value || !c.env.SUPER_ADMIN_PASSWORD) return false
+  const [exp, signature] = value.split('.')
+  if (!exp || !signature || !(Number(exp) > Date.now())) return false
+  return safeEqual(signature, await hmacHex(secret, `super.${exp}`))
 }
 
 export function setDeviceCookie(c: Ctx, token: string) {
@@ -128,10 +160,10 @@ async function deviceCredentials(c: Ctx): Promise<Credentials> {
  * Device pages act as the device even in a browser that is also logged in
  * as admin, so a TV tab on the admin's laptop still reports as a TV.
  */
-export async function credentials(c: Ctx): Promise<Credentials> {
+export async function credentials(c: Ctx, room: string): Promise<Credentials> {
   const device = await deviceCredentials(c)
   if (device.kind === 'device') return device
-  return (await hasAdminSession(c)) ? { kind: 'admin' } : { kind: 'none' }
+  return (await hasAdminSession(c, room)) ? { kind: 'admin' } : { kind: 'none' }
 }
 
 /** Hashed so raw client addresses never reach storage. */

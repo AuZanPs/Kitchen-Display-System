@@ -3,3 +3,7 @@ ENVIRONMENT=development
 ADMIN_PASSWORD=change-me
 # At least 32 random characters; signs the admin cookie.
 SESSION_SECRET=replace-with-64-hex-chars-from-openssl-rand-hex-32
+# Super admin console at console.<BASE_HOST>. Production: wrangler secret put SUPER_ADMIN_PASSWORD
+SUPER_ADMIN_PASSWORD=change-me-too
+# Locally each dapur lives at <slug>.localhost:5173 and the console at console.localhost:5173.
+BASE_HOST=localhost
