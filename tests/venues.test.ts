@@ -415,12 +415,24 @@ describe('owner sign-in on the site', () => {
     // A sign-in starts on a later millisecond than the one before it.
     await new Promise((r) => setTimeout(r, 5))
     const laptop = cookieOf((await signIn('keluar@contoh.id')).verify)
+    // A pass opened just before signing out everywhere must die with it.
+    const pending = await call(SITE, '/api/site/handoff', {
+      headers: { cookie: laptop },
+      body: { slug: 'semua' },
+    })
+    const pass =
+      ((await pending.json()) as { url: string }).url.split('#handoff=')[1] ??
+      ''
     await new Promise((r) => setTimeout(r, 5))
     const out = await call(SITE, '/api/site/logout-everywhere', {
       method: 'POST',
       headers: { cookie: laptop },
     })
     expect(out.status).toBe(204)
+    const late = await call(`https://semua.${BASE}`, '/api/admin/handoff', {
+      body: { token: pass },
+    })
+    expect(late.status, 'an earlier pass stops working').toBe(401)
     for (const cookie of [phone, laptop]) {
       const session = await call(SITE, '/api/site/session', {
         headers: { cookie },

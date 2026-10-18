@@ -156,8 +156,9 @@ export class Directory extends DurableObject<Env> {
     return this.sessionValid(email, issuedAt) ? this.venuesOf(email) : null
   }
 
-  /** Ends every site sign-in of this owner, on every browser. */
+  /** Ends every site sign-in of this owner, on every browser, and every link not yet used. */
   signOutOwner(email: string) {
+    this.sql.exec('DELETE FROM tokens WHERE email = ?', email)
     this.sql.exec(
       'INSERT OR REPLACE INTO owners (email, valid_after) VALUES (?, ?)',
       email,
@@ -214,10 +215,7 @@ export class Directory extends DurableObject<Env> {
         email,
         slug,
       )
-      if (old && old !== email) {
-        this.sql.exec('DELETE FROM tokens WHERE email = ?', old)
-        this.signOutOwner(old)
-      }
+      if (old && old !== email) this.signOutOwner(old)
     })
   }
 
