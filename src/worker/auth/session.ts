@@ -115,12 +115,13 @@ export async function hasSuperSession(c: Ctx): Promise<boolean> {
 export async function setOwnerSession(c: Ctx, email: string) {
   const secret = sessionSecret(c.env)
   if (!secret) throw new Error('SESSION_SECRET is not configured')
-  const exp = Date.now() + OWNER_TTL_S * 1000
-  const signature = await hmacHex(secret, `owner.${email}.${exp}`)
+  const iat = Date.now()
+  const exp = iat + OWNER_TTL_S * 1000
+  const signature = await hmacHex(secret, `owner.${email}.${iat}.${exp}`)
   setCookie(
     c,
     OWNER_COOKIE,
-    `${encodeEmail(email)}.${exp}.${signature}`,
+    `${encodeEmail(email)}.${iat}.${exp}.${signature}`,
     cookieOptions(c, OWNER_TTL_S),
   )
 }
@@ -137,16 +138,17 @@ export async function ownerSession(
   c: Ctx,
 ): Promise<{ email: string; issuedAt: number } | null> {
   const secret = sessionSecret(c.env)
-  const [encoded, exp, signature] = (getCookie(c, OWNER_COOKIE) ?? '').split(
-    '.',
-  )
-  if (!secret || !encoded || !exp || !signature) return null
+  const [encoded, iat, exp, signature] = (
+    getCookie(c, OWNER_COOKIE) ?? ''
+  ).split('.')
+  if (!secret || !encoded || !iat || !exp || !signature) return null
   if (!(Number(exp) > Date.now())) return null
   const email = decodeEmail(encoded)
   if (!email) return null
-  const expected = await hmacHex(secret, `owner.${email}.${exp}`)
+  // The issue time is signed, never worked out from the lifetime.
+  const expected = await hmacHex(secret, `owner.${email}.${iat}.${exp}`)
   if (!safeEqual(signature, expected)) return null
-  return { email, issuedAt: Number(exp) - OWNER_TTL_S * 1000 }
+  return { email, issuedAt: Number(iat) }
 }
 
 // Emails contain dots, the cookie's separator; base64url has none.
