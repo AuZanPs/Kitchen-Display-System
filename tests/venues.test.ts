@@ -3,6 +3,7 @@ import { env, exports } from 'cloudflare:workers'
 import { describe, expect, it } from 'vitest'
 import { placeFromHost, suggestSlug } from '../src/shared/venue'
 import { clientNetwork } from '../src/worker/auth/session'
+import { migrateDirectory } from '../src/worker/directory'
 import { freshIp } from './helpers'
 
 const BASE = 'layardapur.web.id'
@@ -474,5 +475,57 @@ describe('owner sign-in on the site', () => {
   it('keeps site routes on the bare domain only', async () => {
     const res = await call(`https://dapurku.${BASE}`, '/api/site/session')
     expect(res.status).toBe(404)
+  })
+})
+
+describe('directory migrations', () => {
+  it('upgrades the directory as it was first deployed', async () => {
+    await runInDurableObject(
+      env.DIRECTORY.getByName('upgrade-test'),
+      (_, state) => {
+        const sql = state.storage.sql
+        // Back to the first deployed shape: no owners, the pilot listed as `main`.
+        for (const table of [
+          'schema_version',
+          'venues',
+          'attempts',
+          'owners',
+          'tokens',
+        ]) {
+          sql.exec(`DROP TABLE IF EXISTS ${table}`)
+        }
+        sql.exec(
+          'CREATE TABLE venues (slug TEXT PRIMARY KEY, name TEXT NOT NULL, created_at INTEGER NOT NULL, disabled INTEGER NOT NULL DEFAULT 0)',
+        )
+        sql.exec(
+          'CREATE TABLE attempts (key TEXT PRIMARY KEY, window_start INTEGER NOT NULL, count INTEGER NOT NULL)',
+        )
+        sql.exec("INSERT INTO venues VALUES ('main', 'Dapur utama', 0, 0)")
+        sql.exec("INSERT INTO venues VALUES ('warung', 'Warung', 5, 1)")
+
+        migrateDirectory(state.storage)
+        migrateDirectory(state.storage)
+
+        expect(
+          sql
+            .exec(
+              'SELECT slug, name, disabled, owner_email FROM venues ORDER BY slug',
+            )
+            .toArray(),
+        ).toEqual([
+          { slug: 'dapurku', name: 'Dapurku', disabled: 0, owner_email: null },
+          { slug: 'warung', name: 'Warung', disabled: 1, owner_email: null },
+        ])
+        const indexes = sql
+          .exec(
+            "SELECT name FROM sqlite_master WHERE type = 'index' AND name NOT LIKE 'sqlite_%'",
+          )
+          .toArray()
+          .map((r) => r.name)
+        expect(indexes).toEqual(
+          expect.arrayContaining(['venues_owner_email', 'tokens_email']),
+        )
+      },
+    )
   })
 })

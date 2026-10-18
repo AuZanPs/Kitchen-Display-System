@@ -42,6 +42,7 @@ import {
 import { approveSchema, type Credentials, pollSchema } from './devices'
 import { sendSignInLink } from './email'
 import { toCsv } from './history'
+import { logEvent } from './log'
 import type { Result } from './orders'
 
 export { Directory } from './directory'
@@ -207,7 +208,12 @@ app.use(
 
 // An unexpected failure answers without internals; only its name reaches the logs.
 app.onError((err, c) => {
-  console.error('unhandled', err.name)
+  logEvent('error', 'unhandled', {
+    error: err.name,
+    method: c.req.method,
+    path: new URL(c.req.url).pathname,
+    ray: c.req.header('cf-ray') ?? null,
+  })
   return c.json(
     { error: { code: 'internal', message: 'Terjadi kesalahan. Coba lagi.' } },
     500,
@@ -634,7 +640,7 @@ app.post(
     // body are the same whether or not the email owns a dapur.
     c.executionCtx.waitUntil(
       issueAndSend().catch((err: Error) =>
-        console.error('sign-in email failed', err.name),
+        logEvent('error', 'sign_in_email_failed', { error: err.name }),
       ),
     )
     return c.json({})

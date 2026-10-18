@@ -3,6 +3,67 @@ import { FIRST_SLUG, type Venue } from '../shared/venue'
 
 type TokenKind = 'login' | 'handoff'
 
+/** Append only: each step runs once per Directory, in order. */
+const MIGRATIONS: ((sql: SqlStorage) => void)[] = [
+  (sql) =>
+    sql.exec(`
+      CREATE TABLE IF NOT EXISTS venues (
+        slug TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        disabled INTEGER NOT NULL DEFAULT 0 CHECK (disabled IN (0, 1))
+      );
+      CREATE TABLE IF NOT EXISTS attempts (
+        key TEXT PRIMARY KEY,
+        window_start INTEGER NOT NULL,
+        count INTEGER NOT NULL
+      );
+    `),
+  (sql) => {
+    // Stores made before versioning may already have the column.
+    const columns = sql
+      .exec<{ name: string }>('PRAGMA table_info(venues)')
+      .toArray()
+    if (!columns.some((c) => c.name === 'owner_email')) {
+      sql.exec('ALTER TABLE venues ADD COLUMN owner_email TEXT')
+    }
+  },
+  (sql) =>
+    sql.exec(`
+      CREATE TABLE IF NOT EXISTS owners (
+        email TEXT PRIMARY KEY,
+        valid_after INTEGER NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS tokens (
+        hash TEXT PRIMARY KEY,
+        kind TEXT NOT NULL CHECK (kind IN ('login', 'handoff')),
+        email TEXT NOT NULL,
+        slug TEXT,
+        expires_at INTEGER NOT NULL
+      );
+    `),
+  // The pilot's dapur was listed as `main` on the bare domain; it is now one
+  // dapur among others, at its own address.
+  (sql) => {
+    sql.exec(
+      "UPDATE venues SET slug = ?, name = CASE name WHEN 'Dapur utama' THEN 'Dapurku' ELSE name END WHERE slug = 'main'",
+      FIRST_SLUG,
+    )
+    sql.exec(
+      "INSERT OR IGNORE INTO venues (slug, name, created_at) VALUES (?, 'Dapurku', 0)",
+      FIRST_SLUG,
+    )
+  },
+  // Every lookup outside the primary keys: owners, token cleanup, old counters.
+  (sql) =>
+    sql.exec(`
+      CREATE INDEX IF NOT EXISTS venues_owner_email ON venues (owner_email);
+      CREATE INDEX IF NOT EXISTS tokens_email ON tokens (email);
+      CREATE INDEX IF NOT EXISTS tokens_expires_at ON tokens (expires_at);
+      CREATE INDEX IF NOT EXISTS attempts_window_start ON attempts (window_start);
+    `),
+]
+
 /**
  * The list of dapur, their owners' emails and one-time sign-in tokens. Each
  * dapur's data lives in its own VenueRoom; this holds no orders or menus.
@@ -13,46 +74,7 @@ export class Directory extends DurableObject<Env> {
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env)
     this.sql = ctx.storage.sql
-    this.sql.exec(`
-      CREATE TABLE IF NOT EXISTS venues (
-        slug TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        created_at INTEGER NOT NULL,
-        disabled INTEGER NOT NULL DEFAULT 0
-      );
-      CREATE TABLE IF NOT EXISTS attempts (
-        key TEXT PRIMARY KEY,
-        window_start INTEGER NOT NULL,
-        count INTEGER NOT NULL
-      );
-      CREATE TABLE IF NOT EXISTS owners (
-        email TEXT PRIMARY KEY,
-        valid_after INTEGER NOT NULL
-      );
-      CREATE TABLE IF NOT EXISTS tokens (
-        hash TEXT PRIMARY KEY,
-        kind TEXT NOT NULL,
-        email TEXT NOT NULL,
-        slug TEXT,
-        expires_at INTEGER NOT NULL
-      );
-    `)
-    const columns = this.sql
-      .exec<{ name: string }>('PRAGMA table_info(venues)')
-      .toArray()
-    if (!columns.some((c) => c.name === 'owner_email')) {
-      this.sql.exec('ALTER TABLE venues ADD COLUMN owner_email TEXT')
-    }
-    // The pilot's dapur was listed as `main` on the bare domain; it is now one
-    // dapur among others, at its own address.
-    this.sql.exec(
-      "UPDATE venues SET slug = ?, name = CASE name WHEN 'Dapur utama' THEN 'Dapurku' ELSE name END WHERE slug = 'main'",
-      FIRST_SLUG,
-    )
-    this.sql.exec(
-      "INSERT OR IGNORE INTO venues (slug, name, created_at) VALUES (?, 'Dapurku', 0)",
-      FIRST_SLUG,
-    )
+    migrateDirectory(ctx.storage)
   }
 
   /** Fixed-window counter; true while `key` is under `limit`. */
@@ -85,6 +107,12 @@ export class Directory extends DurableObject<Env> {
   }
 
   list(): Venue[] {
+    return this.rows(
+      'SELECT slug, name, created_at, disabled, owner_email FROM venues ORDER BY created_at',
+    )
+  }
+
+  private rows(query: string, ...params: string[]): Venue[] {
     return this.sql
       .exec<{
         slug: string
@@ -92,9 +120,7 @@ export class Directory extends DurableObject<Env> {
         created_at: number
         disabled: number
         owner_email: string | null
-      }>(
-        'SELECT slug, name, created_at, disabled, owner_email FROM venues ORDER BY created_at',
-      )
+      }>(query, ...params)
       .toArray()
       .map((row) => ({
         slug: row.slug,
@@ -107,7 +133,10 @@ export class Directory extends DurableObject<Env> {
 
   /** The dapur an owner email can open. */
   venuesOf(email: string): Venue[] {
-    return this.list().filter((v) => v.ownerEmail === email)
+    return this.rows(
+      'SELECT slug, name, created_at, disabled, owner_email FROM venues WHERE owner_email = ? ORDER BY created_at',
+      email,
+    )
   }
 
   /** False when the owner signed out everywhere (or lost a dapur) after `issuedAt`. */
@@ -244,4 +273,25 @@ export class Directory extends DurableObject<Env> {
       return row.email
     })
   }
+}
+
+/** Runs each migration step once, in order; the step count is stored with the data. */
+export function migrateDirectory(storage: DurableObjectStorage) {
+  const sql = storage.sql
+  sql.exec(
+    'CREATE TABLE IF NOT EXISTS schema_version (id INTEGER PRIMARY KEY CHECK (id = 1), version INTEGER NOT NULL)',
+  )
+  const done =
+    sql
+      .exec<{ version: number }>('SELECT version FROM schema_version')
+      .toArray()[0]?.version ?? 0
+  MIGRATIONS.slice(done).forEach((step, index) => {
+    storage.transactionSync(() => {
+      step(sql)
+      sql.exec(
+        'INSERT OR REPLACE INTO schema_version (id, version) VALUES (1, ?)',
+        done + index + 1,
+      )
+    })
+  })
 }
