@@ -1,9 +1,11 @@
 import { DurableObject } from 'cloudflare:workers'
-import { MAIN_SLUG, type Venue } from '../shared/venue'
+import { FIRST_SLUG, type Venue } from '../shared/venue'
+
+type TokenKind = 'login' | 'handoff'
 
 /**
- * The list of dapur the super admin manages. Each dapur's data lives in its
- * own VenueRoom; this only holds names, status and console sign-in limits.
+ * The list of dapur, their owners' emails and one-time sign-in tokens. Each
+ * dapur's data lives in its own VenueRoom; this holds no orders or menus.
  */
 export class Directory extends DurableObject<Env> {
   private sql: SqlStorage
@@ -23,20 +25,42 @@ export class Directory extends DurableObject<Env> {
         window_start INTEGER NOT NULL,
         count INTEGER NOT NULL
       );
-      INSERT OR IGNORE INTO venues (slug, name, created_at)
-        VALUES ('${MAIN_SLUG}', 'Dapur utama', 0);
+      CREATE TABLE IF NOT EXISTS tokens (
+        hash TEXT PRIMARY KEY,
+        kind TEXT NOT NULL,
+        email TEXT NOT NULL,
+        slug TEXT,
+        expires_at INTEGER NOT NULL
+      );
     `)
+    const columns = this.sql
+      .exec<{ name: string }>('PRAGMA table_info(venues)')
+      .toArray()
+    if (!columns.some((c) => c.name === 'owner_email')) {
+      this.sql.exec('ALTER TABLE venues ADD COLUMN owner_email TEXT')
+    }
+    // The pilot's dapur was listed as `main` on the bare domain; it is now one
+    // dapur among others, at its own address.
+    this.sql.exec(
+      "UPDATE venues SET slug = ?, name = CASE name WHEN 'Dapur utama' THEN 'Dapurku' ELSE name END WHERE slug = 'main'",
+      FIRST_SLUG,
+    )
+    this.sql.exec(
+      "INSERT OR IGNORE INTO venues (slug, name, created_at) VALUES (?, 'Dapurku', 0)",
+      FIRST_SLUG,
+    )
   }
 
   /** Fixed-window counter; true while `key` is under `limit`. */
   allowAttempt(key: string, limit: number, windowMs: number): boolean {
     const now = Date.now()
     return this.ctx.storage.transactionSync(() => {
-      // Old counters go first so the table never grows.
+      // Old counters and spent tokens go first so the tables never grow.
       this.sql.exec(
         'DELETE FROM attempts WHERE window_start < ?',
         now - 24 * 60 * 60 * 1000,
       )
+      this.sql.exec('DELETE FROM tokens WHERE expires_at < ?', now)
       const row = this.sql
         .exec<{ window_start: number; count: number }>(
           'SELECT window_start, count FROM attempts WHERE key = ?',
@@ -63,8 +87,9 @@ export class Directory extends DurableObject<Env> {
         name: string
         created_at: number
         disabled: number
+        owner_email: string | null
       }>(
-        'SELECT slug, name, created_at, disabled FROM venues ORDER BY created_at',
+        'SELECT slug, name, created_at, disabled, owner_email FROM venues ORDER BY created_at',
       )
       .toArray()
       .map((row) => ({
@@ -72,20 +97,27 @@ export class Directory extends DurableObject<Env> {
         name: row.name,
         createdAt: row.created_at,
         disabled: row.disabled === 1,
+        ownerEmail: row.owner_email,
       }))
   }
 
+  /** The dapur an owner email can open. */
+  venuesOf(email: string): Venue[] {
+    return this.list().filter((v) => v.ownerEmail === email)
+  }
+
   /** False when the address is already taken. */
-  add(slug: string, name: string): boolean {
+  add(slug: string, name: string, ownerEmail: string | null): boolean {
     const taken = this.sql
       .exec('SELECT 1 FROM venues WHERE slug = ?', slug)
       .toArray().length
     if (taken) return false
     this.sql.exec(
-      'INSERT INTO venues (slug, name, created_at) VALUES (?, ?, ?)',
+      'INSERT INTO venues (slug, name, created_at, owner_email) VALUES (?, ?, ?, ?)',
       slug,
       name,
       Date.now(),
+      ownerEmail,
     )
     return true
   }
@@ -107,5 +139,68 @@ export class Directory extends DurableObject<Env> {
       disabled ? 1 : 0,
       slug,
     )
+  }
+
+  /** A new owner signs in from now on; links the old owner was sent stop working. */
+  setOwner(slug: string, email: string | null) {
+    this.ctx.storage.transactionSync(() => {
+      const old = this.sql
+        .exec<{ owner_email: string | null }>(
+          'SELECT owner_email FROM venues WHERE slug = ?',
+          slug,
+        )
+        .toArray()[0]?.owner_email
+      this.sql.exec(
+        'UPDATE venues SET owner_email = ? WHERE slug = ?',
+        email,
+        slug,
+      )
+      if (old) this.sql.exec('DELETE FROM tokens WHERE email = ?', old)
+    })
+  }
+
+  /**
+   * Stores a one-time token (only its hash). A sign-in token needs an owner
+   * with at least one dapur; a handoff token needs that owner's own dapur.
+   */
+  issueToken(
+    kind: TokenKind,
+    hash: string,
+    email: string,
+    slug: string | null,
+    ttlMs: number,
+  ): boolean {
+    const owned = this.venuesOf(email)
+    const allowed =
+      kind === 'login'
+        ? owned.length > 0
+        : owned.some((v) => v.slug === slug && !v.disabled)
+    if (!allowed) return false
+    this.sql.exec(
+      'INSERT INTO tokens (hash, kind, email, slug, expires_at) VALUES (?, ?, ?, ?, ?)',
+      hash,
+      kind,
+      email,
+      slug,
+      Date.now() + ttlMs,
+    )
+    return true
+  }
+
+  /** Spends a token once; its email, or null when unknown, used, expired or for another dapur. */
+  takeToken(kind: TokenKind, hash: string, slug: string | null): string | null {
+    return this.ctx.storage.transactionSync(() => {
+      const row = this.sql
+        .exec<{ email: string; slug: string | null; expires_at: number }>(
+          'SELECT email, slug, expires_at FROM tokens WHERE hash = ? AND kind = ?',
+          hash,
+          kind,
+        )
+        .toArray()[0]
+      if (!row) return null
+      this.sql.exec('DELETE FROM tokens WHERE hash = ?', hash)
+      if (row.expires_at < Date.now() || row.slug !== slug) return null
+      return row.email
+    })
   }
 }

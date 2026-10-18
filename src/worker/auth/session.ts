@@ -7,9 +7,11 @@ export const ADMIN_COOKIE = 'kds_admin'
 export const DEVICE_COOKIE = 'kds_device'
 export const STAFF_COOKIE = 'kds_staff'
 export const SUPER_COOKIE = 'kds_super'
+export const OWNER_COOKIE = 'kds_owner'
 const ADMIN_TTL_S = 12 * 60 * 60
 const STAFF_TTL_S = 12 * 60 * 60
 const SUPER_TTL_S = 4 * 60 * 60
+const OWNER_TTL_S = 30 * 24 * 60 * 60
 const DEVICE_TTL_S = 400 * 24 * 60 * 60 // browsers cap cookie lifetime at 400 days
 const DEVICE_TOKEN = /^main\.([0-9a-f-]{36})\.([0-9a-f]{64})$/
 // Short secrets would make the session signature guessable.
@@ -107,6 +109,54 @@ export async function hasSuperSession(c: Ctx): Promise<boolean> {
   const [exp, signature] = value.split('.')
   if (!exp || !signature || !(Number(exp) > Date.now())) return false
   return safeEqual(signature, await hmacHex(secret, `super.${exp}`))
+}
+
+/** An owner signed in on the site (bare domain) with an emailed link. */
+export async function setOwnerSession(c: Ctx, email: string) {
+  const secret = sessionSecret(c.env)
+  if (!secret) throw new Error('SESSION_SECRET is not configured')
+  const exp = Date.now() + OWNER_TTL_S * 1000
+  const signature = await hmacHex(secret, `owner.${email}.${exp}`)
+  setCookie(
+    c,
+    OWNER_COOKIE,
+    `${encodeEmail(email)}.${exp}.${signature}`,
+    cookieOptions(c, OWNER_TTL_S),
+  )
+}
+
+export function clearOwnerSession(c: Ctx) {
+  deleteCookie(c, OWNER_COOKIE, { path: '/' })
+}
+
+/** The signed-in owner's email, or null. */
+export async function ownerEmail(c: Ctx): Promise<string | null> {
+  const secret = sessionSecret(c.env)
+  const [encoded, exp, signature] = (getCookie(c, OWNER_COOKIE) ?? '').split(
+    '.',
+  )
+  if (!secret || !encoded || !exp || !signature) return null
+  if (!(Number(exp) > Date.now())) return null
+  const email = decodeEmail(encoded)
+  if (!email) return null
+  const expected = await hmacHex(secret, `owner.${email}.${exp}`)
+  return safeEqual(signature, expected) ? email : null
+}
+
+// Emails contain dots, the cookie's separator; base64url has none.
+function encodeEmail(email: string) {
+  return btoa(email)
+    .replaceAll('+', '-')
+    .replaceAll('/', '_')
+    .replaceAll('=', '')
+}
+
+function decodeEmail(encoded: string): string | null {
+  try {
+    return atob(encoded.replaceAll('-', '+').replaceAll('_', '/'))
+  } catch {
+    return null
+  }
 }
 
 export function setDeviceCookie(c: Ctx, token: string) {

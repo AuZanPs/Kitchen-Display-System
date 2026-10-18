@@ -18,8 +18,10 @@
     { "tag": "v2", "new_sqlite_classes": ["Directory"] }
   ],
   "vars": {
-    "BASE_HOST": "layardapur.web.id"
+    "BASE_HOST": "layardapur.web.id",
+    "EMAIL_FROM": "masuk@layardapur.web.id"
   },
+  "send_email": [{ "name": "EMAIL" }],
   "observability": {
     "enabled": true
   }

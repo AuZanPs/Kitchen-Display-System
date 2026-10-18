@@ -3,7 +3,7 @@ import { z } from 'zod'
 /** The address part before the base domain: `warungbudi` in warungbudi.layardapur.web.id. */
 export const SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,28}[a-z0-9])?$/
 
-/** Hosts the platform keeps for itself; `main` is the original dapur on the bare domain. */
+/** Hosts the platform keeps for itself. */
 export const RESERVED_SLUGS: ReadonlySet<string> = new Set([
   'admin',
   'api',
@@ -15,7 +15,9 @@ export const RESERVED_SLUGS: ReadonlySet<string> = new Set([
   'www',
 ])
 
-export const MAIN_SLUG = 'main'
+/** The first dapur; its data lives in the room the pilot started with. */
+export const FIRST_SLUG = 'dapurku'
+const FIRST_ROOM = 'main'
 
 export const venueSlugSchema = z
   .string()
@@ -24,10 +26,16 @@ export const venueSlugSchema = z
 
 export const adminPasswordSchema = z.string().min(8).max(200)
 
+export const ownerEmailSchema = z
+  .email()
+  .max(200)
+  .transform((e) => e.toLowerCase())
+
 export const venueCreateSchema = z.object({
   slug: venueSlugSchema,
   name: z.string().trim().min(1).max(60),
   adminPassword: adminPasswordSchema,
+  ownerEmail: ownerEmailSchema.optional(),
 })
 export type VenueCreate = z.infer<typeof venueCreateSchema>
 
@@ -36,6 +44,7 @@ export const venueSchema = z.object({
   name: z.string(),
   createdAt: z.number(),
   disabled: z.boolean(),
+  ownerEmail: z.string().nullable(),
 })
 export type Venue = z.infer<typeof venueSchema>
 
@@ -54,27 +63,30 @@ export function suggestSlug(name: string) {
 }
 
 export type Place =
+  | { kind: 'site' }
   | { kind: 'venue'; slug: string; room: string }
   | { kind: 'console' }
   | { kind: 'unknown' }
 
-/** Room name for a dapur; the original dapur keeps its old room. */
+/** Room name for a dapur; the first dapur keeps the pilot's room and data. */
 export function roomFor(slug: string) {
-  return slug === MAIN_SLUG ? MAIN_SLUG : `venue:${slug}`
+  return slug === FIRST_SLUG ? FIRST_ROOM : `venue:${slug}`
 }
 
 /**
- * Which dapur (or the console) a hostname belongs to. Hosts outside the base
- * domain (workers.dev, localhost, tests) stay on the original dapur.
+ * What a hostname is: the public site (bare domain), the console, or one
+ * dapur. Hosts outside the base domain (workers.dev, a LAN address, tests)
+ * reach the first dapur, so its older addresses keep working.
  */
 export function placeFromHost(
   hostname: string,
   base: string | undefined,
 ): Place {
   const host = hostname.toLowerCase()
-  const main: Place = { kind: 'venue', slug: MAIN_SLUG, room: MAIN_SLUG }
-  if (!base || host === base || host === `www.${base}`) return main
-  if (!host.endsWith(`.${base}`)) return main
+  if (base && (host === base || host === `www.${base}`)) return { kind: 'site' }
+  if (!base || !host.endsWith(`.${base}`)) {
+    return { kind: 'venue', slug: FIRST_SLUG, room: FIRST_ROOM }
+  }
   const label = host.slice(0, -(base.length + 1))
   if (label === 'console') return { kind: 'console' }
   if (!SLUG_PATTERN.test(label) || RESERVED_SLUGS.has(label)) {

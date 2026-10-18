@@ -45,10 +45,14 @@ async function superCookie() {
 }
 
 /** Creates a dapur through the console and returns its origin. */
-async function createVenue(slug: string, adminPassword = `${slug}-password`) {
+async function createVenue(
+  slug: string,
+  adminPassword = `${slug}-password`,
+  ownerEmail?: string,
+) {
   const res = await call(CONSOLE, '/api/super/venues', {
     headers: { cookie: await superCookie() },
-    body: { slug, name: `Dapur ${slug}`, adminPassword },
+    body: { slug, name: `Dapur ${slug}`, adminPassword, ownerEmail },
   })
   expect(res.status).toBe(201)
   return `https://${slug}.${BASE}`
@@ -62,13 +66,14 @@ async function adminLogin(origin: string, password: string) {
 }
 
 describe('placeFromHost', () => {
-  it('maps hosts to a dapur, the console or nothing', () => {
-    expect(placeFromHost(BASE, BASE)).toEqual({
+  it('maps hosts to the site, a dapur, the console or nothing', () => {
+    expect(placeFromHost(BASE, BASE)).toEqual({ kind: 'site' })
+    expect(placeFromHost(`www.${BASE}`, BASE)).toEqual({ kind: 'site' })
+    expect(placeFromHost(`dapurku.${BASE}`, BASE)).toEqual({
       kind: 'venue',
-      slug: 'main',
+      slug: 'dapurku',
       room: 'main',
     })
-    expect(placeFromHost(`www.${BASE}`, BASE)).toMatchObject({ room: 'main' })
     expect(placeFromHost('kds.mauzanps.workers.dev', BASE)).toMatchObject({
       room: 'main',
     })
@@ -138,7 +143,7 @@ describe('dapur isolation', () => {
     const a = await createVenue('dapur-a')
     const b = await createVenue('dapur-b')
     const cookie = cookieOf(await adminLogin(a, 'dapur-a-password'))
-    for (const origin of [b, `https://${BASE}`]) {
+    for (const origin of [b, `https://dapurku.${BASE}`]) {
       const res = await call(origin, '/api/admin/session', {
         headers: { cookie },
       })
@@ -214,7 +219,7 @@ describe('super admin', () => {
     })
     const { venues } = (await res.json()) as { venues: { slug: string }[] }
     expect(venues.map((v) => v.slug)).toEqual(
-      expect.arrayContaining(['main', 'daftar']),
+      expect.arrayContaining(['dapurku', 'daftar']),
     )
   })
 
@@ -291,6 +296,109 @@ describe('super admin', () => {
       headers: { cookie: await superCookie() },
       body: { disabled: true },
     })
+    expect(res.status).toBe(404)
+  })
+})
+
+describe('owner sign-in on the site', () => {
+  const SITE = `https://${BASE}`
+
+  async function signIn(email: string) {
+    const start = await call(SITE, '/api/site/login/start', {
+      body: { email },
+      headers: freshIp(),
+    })
+    expect(start.status).toBe(200)
+    const { devLink } = (await start.json()) as { devLink?: string }
+    const token = devLink?.split('#token=')[1] ?? ''
+    const verify = await call(SITE, '/api/site/login/verify', {
+      body: { token },
+      headers: freshIp(),
+    })
+    return { token, verify }
+  }
+
+  it('signs an owner in with a one-time link and opens their dapur', async () => {
+    const origin = await createVenue(
+      'milik',
+      'milik-password',
+      'Pemilik@Contoh.id',
+    )
+    const { token, verify } = await signIn('pemilik@contoh.id')
+    expect(verify.status).toBe(204)
+    const owner = cookieOf(verify)
+
+    const again = await call(SITE, '/api/site/login/verify', {
+      body: { token },
+      headers: freshIp(),
+    })
+    expect(again.status, 'a link works once').toBe(401)
+
+    const account = await call(SITE, '/api/site/session', {
+      headers: { cookie: owner },
+    })
+    expect(await account.json()).toEqual({
+      email: 'pemilik@contoh.id',
+      venues: [{ slug: 'milik', name: 'Dapur milik', disabled: false }],
+    })
+
+    const handoff = await call(SITE, '/api/site/handoff', {
+      headers: { cookie: owner },
+      body: { slug: 'milik' },
+    })
+    const { url } = (await handoff.json()) as { url: string }
+    expect(url.startsWith(`https://milik.${BASE}/admin#handoff=`)).toBe(true)
+    const pass = url.split('#handoff=')[1] ?? ''
+
+    // A pass for one dapur is useless at another.
+    const elsewhere = await call(
+      `https://dapurku.${BASE}`,
+      '/api/admin/handoff',
+      {
+        body: { token: pass },
+      },
+    )
+    expect(elsewhere.status).toBe(401)
+
+    const handoff2 = await call(SITE, '/api/site/handoff', {
+      headers: { cookie: owner },
+      body: { slug: 'milik' },
+    })
+    const pass2 =
+      ((await handoff2.json()) as { url: string }).url.split('#handoff=')[1] ??
+      ''
+    const arrive = await call(origin, '/api/admin/handoff', {
+      body: { token: pass2 },
+    })
+    expect(arrive.status).toBe(204)
+    const admin = await call(origin, '/api/admin/session', {
+      headers: { cookie: cookieOf(arrive) },
+    })
+    expect(admin.status).toBe(200)
+  })
+
+  it('never opens a dapur the owner does not own', async () => {
+    await createVenue('orang-lain', 'orang-lain-password', 'lain@contoh.id')
+    await createVenue('punyaku', 'punyaku-password', 'aku@contoh.id')
+    const { verify } = await signIn('aku@contoh.id')
+    const res = await call(SITE, '/api/site/handoff', {
+      headers: { cookie: cookieOf(verify) },
+      body: { slug: 'orang-lain' },
+    })
+    expect(res.status).toBe(403)
+  })
+
+  it('answers the same for an email that owns nothing', async () => {
+    const start = await call(SITE, '/api/site/login/start', {
+      body: { email: 'siapa@contoh.id' },
+      headers: freshIp(),
+    })
+    expect(start.status).toBe(200)
+    expect(await start.json()).toEqual({})
+  })
+
+  it('keeps site routes on the bare domain only', async () => {
+    const res = await call(`https://dapurku.${BASE}`, '/api/site/session')
     expect(res.status).toBe(404)
   })
 })

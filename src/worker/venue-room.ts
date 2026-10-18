@@ -313,6 +313,13 @@ export class VenueRoom extends DurableObject<Env> {
       : fail(401, 'unauthenticated', 'Kata sandi salah.')
   }
 
+  /** The owner arrives from the site with a handoff the Worker already checked. */
+  async adminHandoff(): Promise<Result<{ epoch: string }>> {
+    const closed = this.closed()
+    if (closed) return closed
+    return ok({ epoch: this.adminEpoch() })
+  }
+
   /** The signed-in admin's dapur name; refused once the dapur is closed. */
   async adminSession(
     credentials: Credentials,

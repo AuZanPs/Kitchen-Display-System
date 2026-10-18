@@ -11,30 +11,36 @@ import { createOrderSchema } from '../shared/order'
 import { staffInputSchema, staffLoginSchema } from '../shared/staff'
 import {
   adminPasswordSchema,
-  MAIN_SLUG,
+  FIRST_SLUG,
+  ownerEmailSchema,
   type Place,
   placeFromHost,
   roomFor,
   SLUG_PATTERN,
   venueCreateSchema,
 } from '../shared/venue'
+import { randomHex, sha256Hex } from './auth/crypto'
 import {
   adminEpoch,
   canSignSessions,
   clearAdminSession,
   clearDeviceCookie,
+  clearOwnerSession,
   clearStaffSession,
   clearSuperSession,
   credentials,
   hasSuperSession,
   ipHash,
   isSuperPassword,
+  ownerEmail,
   setAdminSession,
   setDeviceCookie,
+  setOwnerSession,
   setStaffSession,
   setSuperSession,
 } from './auth/session'
 import { approveSchema, type Credentials, pollSchema } from './devices'
+import { sendSignInLink } from './email'
 import { toCsv } from './history'
 import type { Result } from './orders'
 
@@ -49,7 +55,7 @@ type AppEnv = { Bindings: Env }
 function roomOf(c: Context<AppEnv>) {
   const place = placeOf(c)
   // `scope` already turned every other host away from dapur routes.
-  return place.kind === 'venue' ? place.room : MAIN_SLUG
+  return place.kind === 'venue' ? place.room : roomFor(FIRST_SLUG)
 }
 
 function venueRoom(c: Context<AppEnv>) {
@@ -156,11 +162,14 @@ const requireSuper: MiddlewareHandler<AppEnv> = async (c, next) => {
  */
 const scope: MiddlewareHandler<AppEnv> = async (c, next) => {
   const path = new URL(c.req.url).pathname
-  if (path === '/api/health') return next()
+  if (path === '/api/health' || path === '/api/place') return next()
   const place = placeOf(c)
-  const consoleRoute = path.startsWith('/api/super/')
-  if (consoleRoute !== (place.kind === 'console')) return notFound(c)
-  if (place.kind === 'unknown') return notFound(c)
+  const kind = path.startsWith('/api/super/')
+    ? 'console'
+    : path.startsWith('/api/site/')
+      ? 'site'
+      : 'venue'
+  if (place.kind !== kind) return notFound(c)
   await next()
 }
 
@@ -573,6 +582,137 @@ app.post(
     ),
 )
 
+// Which kind of host this is, so one app can show the site, a dapur or the console.
+app.get('/api/place', (c) => c.json({ kind: placeOf(c).kind }))
+
+// Site (bare domain): owners sign in with an emailed link and open their dapur.
+const LOGIN_TTL_MS = 15 * 60 * 1000
+const HANDOFF_TTL_MS = 60 * 1000
+const tokenSchema = z.object({ token: z.string().regex(/^[0-9a-f]{64}$/) })
+
+function rateLimited(c: Context, message: string) {
+  return c.json({ error: { code: 'rate_limited', message } }, 429)
+}
+
+app.post(
+  '/api/site/login/start',
+  invalidInput('json', z.object({ email: ownerEmailSchema })),
+  async (c) => {
+    const { email } = c.req.valid('json')
+    const dir = directory(c.env)
+    const window = 15 * 60 * 1000
+    if (
+      !(await dir.allowAttempt(`site-login:${await ipHash(c)}`, 5, window)) ||
+      !(await dir.allowAttempt(`site-login-email:${email}`, 3, window))
+    ) {
+      return rateLimited(c, 'Terlalu banyak permintaan. Tunggu 15 menit.')
+    }
+    const token = randomHex(32)
+    const link = `${new URL(c.req.url).origin}/masuk#token=${token}`
+    // The same answer whether or not the email owns a dapur, so nobody can probe emails.
+    const issued = await dir.issueToken(
+      'login',
+      await sha256Hex(token),
+      email,
+      null,
+      LOGIN_TTL_MS,
+    )
+    if (issued && c.env.ENVIRONMENT !== 'development') {
+      await sendSignInLink(c.env, email, link)
+    }
+    // Development has no mailbox: the page shows the link instead.
+    return c.json(
+      c.env.ENVIRONMENT === 'development' && issued ? { devLink: link } : {},
+    )
+  },
+)
+
+app.post(
+  '/api/site/login/verify',
+  invalidInput('json', tokenSchema),
+  async (c) => {
+    const dir = directory(c.env)
+    const key = `site-verify:${await ipHash(c)}`
+    if (!(await dir.allowAttempt(key, 10, 15 * 60 * 1000))) {
+      return rateLimited(c, 'Terlalu banyak percobaan. Tunggu 15 menit.')
+    }
+    if (!canSignSessions(c.env)) return refuse(c, 401, 'Belum disiapkan.')
+    const email = await dir.takeToken(
+      'login',
+      await sha256Hex(c.req.valid('json').token),
+      null,
+    )
+    if (!email) {
+      return refuse(c, 401, 'Tautan ini sudah dipakai atau kedaluwarsa.')
+    }
+    await setOwnerSession(c, email)
+    return c.body(null, 204)
+  },
+)
+
+app.get('/api/site/session', async (c) => {
+  const email = await ownerEmail(c)
+  if (!email) return refuse(c, 401, 'Masuk dulu.')
+  const venues = await directory(c.env).venuesOf(email)
+  return c.json({
+    email,
+    venues: venues.map(({ slug, name, disabled }) => ({
+      slug,
+      name,
+      disabled,
+    })),
+  })
+})
+
+app.post('/api/site/logout', (c) => {
+  clearOwnerSession(c)
+  return c.body(null, 204)
+})
+
+/** A one-minute, one-time pass from the site into one of the owner's dapur. */
+app.post(
+  '/api/site/handoff',
+  invalidInput('json', z.object({ slug: z.string().regex(SLUG_PATTERN) })),
+  async (c) => {
+    const email = await ownerEmail(c)
+    if (!email) return refuse(c, 401, 'Masuk dulu.')
+    const { slug } = c.req.valid('json')
+    const token = randomHex(32)
+    const issued = await directory(c.env).issueToken(
+      'handoff',
+      await sha256Hex(token),
+      email,
+      slug,
+      HANDOFF_TTL_MS,
+    )
+    if (!issued) return refuse(c, 403, 'Dapur ini tidak bisa dibuka.')
+    const url = new URL(c.req.url)
+    url.hostname = `${slug}.${c.env.BASE_HOST}`
+    url.pathname = '/admin'
+    url.search = ''
+    url.hash = `handoff=${token}`
+    return c.json({ url: url.toString() })
+  },
+)
+
+/** The dapur side of the handoff: a valid pass signs the owner in as admin. */
+app.post('/api/admin/handoff', invalidInput('json', tokenSchema), async (c) => {
+  if (!canSignSessions(c.env)) return refuse(c, 401, 'Admin belum disiapkan.')
+  const place = placeOf(c)
+  const slug = place.kind === 'venue' ? place.slug : null
+  const email = await directory(c.env).takeToken(
+    'handoff',
+    await sha256Hex(c.req.valid('json').token),
+    slug,
+  )
+  if (!email)
+    return refuse(c, 401, 'Tautan ini sudah dipakai atau kedaluwarsa.')
+  const result = await venueRoom(c).adminHandoff()
+  if (!result.ok) return reply(c, result)
+  await setAdminSession(c, roomOf(c), result.body.epoch)
+  return c.body(null, 204)
+})
+
 // Super admin console (console.<base domain>): creates and manages every dapur.
 const slugParam = z.object({ slug: z.string().regex(SLUG_PATTERN) })
 const SUPER_LOGIN_WINDOW_MS = 15 * 60 * 1000
@@ -620,9 +760,9 @@ app.post(
   requireSuper,
   invalidInput('json', venueCreateSchema),
   async (c) => {
-    const { slug, name, adminPassword } = c.req.valid('json')
+    const { slug, name, adminPassword, ownerEmail } = c.req.valid('json')
     const dir = directory(c.env)
-    if (!(await dir.add(slug, name))) {
+    if (!(await dir.add(slug, name, ownerEmail ?? null))) {
       return c.json(
         {
           error: {
@@ -646,7 +786,7 @@ app.post(
 
 /** The room of a dapur the directory knows, or null. */
 async function knownRoom(env: Env, slug: string) {
-  if (slug !== MAIN_SLUG && !(await directory(env).has(slug))) return null
+  if (!(await directory(env).has(slug))) return null
   return env.VENUE_ROOM.getByName(roomFor(slug))
 }
 
@@ -678,6 +818,20 @@ app.put(
     const result = await room.setDisabled(disabled)
     if (result.ok) await directory(c.env).setDisabled(slug, disabled)
     return reply(c, result)
+  },
+)
+
+app.put(
+  '/api/super/venues/:slug/owner',
+  requireSuper,
+  invalidInput('param', slugParam),
+  invalidInput('json', z.object({ ownerEmail: ownerEmailSchema.nullable() })),
+  async (c) => {
+    const { slug } = c.req.valid('param')
+    const dir = directory(c.env)
+    if (!(await dir.has(slug))) return notFound(c)
+    await dir.setOwner(slug, c.req.valid('json').ownerEmail)
+    return c.body(null, 204)
   },
 )
 
