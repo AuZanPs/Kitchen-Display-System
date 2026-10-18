@@ -112,6 +112,7 @@ export class Directory extends DurableObject<Env> {
 
   /** False when the owner signed out everywhere (or lost a dapur) after `issuedAt`. */
   private sessionValid(email: string, issuedAt: number) {
+    if (!Number.isFinite(issuedAt)) return false
     const row = this.sql
       .exec<{ valid_after: number }>(
         'SELECT valid_after FROM owners WHERE email = ?',

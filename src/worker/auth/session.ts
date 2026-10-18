@@ -117,11 +117,12 @@ export async function setOwnerSession(c: Ctx, email: string) {
   if (!secret) throw new Error('SESSION_SECRET is not configured')
   const iat = Date.now()
   const exp = iat + OWNER_TTL_S * 1000
-  const signature = await hmacHex(secret, `owner.${email}.${iat}.${exp}`)
+  const encoded = encodeEmail(email)
+  const signature = await hmacHex(secret, ownerMessage(encoded, iat, exp))
   setCookie(
     c,
     OWNER_COOKIE,
-    `${encodeEmail(email)}.${iat}.${exp}.${signature}`,
+    `${encoded}.${iat}.${exp}.${signature}`,
     cookieOptions(c, OWNER_TTL_S),
   )
 }
@@ -142,13 +143,24 @@ export async function ownerSession(
     getCookie(c, OWNER_COOKIE) ?? ''
   ).split('.')
   if (!secret || !encoded || !iat || !exp || !signature) return null
+  if (!DIGITS.test(iat) || !DIGITS.test(exp)) return null
   if (!(Number(exp) > Date.now())) return null
-  const email = decodeEmail(encoded)
-  if (!email) return null
   // The issue time is signed, never worked out from the lifetime.
-  const expected = await hmacHex(secret, `owner.${email}.${iat}.${exp}`)
+  const expected = await hmacHex(secret, ownerMessage(encoded, iat, exp))
   if (!safeEqual(signature, expected)) return null
-  return { email, issuedAt: Number(iat) }
+  const email = decodeEmail(encoded)
+  return email ? { email, issuedAt: Number(iat) } : null
+}
+
+const DIGITS = /^\d{1,15}$/
+
+/** Versioned, and the email signed encoded, so no two cookies sign the same text. */
+function ownerMessage(
+  encodedEmail: string,
+  iat: string | number,
+  exp: string | number,
+) {
+  return `owner.v2.${encodedEmail}.${iat}.${exp}`
 }
 
 // Emails contain dots, the cookie's separator; base64url has none.
