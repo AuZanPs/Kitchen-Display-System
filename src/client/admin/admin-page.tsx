@@ -51,6 +51,14 @@ export function AdminPage() {
   const [state, setState] = useState<'loading' | 'out' | 'in'>('loading')
   const [venueName, setVenueName] = useState<string | null>(null)
   const check = useCallback(async () => {
+    // Arriving from the site's account page: a one-time pass signs the owner in.
+    const handoff = new URLSearchParams(window.location.hash.slice(1)).get(
+      'handoff',
+    )
+    if (handoff) {
+      window.history.replaceState(null, '', window.location.pathname)
+      await api('/api/admin/handoff', z.null(), { body: { token: handoff } })
+    }
     const result = await api('/api/admin/session', adminSessionSchema)
     if (result.ok) setVenueName(result.data.venueName)
     setState(result.ok ? 'in' : 'out')

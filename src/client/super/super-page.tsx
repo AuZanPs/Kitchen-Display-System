@@ -1,9 +1,15 @@
-import { ExternalLink, KeyRound, LogOut, Plus, Shuffle } from 'lucide-react'
+import {
+  ExternalLink,
+  KeyRound,
+  LogOut,
+  Mail,
+  Plus,
+  Shuffle,
+} from 'lucide-react'
 import { type SubmitEvent, useCallback, useEffect, useState } from 'react'
 import { z } from 'zod'
 import { jakartaDate } from '../../shared/order'
 import {
-  MAIN_SLUG,
   RESERVED_SLUGS,
   SLUG_PATTERN,
   suggestSlug,
@@ -24,9 +30,10 @@ import { TextField } from '../ui/text-field'
 
 /** The console runs on console.<base>; every dapur lives on <slug>.<base>. */
 function venueHost(slug: string) {
-  const base = window.location.host.replace(/^console\./, '')
-  return slug === MAIN_SLUG ? base : `${slug}.${base}`
+  return `${slug}.${window.location.host.replace(/^console\./, '')}`
 }
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 /** Twelve readable characters, no look-alikes (0/O, 1/l). */
 function randomPassword() {
@@ -112,6 +119,7 @@ function Venues({ onSignedOut }: { onSignedOut: () => void }) {
   const [venues, setVenues] = useState<Venue[] | null>(null)
   const [adding, setAdding] = useState(false)
   const [resetting, setResetting] = useState<Venue | null>(null)
+  const [owning, setOwning] = useState<Venue | null>(null)
   const [disabling, setDisabling] = useState<Venue | null>(null)
 
   const load = useCallback(async () => {
@@ -198,6 +206,9 @@ function Venues({ onSignedOut }: { onSignedOut: () => void }) {
                     >
                       {host}
                     </a>
+                    <span className="text-[13px] break-all text-ink-soft">
+                      {venue.ownerEmail ?? t('noOwner')}
+                    </span>
                     {venue.createdAt > 0 && (
                       <span className="text-[13px] text-ink-soft">
                         {t('createdOn', {
@@ -231,6 +242,13 @@ function Venues({ onSignedOut }: { onSignedOut: () => void }) {
                   >
                     {t('resetPassword')}
                   </Button>
+                  <Button
+                    variant="text"
+                    icon={<Mail size={18} aria-hidden />}
+                    onClick={() => setOwning(venue)}
+                  >
+                    {t('ownerEmail')}
+                  </Button>
                 </div>
               </li>
             )
@@ -245,6 +263,16 @@ function Venues({ onSignedOut }: { onSignedOut: () => void }) {
           setAdding(false)
           snackbar.show(t('venueCreated', { name }))
           void load()
+        }}
+      />
+      <OwnerEmail
+        venue={owning}
+        onDone={(saved) => {
+          setOwning(null)
+          if (saved) {
+            snackbar.show(t('ownerSaved', { name: saved }))
+            void load()
+          }
         }}
       />
       <ResetPassword
@@ -330,6 +358,7 @@ function AddVenue({
   const [slug, setSlug] = useState('')
   const [slugEdited, setSlugEdited] = useState(false)
   const [password, setPassword] = useState('')
+  const [owner, setOwner] = useState('')
   const [showErrors, setShowErrors] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -337,6 +366,7 @@ function AddVenue({
   useEffect(() => {
     if (!open) return
     setName('')
+    setOwner('')
     setSlug('')
     setSlugEdited(false)
     setPassword(randomPassword())
@@ -346,15 +376,21 @@ function AddVenue({
 
   const slugOk = SLUG_PATTERN.test(slug) && !RESERVED_SLUGS.has(slug)
   const passwordOk = password.length >= 8
+  const ownerOk = owner.trim() === '' || EMAIL_PATTERN.test(owner.trim())
   const base = venueHost('x').replace(/^x\./, '')
 
   async function submit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault()
     setShowErrors(true)
-    if (!name.trim() || !slugOk || !passwordOk) return
+    if (!name.trim() || !slugOk || !passwordOk || !ownerOk) return
     setBusy(true)
     const result = await api('/api/super/venues', z.unknown(), {
-      body: { slug, name: name.trim(), adminPassword: password },
+      body: {
+        slug,
+        name: name.trim(),
+        adminPassword: password,
+        ...(owner.trim() ? { ownerEmail: owner.trim() } : {}),
+      },
     })
     setBusy(false)
     if (result.ok) return onCreated(name.trim())
@@ -415,6 +451,15 @@ function AddVenue({
             serverError ?? (showErrors && !slugOk ? t('slugInvalid') : null)
           }
           required
+        />
+        <TextField
+          label={t('ownerEmail')}
+          hint={t('ownerEmailHint')}
+          type="email"
+          autoComplete="off"
+          value={owner}
+          onChange={(e) => setOwner(e.target.value)}
+          error={showErrors && !ownerOk ? t('emailInvalid') : null}
         />
         <PasswordField
           label={t('venueAdminPassword')}
@@ -486,6 +531,75 @@ function ResetPassword({
             setError(null)
           }}
           error={error}
+        />
+      </form>
+    </Dialog>
+  )
+}
+
+function OwnerEmail({
+  venue,
+  onDone,
+}: {
+  venue: Venue | null
+  onDone: (savedFor: string | null) => void
+}) {
+  const { t } = useI18n()
+  const [email, setEmail] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    if (!venue) return
+    setEmail(venue.ownerEmail ?? '')
+    setError(null)
+  }, [venue])
+
+  async function submit(event: SubmitEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!venue) return
+    const value = email.trim()
+    if (value && !EMAIL_PATTERN.test(value)) return setError(t('emailInvalid'))
+    setBusy(true)
+    const result = await api(
+      `/api/super/venues/${venue.slug}/owner`,
+      z.null(),
+      { method: 'PUT', body: { ownerEmail: value || null } },
+    )
+    setBusy(false)
+    if (result.ok) return onDone(venue.name)
+    setError(result.message)
+  }
+
+  return (
+    <Dialog
+      open={venue !== null}
+      onOpenChange={(open) => !open && onDone(null)}
+      title={t('ownerEmailFor', { name: venue?.name ?? '' })}
+      description={t('ownerEmailHint')}
+      footer={
+        <>
+          <Button variant="text" onClick={() => onDone(null)}>
+            {t('cancel')}
+          </Button>
+          <Button type="submit" form="owner-email" disabled={busy}>
+            {t('save')}
+          </Button>
+        </>
+      }
+    >
+      <form id="owner-email" onSubmit={submit} noValidate>
+        <TextField
+          label={t('ownerEmail')}
+          type="email"
+          autoComplete="off"
+          value={email}
+          onChange={(e) => {
+            setEmail(e.target.value)
+            setError(null)
+          }}
+          error={error}
+          autoFocus
         />
       </form>
     </Dialog>

@@ -317,6 +317,32 @@ export const id = {
   passwordTooShort: 'Minimal 8 karakter.',
   slugInvalid: 'Pakai huruf kecil, angka atau tanda hubung, paling banyak 30.',
   createdOn: 'Dibuat {date}',
+  noOwner: 'Belum ada email pemilik',
+  ownerEmail: 'Email pemilik',
+  ownerEmailHint: 'Pemilik masuk di halaman utama dengan email ini.',
+  ownerEmailFor: 'Email pemilik {name}',
+  ownerSaved: 'Pemilik {name} disimpan',
+  emailInvalid: 'Periksa lagi alamat email ini.',
+  // Public site
+  siteHeadline: 'Pesanan dari meja langsung tampil di layar dapur.',
+  siteLead:
+    'Pelayan mengirim pesanan dari tablet, dapur melihatnya di TV dan menandai dari HP. Tanpa kertas, tanpa teriak.',
+  sitePointWaiter: 'Tablet pelayan untuk mencatat pesanan dan catatan.',
+  sitePointTv: 'TV dapur yang selalu menampilkan antrean terbaru.',
+  sitePointKitchen: 'HP dapur untuk menerima dan menandai siap.',
+  signInTitle: 'Masuk',
+  signInLead: 'Tulis email pemilik dapur. Kami kirim tautan untuk masuk.',
+  email: 'Email',
+  sendLink: 'Kirim tautan',
+  linkSentTitle: 'Cek email kamu',
+  linkSentBody:
+    'Kalau {email} terdaftar, tautan masuk sudah dikirim. Tautan berlaku 15 menit.',
+  useOtherEmail: 'Pakai email lain',
+  openDevLink: 'Buka tautan masuk',
+  signingIn: 'Sedang masuk…',
+  accountTitle: 'Dapur kamu',
+  noVenuesYet: 'Belum ada dapur untuk email ini.',
+  venueIsOff: 'Sedang nonaktif',
 } as const
 
 export type Dict = Record<keyof typeof id, string>

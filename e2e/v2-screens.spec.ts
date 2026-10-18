@@ -9,7 +9,6 @@ const DESKTOP = { width: 1280, height: 800 }
 // phone, portrait tablet and desktop widths. Screenshots land in test-results/.
 test('every screen at phone, tablet and desktop widths', async ({
   browser,
-  baseURL,
 }) => {
   test.setTimeout(240_000)
   // Screens seen before pairing or signing in.
@@ -33,11 +32,21 @@ test('every screen at phone, tablet and desktop widths', async ({
   }
 
   const admin = await signInAdmin(browser)
-  const settings = await admin.request.post('/api/admin/settings', {
-    data: { allergy: true, lineNotes: true, orderNote: true, staffPins: false },
-    headers: { origin: baseURL ?? '' },
+  // From the page itself: Node cannot resolve *.localhost, the browser can.
+  const settings = await admin.evaluate(async () => {
+    const res = await fetch('/api/admin/settings', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        allergy: true,
+        lineNotes: true,
+        orderNote: true,
+        staffPins: false,
+      }),
+    })
+    return res.status
   })
-  expect(settings.status()).toBe(200)
+  expect(settings).toBe(200)
   await admin.getByRole('button', { name: 'Perangkat', exact: true }).click()
   const tablet = await pair(
     browser,
