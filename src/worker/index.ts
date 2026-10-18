@@ -606,32 +606,38 @@ app.post(
     }
     const token = randomHex(32)
     const link = `${new URL(c.req.url).origin}/masuk#token=${token}`
-    // The same answer whether or not the email owns a dapur, so nobody can probe emails.
-    const issued = await dir.issueToken(
-      'login',
-      await sha256Hex(token),
-      email,
-      null,
-      LOGIN_TTL_MS,
-    )
-    // Only real owners count against the inbox cap. Past the cap new mail is
-    // skipped silently; links already sent keep working, so nobody else can
-    // lock the owner out. Sending runs after the reply so timing reveals nothing.
-    if (
-      issued &&
-      c.env.ENVIRONMENT !== 'development' &&
-      (await dir.allowAttempt(`site-login-email:${email}`, 5, window))
-    ) {
-      c.executionCtx.waitUntil(
-        sendSignInLink(c.env, email, link).catch((err: Error) =>
-          console.error('sign-in email failed', err.name),
-        ),
+    /**
+     * Everything that depends on whether the email owns a dapur happens here.
+     * Only real owners count against the inbox cap; past it new mail is skipped,
+     * while links already sent keep working, so nobody can lock the owner out.
+     */
+    const issueAndSend = async () => {
+      const issued = await dir.issueToken(
+        'login',
+        await sha256Hex(token),
+        email,
+        null,
+        LOGIN_TTL_MS,
       )
+      if (!issued) return false
+      if (c.env.ENVIRONMENT === 'development') return true
+      if (await dir.allowAttempt(`site-login-email:${email}`, 5, window)) {
+        await sendSignInLink(c.env, email, link)
+      }
+      return true
     }
     // Development has no mailbox: the page shows the link instead.
-    return c.json(
-      c.env.ENVIRONMENT === 'development' && issued ? { devLink: link } : {},
+    if (c.env.ENVIRONMENT === 'development') {
+      return c.json((await issueAndSend()) ? { devLink: link } : {})
+    }
+    // In production the reply leaves before any of that work, so its timing and
+    // body are the same whether or not the email owns a dapur.
+    c.executionCtx.waitUntil(
+      issueAndSend().catch((err: Error) =>
+        console.error('sign-in email failed', err.name),
+      ),
     )
+    return c.json({})
   },
 )
 
