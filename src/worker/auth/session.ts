@@ -11,7 +11,7 @@ export const OWNER_COOKIE = 'kds_owner'
 const ADMIN_TTL_S = 12 * 60 * 60
 const STAFF_TTL_S = 12 * 60 * 60
 const SUPER_TTL_S = 4 * 60 * 60
-const OWNER_TTL_S = 30 * 24 * 60 * 60
+const OWNER_TTL_S = 14 * 24 * 60 * 60
 const DEVICE_TTL_S = 400 * 24 * 60 * 60 // browsers cap cookie lifetime at 400 days
 const DEVICE_TOKEN = /^main\.([0-9a-f-]{36})\.([0-9a-f]{64})$/
 // Short secrets would make the session signature guessable.
@@ -129,8 +129,13 @@ export function clearOwnerSession(c: Ctx) {
   deleteCookie(c, OWNER_COOKIE, { path: '/' })
 }
 
-/** The signed-in owner's email, or null. */
-export async function ownerEmail(c: Ctx): Promise<string | null> {
+/**
+ * The signed-in owner and when this sign-in began; the Directory still checks
+ * that it began after the owner's last "sign out everywhere".
+ */
+export async function ownerSession(
+  c: Ctx,
+): Promise<{ email: string; issuedAt: number } | null> {
   const secret = sessionSecret(c.env)
   const [encoded, exp, signature] = (getCookie(c, OWNER_COOKIE) ?? '').split(
     '.',
@@ -140,7 +145,8 @@ export async function ownerEmail(c: Ctx): Promise<string | null> {
   const email = decodeEmail(encoded)
   if (!email) return null
   const expected = await hmacHex(secret, `owner.${email}.${exp}`)
-  return safeEqual(signature, expected) ? email : null
+  if (!safeEqual(signature, expected)) return null
+  return { email, issuedAt: Number(exp) - OWNER_TTL_S * 1000 }
 }
 
 // Emails contain dots, the cookie's separator; base64url has none.

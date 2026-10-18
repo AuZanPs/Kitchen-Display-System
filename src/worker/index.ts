@@ -32,7 +32,7 @@ import {
   hasSuperSession,
   ipHash,
   isSuperPassword,
-  ownerEmail,
+  ownerSession,
   setAdminSession,
   setDeviceCookie,
   setOwnerSession,
@@ -665,11 +665,18 @@ app.post(
 )
 
 app.get('/api/site/session', async (c) => {
-  const email = await ownerEmail(c)
-  if (!email) return refuse(c, 401, 'Masuk dulu.')
-  const venues = await directory(c.env).venuesOf(email)
+  const session = await ownerSession(c)
+  if (!session) return refuse(c, 401, 'Masuk dulu.')
+  const venues = await directory(c.env).ownerVenues(
+    session.email,
+    session.issuedAt,
+  )
+  if (!venues) {
+    clearOwnerSession(c)
+    return refuse(c, 401, 'Masuk dulu.')
+  }
   return c.json({
-    email,
+    email: session.email,
     venues: venues.map(({ slug, name, disabled }) => ({
       slug,
       name,
@@ -683,21 +690,31 @@ app.post('/api/site/logout', (c) => {
   return c.body(null, 204)
 })
 
+/** Ends this owner's sign-in on every browser, this one included. */
+app.post('/api/site/logout-everywhere', async (c) => {
+  const session = await ownerSession(c)
+  if (!session) return refuse(c, 401, 'Masuk dulu.')
+  await directory(c.env).signOutOwner(session.email)
+  clearOwnerSession(c)
+  return c.body(null, 204)
+})
+
 /** A one-minute, one-time pass from the site into one of the owner's dapur. */
 app.post(
   '/api/site/handoff',
   invalidInput('json', z.object({ slug: z.string().regex(SLUG_PATTERN) })),
   async (c) => {
-    const email = await ownerEmail(c)
-    if (!email) return refuse(c, 401, 'Masuk dulu.')
+    const session = await ownerSession(c)
+    if (!session) return refuse(c, 401, 'Masuk dulu.')
     const { slug } = c.req.valid('json')
     const token = randomHex(32)
     const issued = await directory(c.env).issueToken(
       'handoff',
       await sha256Hex(token),
-      email,
+      session.email,
       slug,
       HANDOFF_TTL_MS,
+      session.issuedAt,
     )
     if (!issued) return refuse(c, 403, 'Dapur ini tidak bisa dibuka.')
     const url = new URL(c.req.url)

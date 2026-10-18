@@ -396,6 +396,61 @@ describe('owner sign-in on the site', () => {
     expect(session.status).toBe(401)
   })
 
+  it('lists every dapur of one owner, and only theirs', async () => {
+    await createVenue('satu', 'satu-password', 'banyak@contoh.id')
+    await createVenue('dua', 'dua-password', 'banyak@contoh.id')
+    await createVenue('bukan', 'bukan-password', 'yang-lain@contoh.id')
+    const { verify } = await signIn('banyak@contoh.id')
+    const res = await call(SITE, '/api/site/session', {
+      headers: { cookie: cookieOf(verify) },
+    })
+    const { venues } = (await res.json()) as { venues: { slug: string }[] }
+    expect(venues.map((v) => v.slug).sort()).toEqual(['dua', 'satu'])
+  })
+
+  it('signs an owner out on every browser at once', async () => {
+    await createVenue('semua', 'semua-password', 'keluar@contoh.id')
+    const phone = cookieOf((await signIn('keluar@contoh.id')).verify)
+    // A sign-in starts on a later millisecond than the one before it.
+    await new Promise((r) => setTimeout(r, 5))
+    const laptop = cookieOf((await signIn('keluar@contoh.id')).verify)
+    await new Promise((r) => setTimeout(r, 5))
+    const out = await call(SITE, '/api/site/logout-everywhere', {
+      method: 'POST',
+      headers: { cookie: laptop },
+    })
+    expect(out.status).toBe(204)
+    for (const cookie of [phone, laptop]) {
+      const session = await call(SITE, '/api/site/session', {
+        headers: { cookie },
+      })
+      expect(session.status).toBe(401)
+      const handoff = await call(SITE, '/api/site/handoff', {
+        headers: { cookie },
+        body: { slug: 'semua' },
+      })
+      expect(handoff.status).toBe(403)
+    }
+    await new Promise((r) => setTimeout(r, 5))
+    const again = await signIn('keluar@contoh.id')
+    expect(again.verify.status, 'a fresh sign-in still works').toBe(204)
+  })
+
+  it('takes the dapur away from an owner who was replaced', async () => {
+    await createVenue('pindah', 'pindah-password', 'awal@contoh.id')
+    const before = cookieOf((await signIn('awal@contoh.id')).verify)
+    await call(CONSOLE, '/api/super/venues/pindah/owner', {
+      method: 'PUT',
+      headers: { cookie: await superCookie() },
+      body: { ownerEmail: 'akhir@contoh.id' },
+    })
+    const handoff = await call(SITE, '/api/site/handoff', {
+      headers: { cookie: before },
+      body: { slug: 'pindah' },
+    })
+    expect(handoff.status).toBe(403)
+  })
+
   it('never opens a dapur the owner does not own', async () => {
     await createVenue('orang-lain', 'orang-lain-password', 'lain@contoh.id')
     await createVenue('punyaku', 'punyaku-password', 'aku@contoh.id')

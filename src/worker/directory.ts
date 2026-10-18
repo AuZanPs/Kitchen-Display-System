@@ -25,6 +25,10 @@ export class Directory extends DurableObject<Env> {
         window_start INTEGER NOT NULL,
         count INTEGER NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS owners (
+        email TEXT PRIMARY KEY,
+        valid_after INTEGER NOT NULL
+      );
       CREATE TABLE IF NOT EXISTS tokens (
         hash TEXT PRIMARY KEY,
         kind TEXT NOT NULL,
@@ -106,6 +110,31 @@ export class Directory extends DurableObject<Env> {
     return this.list().filter((v) => v.ownerEmail === email)
   }
 
+  /** False when the owner signed out everywhere (or lost a dapur) after `issuedAt`. */
+  private sessionValid(email: string, issuedAt: number) {
+    const row = this.sql
+      .exec<{ valid_after: number }>(
+        'SELECT valid_after FROM owners WHERE email = ?',
+        email,
+      )
+      .toArray()[0]
+    return !row || issuedAt > row.valid_after
+  }
+
+  /** The owner's dapur for a signed-in session, or null when that session was ended. */
+  ownerVenues(email: string, issuedAt: number): Venue[] | null {
+    return this.sessionValid(email, issuedAt) ? this.venuesOf(email) : null
+  }
+
+  /** Ends every site sign-in of this owner, on every browser. */
+  signOutOwner(email: string) {
+    this.sql.exec(
+      'INSERT OR REPLACE INTO owners (email, valid_after) VALUES (?, ?)',
+      email,
+      Date.now(),
+    )
+  }
+
   /** False when the address is already taken. */
   add(slug: string, name: string, ownerEmail: string | null): boolean {
     const taken = this.sql
@@ -155,7 +184,10 @@ export class Directory extends DurableObject<Env> {
         email,
         slug,
       )
-      if (old) this.sql.exec('DELETE FROM tokens WHERE email = ?', old)
+      if (old && old !== email) {
+        this.sql.exec('DELETE FROM tokens WHERE email = ?', old)
+        this.signOutOwner(old)
+      }
     })
   }
 
@@ -169,7 +201,15 @@ export class Directory extends DurableObject<Env> {
     email: string,
     slug: string | null,
     ttlMs: number,
+    sessionIssuedAt: number | null = null,
   ): boolean {
+    // A handoff comes from a site session, which must still be valid.
+    if (
+      sessionIssuedAt !== null &&
+      !this.sessionValid(email, sessionIssuedAt)
+    ) {
+      return false
+    }
     const owned = this.venuesOf(email)
     const allowed =
       kind === 'login'

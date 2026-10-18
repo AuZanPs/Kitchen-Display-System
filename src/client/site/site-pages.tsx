@@ -248,8 +248,12 @@ export function AccountPage() {
     else setError(result.message)
   }
 
-  async function signOut() {
-    await api('/api/site/logout', z.null(), { body: {} })
+  async function signOut(everywhere = false) {
+    await api(
+      everywhere ? '/api/site/logout-everywhere' : '/api/site/logout',
+      z.null(),
+      { body: {} },
+    )
     navigate('/', { replace: true })
   }
 
@@ -311,6 +315,20 @@ export function AccountPage() {
             </li>
           ))}
         </ul>
+        {account && (
+          <div className="grid max-w-3xl gap-2 border-t border-line pt-6">
+            <p className="text-[15px] text-ink-soft">
+              {t('signOutEverywhereHint')}
+            </p>
+            <Button
+              variant="outlined"
+              className="w-fit"
+              onClick={() => void signOut(true)}
+            >
+              {t('signOutEverywhere')}
+            </Button>
+          </div>
+        )}
       </main>
     </div>
   )

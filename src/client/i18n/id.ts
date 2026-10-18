@@ -343,6 +343,9 @@ export const id = {
   accountTitle: 'Dapur kamu',
   noVenuesYet: 'Belum ada dapur untuk email ini.',
   venueIsOff: 'Sedang nonaktif',
+  signOutEverywhere: 'Keluar dari semua perangkat',
+  signOutEverywhereHint:
+    'Kehilangan HP atau masuk di komputer orang lain? Keluar di semua tempat sekaligus.',
 } as const
 
 export type Dict = Record<keyof typeof id, string>

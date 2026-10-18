@@ -338,4 +338,7 @@ export const en: Dict = {
   accountTitle: 'Your kitchens',
   noVenuesYet: 'No kitchens for this email yet.',
   venueIsOff: 'Turned off',
+  signOutEverywhere: 'Sign out everywhere',
+  signOutEverywhereHint:
+    "Lost a phone or signed in on someone else's computer? Sign out on every device at once.",
 }
