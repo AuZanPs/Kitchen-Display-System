@@ -75,8 +75,20 @@ test('the super admin creates a dapur that signs in on its own address', async (
   await expectAccessible(site, 'link sent')
   await site.getByRole('link', { name: 'Buka tautan masuk' }).click()
   await expect(site.getByRole('heading', { name: 'Dapur kamu' })).toBeVisible()
+  // The owner invites a second admin from the same page.
+  const helper = `kedua-${slug}@contoh.id`
+  await site.getByLabel('Email').fill(helper)
+  await site.getByRole('button', { name: 'Tambah admin' }).click()
+  await expect(site.getByText(helper, { exact: true })).toBeVisible()
   await expectAccessible(site, 'account')
   await site.screenshot({ path: 'test-results/screen-account-1280.png' })
+  await site.setViewportSize({ width: 360, height: 800 })
+  await expectAccessible(site, 'account 360')
+  await site.screenshot({
+    path: 'test-results/screen-account-360.png',
+    fullPage: true,
+  })
+  await site.setViewportSize({ width: 1280, height: 800 })
   await site.getByRole('button', { name: 'Buka admin' }).click()
   await expect(site).toHaveURL(new RegExp(`${slug}.localhost:${port}/admin$`))
   await expect(site.getByRole('heading', { name: 'Layar' })).toBeVisible()

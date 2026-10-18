@@ -31,9 +31,11 @@ export const ownerEmailSchema = z
   .max(200)
   .transform((e) => e.toLowerCase())
 
+export const venueNameSchema = z.string().trim().min(1).max(60)
+
 export const venueCreateSchema = z.object({
   slug: venueSlugSchema,
-  name: z.string().trim().min(1).max(60),
+  name: venueNameSchema,
   adminPassword: adminPasswordSchema,
   ownerEmail: ownerEmailSchema.optional(),
 })

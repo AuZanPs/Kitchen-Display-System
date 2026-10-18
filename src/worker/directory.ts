@@ -62,7 +62,33 @@ const MIGRATIONS: ((sql: SqlStorage) => void)[] = [
       CREATE INDEX IF NOT EXISTS tokens_expires_at ON tokens (expires_at);
       CREATE INDEX IF NOT EXISTS attempts_window_start ON attempts (window_start);
     `),
+  // Admins an owner invites. Removing one keeps the row, marked revoked; an
+  // invitation only counts while the owner who made it still owns the dapur.
+  (sql) =>
+    sql.exec(`
+      CREATE TABLE IF NOT EXISTS venue_admins (
+        slug TEXT NOT NULL,
+        email TEXT NOT NULL,
+        invited_by TEXT NOT NULL,
+        invited_at INTEGER NOT NULL,
+        revoked_at INTEGER,
+        PRIMARY KEY (slug, email)
+      );
+      CREATE INDEX IF NOT EXISTS venue_admins_email ON venue_admins (email);
+    `),
 ]
+
+/** Admins an owner may invite to one dapur, besides themselves. */
+const MAX_INVITED = 3
+
+export type AccountVenue = {
+  slug: string
+  name: string
+  disabled: boolean
+  role: 'owner' | 'admin'
+  /** The owner's invited admins; empty for an invited admin. */
+  admins: string[]
+}
 
 /**
  * The list of dapur, their owners' emails and one-time sign-in tokens. Each
@@ -131,12 +157,100 @@ export class Directory extends DurableObject<Env> {
       }))
   }
 
-  /** The dapur an owner email can open. */
+  /** The dapur an email can open: as owner, or invited by the current owner. */
   venuesOf(email: string): Venue[] {
     return this.rows(
-      'SELECT slug, name, created_at, disabled, owner_email FROM venues WHERE owner_email = ? ORDER BY created_at',
+      `SELECT slug, name, created_at, disabled, owner_email FROM venues v
+       WHERE owner_email = ?
+          OR EXISTS (
+            SELECT 1 FROM venue_admins a
+            WHERE a.slug = v.slug AND a.email = ? AND a.revoked_at IS NULL
+              AND a.invited_by = v.owner_email
+          )
+       ORDER BY created_at`,
+      email,
       email,
     )
+  }
+
+  private invitedAdmins(slug: string): string[] {
+    return this.sql
+      .exec<{ email: string }>(
+        `SELECT a.email FROM venue_admins a JOIN venues v ON v.slug = a.slug
+         WHERE a.slug = ? AND a.revoked_at IS NULL AND a.invited_by = v.owner_email
+         ORDER BY a.invited_at`,
+        slug,
+      )
+      .toArray()
+      .map((row) => row.email)
+  }
+
+  private owns(email: string, issuedAt: number, slug: string) {
+    return (
+      this.sessionValid(email, issuedAt) &&
+      this.sql
+        .exec(
+          'SELECT 1 FROM venues WHERE slug = ? AND owner_email = ?',
+          slug,
+          email,
+        )
+        .toArray().length > 0
+    )
+  }
+
+  /** The owner invites another admin of their dapur. */
+  inviteAdmin(
+    owner: string,
+    issuedAt: number,
+    slug: string,
+    email: string,
+  ): 'ok' | 'forbidden' | 'self' | 'full' {
+    if (!this.owns(owner, issuedAt, slug)) return 'forbidden'
+    if (email === owner) return 'self'
+    return this.ctx.storage.transactionSync(() => {
+      const current = this.invitedAdmins(slug)
+      if (!current.includes(email) && current.length >= MAX_INVITED) {
+        return 'full'
+      }
+      this.sql.exec(
+        `INSERT INTO venue_admins (slug, email, invited_by, invited_at) VALUES (?, ?, ?, ?)
+         ON CONFLICT (slug, email) DO UPDATE SET
+           invited_by = excluded.invited_by, invited_at = excluded.invited_at, revoked_at = NULL`,
+        slug,
+        email,
+        owner,
+        Date.now(),
+      )
+      return 'ok'
+    })
+  }
+
+  /** The owner removes an invited admin; the row stays, marked revoked, and their unused passes go. */
+  revokeAdmin(
+    owner: string,
+    issuedAt: number,
+    slug: string,
+    email: string,
+  ): boolean {
+    if (!this.owns(owner, issuedAt, slug)) return false
+    this.ctx.storage.transactionSync(() => {
+      this.sql.exec(
+        'UPDATE venue_admins SET revoked_at = ? WHERE slug = ? AND email = ? AND revoked_at IS NULL',
+        Date.now(),
+        slug,
+        email,
+      )
+      this.sql.exec(
+        'DELETE FROM tokens WHERE email = ? AND slug = ?',
+        email,
+        slug,
+      )
+    })
+    return true
+  }
+
+  rename(slug: string, name: string) {
+    this.sql.exec('UPDATE venues SET name = ? WHERE slug = ?', name, slug)
   }
 
   /** False when the owner signed out everywhere (or lost a dapur) after `issuedAt`. */
@@ -151,9 +265,19 @@ export class Directory extends DurableObject<Env> {
     return !row || issuedAt > row.valid_after
   }
 
-  /** The owner's dapur for a signed-in session, or null when that session was ended. */
-  ownerVenues(email: string, issuedAt: number): Venue[] | null {
-    return this.sessionValid(email, issuedAt) ? this.venuesOf(email) : null
+  /** What a signed-in email can open, or null when that sign-in was ended. */
+  account(email: string, issuedAt: number): AccountVenue[] | null {
+    if (!this.sessionValid(email, issuedAt)) return null
+    return this.venuesOf(email).map((venue) => {
+      const owner = venue.ownerEmail === email
+      return {
+        slug: venue.slug,
+        name: venue.name,
+        disabled: venue.disabled,
+        role: owner ? 'owner' : 'admin',
+        admins: owner ? this.invitedAdmins(venue.slug) : [],
+      }
+    })
   }
 
   /** Ends every site sign-in of this owner, on every browser, and every link not yet used. */
@@ -221,7 +345,7 @@ export class Directory extends DurableObject<Env> {
 
   /**
    * Stores a one-time token (only its hash). A sign-in token needs an owner
-   * with at least one dapur; a handoff token needs that owner's own dapur.
+   * with at least one dapur; a handoff token needs a dapur they own or were invited to.
    */
   issueToken(
     kind: TokenKind,
@@ -268,6 +392,13 @@ export class Directory extends DurableObject<Env> {
       if (!row) return null
       this.sql.exec('DELETE FROM tokens WHERE hash = ?', hash)
       if (row.expires_at < Date.now() || row.slug !== slug) return null
+      // A pass works only while the dapur is still theirs and switched on.
+      if (
+        kind === 'handoff' &&
+        !this.venuesOf(row.email).some((v) => v.slug === slug && !v.disabled)
+      ) {
+        return null
+      }
       return row.email
     })
   }

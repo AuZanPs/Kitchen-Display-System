@@ -4,6 +4,8 @@ import { expectAccessible, pair, signInAdmin } from './helpers.ts'
 test('a paired tablet sends an order that appears on the paired TV without reload', async ({
   browser,
 }) => {
+  // The whole order flow plus the phone PIN check runs close to a minute.
+  test.setTimeout(120_000)
   const admin = await signInAdmin(browser)
   // Allergy is off by default; this venue wants the detailed form.
   await admin.getByRole('button', { name: 'Pengaturan' }).click()

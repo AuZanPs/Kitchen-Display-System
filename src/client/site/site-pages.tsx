@@ -5,34 +5,49 @@ import {
   LogOut,
   MonitorPlay,
   Tablet,
+  X,
 } from 'lucide-react'
-import { type SubmitEvent, useEffect, useRef, useState } from 'react'
+import {
+  type SubmitEvent,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react'
 import { Link, useNavigate } from 'react-router'
 import { z } from 'zod'
+import { ownerEmailSchema } from '../../shared/venue'
 import { BrandMark, LanguageToggle } from '../app-bar'
 import { useI18n } from '../i18n'
 import { api } from '../lib/api'
 import { CenterNote } from '../lib/session'
 import { stagger } from '../lib/stagger'
 import { Monogram } from '../staff-sign-in'
-import { Button } from '../ui/button'
+import { Button, IconButton } from '../ui/button'
+import { useSnackbar } from '../ui/snackbar'
 import { TextField } from '../ui/text-field'
 
 const accountSchema = z.object({
   email: z.string(),
   venues: z.array(
-    z.object({ slug: z.string(), name: z.string(), disabled: z.boolean() }),
+    z.object({
+      slug: z.string(),
+      name: z.string(),
+      disabled: z.boolean(),
+      role: z.enum(['owner', 'admin']),
+      admins: z.array(z.string()),
+    }),
   ),
 })
 
 function SiteBar({ children }: { children?: React.ReactNode }) {
   const { t } = useI18n()
   return (
-    <header className="mx-auto flex w-full max-w-5xl items-center gap-3 px-4 py-4 sm:px-6">
+    <header className="mx-auto flex w-full max-w-5xl items-center gap-2 px-4 py-4 sm:gap-3 sm:px-6">
       <Link
         to="/"
         translate="no"
-        className="mr-auto flex items-center gap-3 text-lg font-semibold"
+        className="mr-auto flex items-center gap-3 text-lg font-semibold whitespace-nowrap"
       >
         <BrandMark />
         {t('appName')}
@@ -229,14 +244,18 @@ export function AccountPage() {
     null,
   )
   const [error, setError] = useState<string | null>(null)
+  const snackbar = useSnackbar()
+
+  const load = useCallback(async () => {
+    const result = await api('/api/site/session', accountSchema)
+    if (result.ok) setAccount(result.data)
+    else if (result.status === 401) navigate('/masuk', { replace: true })
+    else setError(t('networkError'))
+  }, [navigate, t])
 
   useEffect(() => {
-    void api('/api/site/session', accountSchema).then((result) => {
-      if (result.ok) setAccount(result.data)
-      else if (result.status === 401) navigate('/masuk', { replace: true })
-      else setError(t('networkError'))
-    })
-  }, [navigate, t])
+    void load()
+  }, [load])
 
   async function open(slug: string) {
     const result = await api(
@@ -294,11 +313,16 @@ export function AccountPage() {
               className={`rise flex flex-wrap items-center gap-4 rounded-md p-4 sm:p-5 ${venue.disabled ? 'border border-line' : 'bg-wash'}`}
             >
               <Monogram name={venue.name} muted={venue.disabled} />
-              <div className="grid min-w-0 flex-1 gap-0.5">
-                <span className="text-lg font-medium break-words">
+              <div className="grid min-w-40 flex-1 gap-0.5">
+                <span className="flex flex-wrap items-center gap-x-2 text-lg font-medium break-words">
                   {venue.name}
+                  {venue.role === 'admin' && (
+                    <span className="rounded-full bg-tonal px-2.5 py-0.5 text-[13px] font-semibold">
+                      {t('invitedAdmin')}
+                    </span>
+                  )}
                 </span>
-                <span className="text-[13px] text-ink-soft">
+                <span className="text-[13px] wrap-anywhere text-ink-soft">
                   {venue.disabled
                     ? t('venueIsOff')
                     : `${venue.slug}.${window.location.host.replace(/^www\./, '')}`}
@@ -311,6 +335,16 @@ export function AccountPage() {
                 >
                   {t('openAdmin')}
                 </Button>
+              )}
+              {venue.role === 'owner' && !venue.disabled && (
+                <InvitedAdmins
+                  slug={venue.slug}
+                  admins={venue.admins}
+                  onChanged={(message) => {
+                    snackbar.show(message)
+                    void load()
+                  }}
+                />
               )}
             </li>
           ))}
@@ -330,6 +364,99 @@ export function AccountPage() {
           </div>
         )}
       </main>
+      {snackbar.node}
+    </div>
+  )
+}
+
+/** The owner's list of invited admins, with add and remove. */
+function InvitedAdmins({
+  slug,
+  admins,
+  onChanged,
+}: {
+  slug: string
+  admins: string[]
+  onChanged: (message: string) => void
+}) {
+  const { t } = useI18n()
+  const [email, setEmail] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  async function add(event: SubmitEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const parsed = ownerEmailSchema.safeParse(email.trim())
+    if (!parsed.success) return setError(t('emailInvalid'))
+    setBusy(true)
+    const result = await api(`/api/site/venues/${slug}/admins`, z.null(), {
+      body: { email: parsed.data },
+    })
+    setBusy(false)
+    if (!result.ok) return setError(result.message)
+    setEmail('')
+    onChanged(t('adminAdded', { email: parsed.data }))
+  }
+
+  async function remove(target: string) {
+    const result = await api(
+      `/api/site/venues/${slug}/admins/remove`,
+      z.null(),
+      {
+        body: { email: target },
+      },
+    )
+    if (result.ok) onChanged(t('adminRemoved', { email: target }))
+    else setError(result.message)
+  }
+
+  return (
+    <div className="grid basis-full gap-3 border-t border-line pt-4">
+      <div className="grid gap-0.5">
+        <h2 className="font-medium">{t('otherAdmins')}</h2>
+        <p className="text-[13px] text-ink-soft">{t('otherAdminsHint')}</p>
+      </div>
+      {admins.length > 0 && (
+        <ul className="grid">
+          {admins.map((admin) => (
+            <li key={admin} className="flex items-center gap-2">
+              <span className="min-w-0 flex-1 text-[15px] wrap-anywhere">
+                {admin}
+              </span>
+              <IconButton
+                label={t('removeAdmin', { email: admin })}
+                onClick={() => void remove(admin)}
+              >
+                <X size={18} aria-hidden />
+              </IconButton>
+            </li>
+          ))}
+        </ul>
+      )}
+      {admins.length < 3 && (
+        <form onSubmit={add} noValidate className="grid gap-2 sm:max-w-md">
+          <TextField
+            label={t('email')}
+            type="email"
+            autoComplete="off"
+            inputMode="email"
+            value={email}
+            onChange={(e) => {
+              setEmail(e.target.value)
+              setError(null)
+            }}
+            error={error}
+          />
+          <Button
+            type="submit"
+            variant="tonal"
+            className="w-fit"
+            disabled={busy || email.trim() === ''}
+          >
+            {t('addAdmin')}
+          </Button>
+        </form>
+      )}
     </div>
   )
 }

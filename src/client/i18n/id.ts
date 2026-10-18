@@ -350,6 +350,17 @@ export const id = {
   reload: 'Muat ulang',
   pageNotFound: 'Halaman ini tidak ada.',
   backHome: 'Kembali ke awal',
+  renameVenue: 'Ganti nama',
+  renameVenueFor: 'Ganti nama {name}',
+  venueRenamed: 'Disimpan sebagai {name}',
+  invitedAdmin: 'Admin',
+  otherAdmins: 'Admin lain',
+  otherAdminsHint:
+    'Mereka masuk di halaman ini dengan email sendiri dan bisa membuka admin dapur ini. Paling banyak 3.',
+  addAdmin: 'Tambah admin',
+  removeAdmin: 'Hapus {email}',
+  adminAdded: '{email} sekarang bisa masuk',
+  adminRemoved: '{email} tidak lagi admin',
 } as const
 
 export type Dict = Record<keyof typeof id, string>

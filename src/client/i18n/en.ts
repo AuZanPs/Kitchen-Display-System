@@ -345,4 +345,15 @@ export const en: Dict = {
   reload: 'Reload',
   pageNotFound: 'This page does not exist.',
   backHome: 'Back to start',
+  renameVenue: 'Rename',
+  renameVenueFor: 'Rename {name}',
+  venueRenamed: 'Saved as {name}',
+  invitedAdmin: 'Admin',
+  otherAdmins: 'Other admins',
+  otherAdminsHint:
+    'They sign in here with their own email and can open this dapur’s admin. Up to 3.',
+  addAdmin: 'Add admin',
+  removeAdmin: 'Remove {email}',
+  adminAdded: '{email} can sign in now',
+  adminRemoved: '{email} is no longer an admin',
 }

@@ -3,6 +3,7 @@ import {
   KeyRound,
   LogOut,
   Mail,
+  Pencil,
   Plus,
   Shuffle,
 } from 'lucide-react'
@@ -120,6 +121,7 @@ function Venues({ onSignedOut }: { onSignedOut: () => void }) {
   const [adding, setAdding] = useState(false)
   const [resetting, setResetting] = useState<Venue | null>(null)
   const [owning, setOwning] = useState<Venue | null>(null)
+  const [renaming, setRenaming] = useState<Venue | null>(null)
   const [disabling, setDisabling] = useState<Venue | null>(null)
 
   const load = useCallback(async () => {
@@ -254,6 +256,13 @@ function Venues({ onSignedOut }: { onSignedOut: () => void }) {
                   >
                     {t('ownerEmail')}
                   </Button>
+                  <Button
+                    variant="text"
+                    icon={<Pencil size={18} aria-hidden />}
+                    onClick={() => setRenaming(venue)}
+                  >
+                    {t('renameVenue')}
+                  </Button>
                 </div>
               </li>
             )
@@ -276,6 +285,16 @@ function Venues({ onSignedOut }: { onSignedOut: () => void }) {
           setOwning(null)
           if (saved) {
             snackbar.show(t('ownerSaved', { name: saved }))
+            void load()
+          }
+        }}
+      />
+      <RenameVenue
+        venue={renaming}
+        onDone={(saved) => {
+          setRenaming(null)
+          if (saved) {
+            snackbar.show(t('venueRenamed', { name: saved }))
             void load()
           }
         }}
@@ -601,6 +620,74 @@ function OwnerEmail({
           value={email}
           onChange={(e) => {
             setEmail(e.target.value)
+            setError(null)
+          }}
+          error={error}
+          autoFocus
+        />
+      </form>
+    </Dialog>
+  )
+}
+
+function RenameVenue({
+  venue,
+  onDone,
+}: {
+  venue: Venue | null
+  onDone: (savedAs: string | null) => void
+}) {
+  const { t } = useI18n()
+  const [name, setName] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    if (!venue) return
+    setName(venue.name)
+    setError(null)
+  }, [venue])
+
+  async function submit(event: SubmitEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!venue) return
+    const value = name.trim()
+    if (!value) return setError(t('required'))
+    if (value.length > 60) return
+    setBusy(true)
+    const result = await api(`/api/super/venues/${venue.slug}/name`, z.null(), {
+      method: 'PUT',
+      body: { name: value },
+    })
+    setBusy(false)
+    if (result.ok) return onDone(value)
+    setError(result.message)
+  }
+
+  return (
+    <Dialog
+      open={venue !== null}
+      onOpenChange={(open) => !open && onDone(null)}
+      title={t('renameVenueFor', { name: venue?.name ?? '' })}
+      description={t('venueNameHint')}
+      footer={
+        <>
+          <Button variant="text" onClick={() => onDone(null)}>
+            {t('cancel')}
+          </Button>
+          <Button type="submit" form="rename-venue" disabled={busy}>
+            {t('save')}
+          </Button>
+        </>
+      }
+    >
+      <form id="rename-venue" onSubmit={submit} noValidate>
+        <TextField
+          label={t('venueName')}
+          value={name}
+          max={60}
+          onChange={(e) => {
+            setName(e.target.value)
             setError(null)
           }}
           error={error}

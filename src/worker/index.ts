@@ -18,6 +18,7 @@ import {
   roomFor,
   SLUG_PATTERN,
   venueCreateSchema,
+  venueNameSchema,
 } from '../shared/venue'
 import { randomHex, sha256Hex } from './auth/crypto'
 import {
@@ -673,22 +674,12 @@ app.post(
 app.get('/api/site/session', async (c) => {
   const session = await ownerSession(c)
   if (!session) return refuse(c, 401, 'Masuk dulu.')
-  const venues = await directory(c.env).ownerVenues(
-    session.email,
-    session.issuedAt,
-  )
+  const venues = await directory(c.env).account(session.email, session.issuedAt)
   if (!venues) {
     clearOwnerSession(c)
     return refuse(c, 401, 'Masuk dulu.')
   }
-  return c.json({
-    email: session.email,
-    venues: venues.map(({ slug, name, disabled }) => ({
-      slug,
-      name,
-      disabled,
-    })),
-  })
+  return c.json({ email: session.email, venues })
 })
 
 app.post('/api/site/logout', (c) => {
@@ -869,6 +860,90 @@ app.put(
     if (!(await dir.has(slug))) return notFound(c)
     await dir.setOwner(slug, c.req.valid('json').ownerEmail)
     // A new owner means the old one's admin sessions end too.
+    const signedOut = await c.env.VENUE_ROOM.getByName(
+      roomFor(slug),
+    ).signOutAdmins()
+    if (!signedOut.ok) return reply(c, signedOut)
+    return c.body(null, 204)
+  },
+)
+
+app.put(
+  '/api/super/venues/:slug/name',
+  requireSuper,
+  invalidInput('param', slugParam),
+  invalidInput('json', z.object({ name: venueNameSchema })),
+  async (c) => {
+    const { slug } = c.req.valid('param')
+    const { name } = c.req.valid('json')
+    const room = await knownRoom(c.env, slug)
+    if (!room) return notFound(c)
+    const result = await room.rename(name)
+    if (!result.ok) return reply(c, result)
+    await directory(c.env).rename(slug, name)
+    return c.body(null, 204)
+  },
+)
+
+// The owner of a dapur invites up to three more admins, who sign in on the
+// site with their own email.
+const adminEmailBody = z.object({ email: ownerEmailSchema })
+
+app.post(
+  '/api/site/venues/:slug/admins',
+  invalidInput('param', slugParam),
+  invalidInput('json', adminEmailBody),
+  async (c) => {
+    const session = await ownerSession(c)
+    if (!session) return refuse(c, 401, 'Masuk dulu.')
+    const result = await directory(c.env).inviteAdmin(
+      session.email,
+      session.issuedAt,
+      c.req.valid('param').slug,
+      c.req.valid('json').email,
+    )
+    if (result === 'forbidden') {
+      return refuse(c, 403, 'Hanya pemilik yang bisa mengatur admin.')
+    }
+    if (result === 'self') {
+      return c.json(
+        { error: { code: 'invalid_input', message: 'Ini email pemilik.' } },
+        422,
+      )
+    }
+    if (result === 'full') {
+      return c.json(
+        {
+          error: {
+            code: 'operation_conflict',
+            message: 'Paling banyak 3 admin lain.',
+          },
+        },
+        409,
+      )
+    }
+    return c.body(null, 204)
+  },
+)
+
+app.post(
+  '/api/site/venues/:slug/admins/remove',
+  invalidInput('param', slugParam),
+  invalidInput('json', adminEmailBody),
+  async (c) => {
+    const session = await ownerSession(c)
+    if (!session) return refuse(c, 401, 'Masuk dulu.')
+    const { slug } = c.req.valid('param')
+    const removed = await directory(c.env).revokeAdmin(
+      session.email,
+      session.issuedAt,
+      slug,
+      c.req.valid('json').email,
+    )
+    if (!removed) {
+      return refuse(c, 403, 'Hanya pemilik yang bisa mengatur admin.')
+    }
+    // Their admin sign-in on the dapur ends now; the owner opens it again from the site.
     const signedOut = await c.env.VENUE_ROOM.getByName(
       roomFor(slug),
     ).signOutAdmins()

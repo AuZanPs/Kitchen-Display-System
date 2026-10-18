@@ -313,6 +313,14 @@ export class VenueRoom extends DurableObject<Env> {
       : fail(401, 'unauthenticated', 'Kata sandi salah.')
   }
 
+  /** Super admin: the name shown on this dapur's admin page. */
+  async rename(name: string): Promise<Result<null>> {
+    if (!this.provisioned)
+      return fail(404, 'not_found', 'Dapur ini tidak ditemukan.')
+    setMeta(this.db, 'venue_name', name)
+    return ok(null)
+  }
+
   /** Super admin changed the owner: whoever was signed in as admin starts over. */
   async signOutAdmins(): Promise<Result<null>> {
     if (!this.provisioned)
