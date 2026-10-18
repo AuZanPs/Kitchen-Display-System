@@ -95,4 +95,9 @@ test('the super admin creates a dapur that signs in on its own address', async (
   const ghost = await (await browser.newContext()).newPage()
   await ghost.goto(`http://belum-ada-${Date.now()}.localhost:${port}/`)
   await expect(ghost.getByText('Dapur ini tidak ditemukan.')).toBeVisible()
+
+  // Each screen names its tab; a wrong path says so instead of jumping away.
+  await expect(venue).toHaveTitle('Admin · Layar Dapur')
+  await site.goto(`http://localhost:${port}/tidak-ada`)
+  await expect(site.getByText('Halaman ini tidak ada.')).toBeVisible()
 })

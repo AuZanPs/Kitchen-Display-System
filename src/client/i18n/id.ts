@@ -346,6 +346,10 @@ export const id = {
   signOutEverywhere: 'Keluar dari semua perangkat',
   signOutEverywhereHint:
     'Kehilangan HP atau masuk di komputer orang lain? Keluar di semua tempat sekaligus.',
+  crashed: 'Terjadi kesalahan di halaman ini.',
+  reload: 'Muat ulang',
+  pageNotFound: 'Halaman ini tidak ada.',
+  backHome: 'Kembali ke awal',
 } as const
 
 export type Dict = Record<keyof typeof id, string>

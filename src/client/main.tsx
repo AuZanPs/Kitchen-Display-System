@@ -8,6 +8,7 @@ import { EnrollPage } from './enroll/enroll-page'
 import { I18nProvider } from './i18n'
 import { KitchenPage } from './kitchen/kitchen-page'
 import { CenterNote, HOME_BY_ROLE, usePlace, useSession } from './lib/session'
+import { CrashScreen, NotFound, Shell } from './shell'
 import { AccountPage, SignInPage, SiteHome } from './site/site-pages'
 import { SuperPage } from './super/super-page'
 import { TvPage } from './tv/tv-page'
@@ -34,16 +35,22 @@ function VenueHome() {
 }
 
 const router = createBrowserRouter([
-  { path: '/', element: <Home /> },
-  { path: '/enroll', element: <EnrollPage /> },
-  { path: '/admin', element: <AdminPage /> },
-  { path: '/waiter', element: <WaiterPage /> },
-  { path: '/kitchen', element: <KitchenPage /> },
-  { path: '/tv', element: <TvPage /> },
-  { path: '/super', element: <SuperPage /> },
-  { path: '/masuk', element: <SignInPage /> },
-  { path: '/akun', element: <AccountPage /> },
-  { path: '*', element: <Navigate to="/" replace /> },
+  {
+    element: <Shell />,
+    errorElement: <CrashScreen />,
+    children: [
+      { path: '/', element: <Home /> },
+      { path: '/enroll', element: <EnrollPage /> },
+      { path: '/admin', element: <AdminPage /> },
+      { path: '/waiter', element: <WaiterPage /> },
+      { path: '/kitchen', element: <KitchenPage /> },
+      { path: '/tv', element: <TvPage /> },
+      { path: '/super', element: <SuperPage /> },
+      { path: '/masuk', element: <SignInPage /> },
+      { path: '/akun', element: <AccountPage /> },
+      { path: '*', element: <NotFound /> },
+    ],
+  },
 ])
 
 const root = document.getElementById('root')

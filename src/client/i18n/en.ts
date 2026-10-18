@@ -341,4 +341,8 @@ export const en: Dict = {
   signOutEverywhere: 'Sign out everywhere',
   signOutEverywhereHint:
     "Lost a phone or signed in on someone else's computer? Sign out on every device at once.",
+  crashed: 'Something went wrong on this page.',
+  reload: 'Reload',
+  pageNotFound: 'This page does not exist.',
+  backHome: 'Back to start',
 }
