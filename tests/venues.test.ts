@@ -377,6 +377,25 @@ describe('owner sign-in on the site', () => {
     expect(admin.status).toBe(200)
   })
 
+  it('signs out the old owner when the owner changes', async () => {
+    const origin = await createVenue(
+      'ganti',
+      'ganti-password',
+      'lama@contoh.id',
+    )
+    const admin = cookieOf(await adminLogin(origin, 'ganti-password'))
+    const res = await call(CONSOLE, '/api/super/venues/ganti/owner', {
+      method: 'PUT',
+      headers: { cookie: await superCookie() },
+      body: { ownerEmail: 'baru@contoh.id' },
+    })
+    expect(res.status).toBe(204)
+    const session = await call(origin, '/api/admin/session', {
+      headers: { cookie: admin },
+    })
+    expect(session.status).toBe(401)
+  })
+
   it('never opens a dapur the owner does not own', async () => {
     await createVenue('orang-lain', 'orang-lain-password', 'lain@contoh.id')
     await createVenue('punyaku', 'punyaku-password', 'aku@contoh.id')

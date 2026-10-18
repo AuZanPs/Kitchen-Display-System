@@ -313,6 +313,14 @@ export class VenueRoom extends DurableObject<Env> {
       : fail(401, 'unauthenticated', 'Kata sandi salah.')
   }
 
+  /** Super admin changed the owner: whoever was signed in as admin starts over. */
+  async signOutAdmins(): Promise<Result<null>> {
+    if (!this.provisioned)
+      return fail(404, 'not_found', 'Dapur ini tidak ditemukan.')
+    this.newAdminEpoch()
+    return ok(null)
+  }
+
   /** The owner arrives from the site with a handoff the Worker already checked. */
   async adminHandoff(): Promise<Result<{ epoch: string }>> {
     const closed = this.closed()

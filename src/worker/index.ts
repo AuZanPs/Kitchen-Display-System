@@ -601,10 +601,7 @@ app.post(
     const { email } = c.req.valid('json')
     const dir = directory(c.env)
     const window = 15 * 60 * 1000
-    if (
-      !(await dir.allowAttempt(`site-login:${await ipHash(c)}`, 5, window)) ||
-      !(await dir.allowAttempt(`site-login-email:${email}`, 3, window))
-    ) {
+    if (!(await dir.allowAttempt(`site-login:${await ipHash(c)}`, 5, window))) {
       return rateLimited(c, 'Terlalu banyak permintaan. Tunggu 15 menit.')
     }
     const token = randomHex(32)
@@ -617,8 +614,19 @@ app.post(
       null,
       LOGIN_TTL_MS,
     )
-    if (issued && c.env.ENVIRONMENT !== 'development') {
-      await sendSignInLink(c.env, email, link)
+    // Only real owners count against the inbox cap. Past the cap new mail is
+    // skipped silently; links already sent keep working, so nobody else can
+    // lock the owner out. Sending runs after the reply so timing reveals nothing.
+    if (
+      issued &&
+      c.env.ENVIRONMENT !== 'development' &&
+      (await dir.allowAttempt(`site-login-email:${email}`, 5, window))
+    ) {
+      c.executionCtx.waitUntil(
+        sendSignInLink(c.env, email, link).catch((err: Error) =>
+          console.error('sign-in email failed', err.name),
+        ),
+      )
     }
     // Development has no mailbox: the page shows the link instead.
     return c.json(
@@ -831,6 +839,11 @@ app.put(
     const dir = directory(c.env)
     if (!(await dir.has(slug))) return notFound(c)
     await dir.setOwner(slug, c.req.valid('json').ownerEmail)
+    // A new owner means the old one's admin sessions end too.
+    const signedOut = await c.env.VENUE_ROOM.getByName(
+      roomFor(slug),
+    ).signOutAdmins()
+    if (!signedOut.ok) return reply(c, signedOut)
     return c.body(null, 204)
   },
 )
