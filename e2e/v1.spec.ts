@@ -198,6 +198,15 @@ test('a paired tablet sends an order that appears on the paired TV without reloa
   await expect(tablet.getByRole('button', { name: 'Masuk' })).toBeEnabled()
   await tablet.screenshot({ path: 'test-results/pin.png' })
   await expectAccessible(tablet, 'pin')
+  // A small phone with its browser bar: the whole pad fits without scrolling.
+  await tablet.setViewportSize({ width: 360, height: 600 })
+  const below = await tablet.evaluate(
+    () => document.documentElement.scrollHeight - window.innerHeight,
+  )
+  expect.soft(below, 'pin pad scrolls on a phone').toBeLessThanOrEqual(0)
+  await expectAccessible(tablet, 'pin 360')
+  await tablet.screenshot({ path: 'test-results/pin-360.png' })
+  await tablet.setViewportSize({ width: 1280, height: 800 })
   await tablet.getByRole('button', { name: 'Masuk' }).click()
   await expect(tablet.getByRole('button', { name: 'Rina' })).toBeVisible()
 })

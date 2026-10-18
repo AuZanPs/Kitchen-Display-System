@@ -37,10 +37,10 @@ export function AppBar({
   children?: ReactNode
 }) {
   return (
-    <header className="sticky top-0 z-30 flex min-h-16 items-center gap-3 border-b border-line bg-surface/95 px-4 backdrop-blur sm:px-6">
+    <header className="sticky top-0 z-30 flex min-h-16 items-center gap-2 border-b border-line bg-surface/95 px-4 backdrop-blur sm:gap-3 sm:px-6">
       <BrandMark />
-      <div className="mr-auto grid leading-tight">
-        <h1 className="text-base font-semibold whitespace-nowrap sm:text-lg">
+      <div className="mr-auto grid min-w-0 leading-tight">
+        <h1 className="text-base font-semibold text-balance sm:text-lg">
           {title}
         </h1>
         {device && <span className="text-[13px] text-ink-soft">{device}</span>}
