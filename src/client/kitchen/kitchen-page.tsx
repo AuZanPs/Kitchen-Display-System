@@ -120,9 +120,10 @@ function Kitchen({
           })}
         </p>
       )}
-      <main className="mx-auto grid max-w-2xl gap-8 px-4 pt-6">
+      {/* A landscape tablet shows the lanes side by side. */}
+      <main className="mx-auto grid max-w-2xl gap-8 px-4 pt-6 lg:max-w-6xl lg:grid-cols-[repeat(auto-fill,minmax(22rem,1fr))] lg:items-start lg:px-6">
         {board && sections.every((s) => s.orders.length === 0) && (
-          <p className="grid justify-items-center gap-3 py-20 text-center text-lg text-ink-soft">
+          <p className="col-span-full grid justify-items-center gap-3 py-20 text-center text-lg text-ink-soft">
             <ChefHat size={40} aria-hidden />
             {t('noTickets')}
           </p>

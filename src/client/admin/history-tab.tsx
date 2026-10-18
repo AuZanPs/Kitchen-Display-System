@@ -186,7 +186,8 @@ export function StatTiles({ stats }: { stats: HistoryStats | null }) {
     { label: t('statRevenue'), value: show((s) => formatIdr(s.revenueIdr)) },
   ]
   return (
-    <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
+    // As many columns as the space allows: wide on the overview, narrower beside the export card.
+    <ul className="grid grid-cols-2 gap-3 sm:grid-cols-[repeat(auto-fit,minmax(10rem,1fr))]">
       {tiles.map((tile, index) => (
         <li
           key={tile.label}
@@ -194,7 +195,7 @@ export function StatTiles({ stats }: { stats: HistoryStats | null }) {
           className="rise grid content-between gap-2 rounded-md bg-wash p-4 last:col-span-2 sm:last:col-span-1"
         >
           <span className="text-sm text-ink-soft">{tile.label}</span>
-          <span className="text-2xl font-medium tabular-nums break-words">
+          <span className="text-2xl font-medium tabular-nums wrap-anywhere">
             {tile.value}
           </span>
         </li>

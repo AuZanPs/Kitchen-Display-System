@@ -159,7 +159,7 @@ export function Composer({
           </div>
         )}
 
-        <label className="flex h-14 max-w-md items-center gap-3 rounded-full bg-tonal px-5 focus-within:outline-3 focus-within:outline-ink">
+        <label className="flex h-14 items-center gap-3 rounded-full bg-tonal px-5 focus-within:outline-3 focus-within:outline-ink">
           <Search size={20} aria-hidden />
           <input
             type="search"
