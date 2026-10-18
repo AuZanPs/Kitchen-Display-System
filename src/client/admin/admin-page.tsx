@@ -223,7 +223,7 @@ function Console({
       >
         <div
           ref={tabsRef}
-          className="relative mx-auto flex max-w-5xl overflow-x-auto px-2 [scrollbar-width:none] sm:px-4"
+          className="relative mx-auto flex max-w-5xl overflow-x-auto px-2 [scrollbar-width:none] sm:px-6"
         >
           {tabs.map((item) => {
             const active = tab === item.id
@@ -235,7 +235,7 @@ function Console({
                 onClick={() =>
                   setParams(item.id === 'overview' ? {} : { tab: item.id })
                 }
-                className="state relative flex min-h-16 min-w-max flex-1 flex-col items-center justify-center gap-1 px-3 text-[13px] font-medium sm:min-h-14 sm:flex-none sm:flex-row sm:gap-2 sm:px-6 sm:text-[15px]"
+                className="state relative flex min-h-16 min-w-max flex-1 flex-col items-center justify-center gap-1 px-1 text-xs font-medium sm:min-h-14 sm:flex-none sm:flex-row sm:gap-2 sm:px-6 sm:text-[15px]"
               >
                 <item.icon size={20} aria-hidden />
                 {item.label}

@@ -192,9 +192,9 @@ function Venues({ onSignedOut }: { onSignedOut: () => void }) {
                 style={stagger(index)}
                 className={`rise grid gap-4 rounded-md p-4 sm:p-5 ${venue.disabled ? 'border border-line' : 'bg-wash'}`}
               >
-                <div className="flex items-start gap-4">
+                <div className="flex flex-wrap items-start gap-x-4 gap-y-2">
                   <Monogram name={venue.name} muted={venue.disabled} />
-                  <div className="grid min-w-0 flex-1 gap-0.5">
+                  <div className="grid min-w-48 flex-1 gap-0.5">
                     <span className="text-lg font-medium break-words">
                       {venue.name}
                     </span>
@@ -202,11 +202,11 @@ function Venues({ onSignedOut }: { onSignedOut: () => void }) {
                       href={`${window.location.protocol}//${host}/admin`}
                       target="_blank"
                       rel="noreferrer"
-                      className="w-fit text-[15px] break-all text-ink-soft underline-offset-4 hover:underline"
+                      className="w-fit text-[15px] wrap-anywhere text-ink-soft underline-offset-4 hover:underline"
                     >
                       {host}
                     </a>
-                    <span className="text-[13px] break-all text-ink-soft">
+                    <span className="text-[13px] wrap-anywhere text-ink-soft">
                       {venue.ownerEmail ?? t('noOwner')}
                     </span>
                     {venue.createdAt > 0 && (
@@ -217,13 +217,18 @@ function Venues({ onSignedOut }: { onSignedOut: () => void }) {
                       </span>
                     )}
                   </div>
-                  <Switch
-                    label={venue.disabled ? t('venueOff') : t('venueActive')}
-                    checked={!venue.disabled}
-                    onChange={(on) =>
-                      on ? void setDisabled(venue, false) : setDisabling(venue)
-                    }
-                  />
+                  {/* Drops under the details on a phone instead of squeezing them. */}
+                  <div className="ml-auto">
+                    <Switch
+                      label={venue.disabled ? t('venueOff') : t('venueActive')}
+                      checked={!venue.disabled}
+                      onChange={(on) =>
+                        on
+                          ? void setDisabled(venue, false)
+                          : setDisabling(venue)
+                      }
+                    />
+                  </div>
                 </div>
                 <div className="-mx-2 -mb-1 flex flex-wrap gap-1 border-t border-line pt-2">
                   <a

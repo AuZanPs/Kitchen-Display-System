@@ -44,7 +44,7 @@ export function SettingsTab({
       <h2 className="text-2xl font-medium">{t('orderDetails')}</h2>
       <p className="mb-2 text-[15px] text-ink-soft">{t('orderDetailsHint')}</p>
       {shown && (
-        <div className="grid divide-y divide-line">
+        <div className="grid divide-y divide-line [&>label]:py-3">
           {ROWS.map((row) => (
             <Switch
               key={row.key}
