@@ -332,6 +332,17 @@ export const id = {
   typeToConfirm: 'Ketik {word} untuk melanjutkan',
   confirmWord: 'HAPUS',
   ordersDeleted: '{count} pesanan dihapus',
+  view: 'Tampilan',
+  viewList: 'Daftar',
+  viewTable: 'Tabel',
+  colTicket: 'Tiket',
+  colWhere: 'Meja',
+  colStatus: 'Status',
+  colSent: 'Dikirim',
+  colReady: 'Siap',
+  colDone: 'Selesai',
+  colItems: 'Item',
+  colBy: 'Oleh',
 } as const
 
 export type Dict = Record<keyof typeof id, string>
