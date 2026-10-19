@@ -155,30 +155,29 @@ test('every screen at phone, tablet and desktop widths', async ({
   }
   await admin.locator('label').filter({ hasText: 'Daftar' }).click()
 
-  // Deleting history stays hidden until the admin switches it on.
+  // Deleting lives in Pengaturan, never on the history itself.
   await admin.unroute('**/api/manager/history*')
   await admin.setViewportSize(PHONE)
-  const deleteDayButton = admin.getByRole('button', {
-    name: 'Hapus riwayat tanggal ini',
-  })
-  await expect(deleteDayButton).toBeHidden()
+  await expect(admin.getByRole('button', { name: /^Hapus/ })).toHaveCount(0)
   await admin.getByRole('button', { name: 'Pengaturan', exact: true }).click()
-  await admin.getByRole('switch', { name: /Hapus riwayat/ }).click()
-  await expect(admin.getByText('Pengaturan tersimpan')).toBeVisible()
+  await settle(admin)
+  await expectAccessible(admin, 'history delete card 360')
+  await admin.screenshot({
+    path: 'test-results/screen-history-delete-360.png',
+    fullPage: true,
+  })
 
-  // Then on a phone: one served order, then the rest of the day.
-  await admin.getByRole('button', { name: 'Riwayat', exact: true }).click()
+  // One served order, then the rest of the day.
   await admin
-    .getByRole('button', { name: /Sudah diantar/ })
+    .getByRole('button', { name: /^Hapus A-\d{3}$/ })
     .first()
     .click()
-  await admin.getByRole('button', { name: 'Hapus dari riwayat' }).click()
   await expectAccessible(admin, 'delete order 360')
   await admin.screenshot({ path: 'test-results/screen-delete-order-360.png' })
   await admin.getByRole('button', { name: 'Hapus', exact: true }).click()
   await expect(admin.getByText('1 pesanan dihapus')).toBeVisible()
 
-  await admin.getByRole('button', { name: 'Hapus riwayat tanggal ini' }).click()
+  await admin.getByRole('button', { name: /^Hapus semua/ }).click()
   const deleteDay = admin.getByRole('button', { name: 'Hapus', exact: true })
   await expect(deleteDay).toBeDisabled()
   await admin.getByLabel('Ketik HAPUS untuk melanjutkan').fill('hapus')
@@ -186,7 +185,8 @@ test('every screen at phone, tablet and desktop widths', async ({
   await admin.screenshot({ path: 'test-results/screen-delete-day-360.png' })
   await deleteDay.click()
   await expect(admin.getByText(/^\d+ pesanan dihapus$/)).toBeVisible()
+  await expect(admin.getByRole('button', { name: /^Hapus semua/ })).toBeHidden()
   await expect(
-    admin.getByRole('button', { name: 'Hapus riwayat tanggal ini' }),
-  ).toBeHidden()
+    admin.getByText('Tidak ada pesanan selesai di tanggal ini.'),
+  ).toBeVisible()
 })
