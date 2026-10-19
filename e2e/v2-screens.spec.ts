@@ -4,6 +4,9 @@ import { expectAccessible, pair, settle, signInAdmin } from './helpers.ts'
 const PHONE = { width: 360, height: 800 }
 const TABLET = { width: 820, height: 1180 }
 const DESKTOP = { width: 1280, height: 800 }
+// A 1080p laptop at 125% scaling, and the kitchen TV itself.
+const LAPTOP = { width: 1536, height: 864 }
+const TV = { width: 1920, height: 1080 }
 
 // Runs after v1: it turns staff PINs off again and looks at every screen at
 // phone, portrait tablet and desktop widths. Screenshots land in test-results/.
@@ -88,7 +91,7 @@ test('every screen at phone, tablet and desktop widths', async ({
   await tablet.screenshot({ path: 'test-results/screen-sheet-360.png' })
   await tablet.keyboard.press('Escape')
 
-  for (const size of [PHONE, TABLET, DESKTOP]) {
+  for (const size of [PHONE, TABLET, DESKTOP, TV]) {
     await tv.setViewportSize(size)
     await expect(tv.getByText('Live')).toBeVisible()
     await expectAccessible(tv, `tv ${size.width}`)
@@ -104,6 +107,19 @@ test('every screen at phone, tablet and desktop widths', async ({
     })
   }
 
+  // A busy day's numbers, so the widest totals are what the tiles must hold.
+  await admin.route('**/api/manager/history*', async (route) => {
+    const response = await route.fetch()
+    const body = await response.json()
+    body.stats = {
+      orders: 1234,
+      served: 1200,
+      cancelled: 34,
+      avgReadyMinutes: 125,
+      revenueIdr: 987_654_321,
+    }
+    await route.fulfill({ response, json: body })
+  })
   const tabs = [
     'Ringkasan',
     'Menu',
@@ -112,7 +128,7 @@ test('every screen at phone, tablet and desktop widths', async ({
     'Riwayat',
     'Pengaturan',
   ]
-  for (const size of [PHONE, TABLET, DESKTOP]) {
+  for (const size of [PHONE, TABLET, DESKTOP, LAPTOP]) {
     await admin.setViewportSize(size)
     for (const tab of tabs) {
       await admin.getByRole('button', { name: tab, exact: true }).click()
@@ -124,4 +140,30 @@ test('every screen at phone, tablet and desktop widths', async ({
       await expectAccessible(admin, `admin ${tab} ${size.width}`)
     }
   }
+
+  // Deleting history on a phone: one served order, then the rest of the day.
+  await admin.unroute('**/api/manager/history*')
+  await admin.setViewportSize(PHONE)
+  await admin.getByRole('button', { name: 'Riwayat', exact: true }).click()
+  await admin
+    .getByRole('button', { name: /Sudah diantar/ })
+    .first()
+    .click()
+  await admin.getByRole('button', { name: 'Hapus dari riwayat' }).click()
+  await expectAccessible(admin, 'delete order 360')
+  await admin.screenshot({ path: 'test-results/screen-delete-order-360.png' })
+  await admin.getByRole('button', { name: 'Hapus', exact: true }).click()
+  await expect(admin.getByText('1 pesanan dihapus')).toBeVisible()
+
+  await admin.getByRole('button', { name: 'Hapus riwayat tanggal ini' }).click()
+  const deleteDay = admin.getByRole('button', { name: 'Hapus', exact: true })
+  await expect(deleteDay).toBeDisabled()
+  await admin.getByLabel('Ketik HAPUS untuk melanjutkan').fill('hapus')
+  await expectAccessible(admin, 'delete day 360')
+  await admin.screenshot({ path: 'test-results/screen-delete-day-360.png' })
+  await deleteDay.click()
+  await expect(admin.getByText(/^\d+ pesanan dihapus$/)).toBeVisible()
+  await expect(
+    admin.getByRole('button', { name: 'Hapus riwayat tanggal ini' }),
+  ).toBeHidden()
 })

@@ -40,6 +40,46 @@ export async function expectAccessible(page: Page, screen: string) {
     () => document.documentElement.scrollWidth - window.innerWidth,
   )
   expect.soft(overflow, `${screen}: sideways scroll`).toBeLessThanOrEqual(0)
+  // Nor may anything stick out of the box drawn around it, like a long total
+  // out of its tile. Bleeding into a parent's padding is fine; scrollers and
+  // absolutely placed marks overflow on purpose.
+  const spills = await page.evaluate(() => {
+    const found: string[] = []
+    const name = (el: Element, why: string) =>
+      `<${el.localName} class="${el.getAttribute('class') ?? ''}"> ${why} "${el.textContent?.trim().slice(0, 30)}"`
+    const shown = (style: CSSStyleDeclaration) =>
+      style.display !== 'inline' &&
+      style.display !== 'contents' &&
+      style.visibility === 'visible'
+    for (const el of document.querySelectorAll('body *')) {
+      if (!(el instanceof HTMLElement)) continue
+      const style = getComputedStyle(el)
+      if (!shown(style) || /absolute|fixed/.test(style.position)) continue
+      const box = el.getBoundingClientRect()
+      if (box.width === 0) continue
+      if (/auto|scroll/.test(style.overflowX)) continue
+      if (
+        style.overflowX === 'visible' &&
+        el.childElementCount === 0 &&
+        el.scrollWidth > el.clientWidth + 1
+      ) {
+        found.push(name(el, `text ${el.scrollWidth}>${el.clientWidth}`))
+        continue
+      }
+      const parent = el.parentElement
+      if (!parent) continue
+      const outer = getComputedStyle(parent)
+      if (!shown(outer) || outer.overflowX !== 'visible') continue
+      const edge = parent.getBoundingClientRect()
+      const left = edge.left + Number.parseFloat(outer.borderLeftWidth)
+      const right = edge.right - Number.parseFloat(outer.borderRightWidth)
+      if (edge.width > 0 && (box.left < left - 1 || box.right > right + 1)) {
+        found.push(name(el, `sticks out ${Math.round(box.right - right)}px`))
+      }
+    }
+    return found
+  })
+  expect.soft(spills, `${screen}: content spills out of its box`).toEqual([])
   // Soft, so one run reports every screen.
   expect
     .soft(
