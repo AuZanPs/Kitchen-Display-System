@@ -197,6 +197,7 @@ describe('venue settings', () => {
       lineNotes: true,
       orderNote: true,
       staffPins: false,
+      historyDelete: false,
     })
     const { ws, nextBoard } = await openBoardSocket()
     await nextBoard()
@@ -205,6 +206,7 @@ describe('venue settings', () => {
       lineNotes: true,
       orderNote: false,
       staffPins: false,
+      historyDelete: true,
     }
     expect((await postJson('/api/admin/settings', detailed)).status).toBe(200)
     expect((await nextBoard()).settings).toEqual(detailed)

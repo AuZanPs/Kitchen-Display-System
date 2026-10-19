@@ -67,6 +67,8 @@ export const settingsSchema = z.object({
   orderNote: z.boolean(),
   /** Waiters and kitchen staff sign in with a PIN before they act. */
   staffPins: z.boolean(),
+  /** The admin may delete finished orders from the history. */
+  historyDelete: z.boolean().default(false),
 })
 export type Settings = z.infer<typeof settingsSchema>
 
@@ -76,6 +78,7 @@ export const DEFAULT_SETTINGS: Settings = {
   lineNotes: true,
   orderNote: true,
   staffPins: false,
+  historyDelete: false,
 }
 
 export const boardMessageSchema = z.object({
