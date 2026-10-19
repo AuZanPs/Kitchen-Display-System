@@ -174,6 +174,7 @@ export const en: Dict = {
   staffName: 'Name',
   pin: 'PIN',
   pinHint: '4 to 6 digits.',
+  pinNeeded: 'Enter a PIN of 4 to 6 digits.',
   pinKeepHint: 'Leave empty to keep the current PIN.',
   noPin: 'No PIN yet',
   staffActive: 'Active',

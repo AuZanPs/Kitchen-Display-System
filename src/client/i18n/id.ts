@@ -177,6 +177,7 @@ export const id = {
   staffName: 'Nama',
   pin: 'PIN',
   pinHint: '4 sampai 6 angka.',
+  pinNeeded: 'Isi PIN 4 sampai 6 angka.',
   pinKeepHint: 'Kosongkan agar PIN lama tetap dipakai.',
   noPin: 'Belum ada PIN',
   staffActive: 'Aktif',
