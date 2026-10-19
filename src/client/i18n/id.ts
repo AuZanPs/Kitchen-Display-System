@@ -137,6 +137,7 @@ export const id = {
   itemsSelected: '{count} item dipilih',
   waitingSince: 'Menunggu sejak {time}',
   minutes: '{min} mnt',
+  underAMinute: '< 1 mnt',
   openUnsent: 'Periksa pesanan',
 
   tabOverview: 'Ringkasan',

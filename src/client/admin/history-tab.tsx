@@ -180,26 +180,36 @@ export function StatTiles({ stats }: { stats: HistoryStats | null }) {
       value: show((s) =>
         s.avgReadyMinutes === null
           ? '–'
-          : t('minutes', { min: s.avgReadyMinutes }),
+          : s.avgReadyMinutes === 0
+            ? t('underAMinute')
+            : t('minutes', { min: s.avgReadyMinutes }),
       ),
     },
-    { label: t('statRevenue'), value: show((s) => formatIdr(s.revenueIdr)) },
+    {
+      label: t('statRevenue'),
+      value: show((s) => formatIdr(s.revenueIdr)),
+      wide: true,
+    },
   ]
+  // Columns follow the space the tiles get, not the window: the history tab
+  // shares its row with the export card. Sales always get two columns.
   return (
-    <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
-      {tiles.map((tile, index) => (
-        <li
-          key={tile.label}
-          style={stagger(index)}
-          className="rise grid content-between gap-2 rounded-md bg-wash p-4 last:col-span-2 sm:last:col-span-1"
-        >
-          <span className="text-sm text-ink-soft">{tile.label}</span>
-          <span className="text-2xl font-medium tabular-nums break-words">
-            {tile.value}
-          </span>
-        </li>
-      ))}
-    </ul>
+    <div className="@container">
+      <ul className="grid grid-cols-2 gap-3 @xl:grid-cols-3 @4xl:grid-cols-6">
+        {tiles.map((tile, index) => (
+          <li
+            key={tile.label}
+            style={stagger(index)}
+            className={`rise grid content-between gap-2 rounded-md bg-wash p-4 ${tile.wide ? 'col-span-2' : ''}`}
+          >
+            <span className="text-sm text-ink-soft">{tile.label}</span>
+            <span className="text-2xl font-medium tabular-nums wrap-anywhere">
+              {tile.value}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
   )
 }
 

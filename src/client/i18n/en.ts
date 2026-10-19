@@ -134,6 +134,7 @@ export const en: Dict = {
   itemsSelected: '{count} items selected',
   waitingSince: 'Waiting since {time}',
   minutes: '{min} min',
+  underAMinute: '< 1 min',
   openUnsent: 'Review order',
 
   tabOverview: 'Overview',
