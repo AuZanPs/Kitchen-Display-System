@@ -72,6 +72,11 @@ const adminRoutes: Call[] = [
   },
   { name: 'GET history', path: '/api/manager/history' },
   {
+    name: 'POST delete history',
+    path: '/api/manager/history/delete',
+    body: { day: '2020-01-01' },
+  },
+  {
     name: 'GET export',
     path: '/api/manager/export?from=2026-10-01&to=2026-10-02',
   },

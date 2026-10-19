@@ -6,6 +6,13 @@ export const MAX_EXPORT_DAYS = 31
 
 export const historyQuerySchema = z.object({ day: daySchema.optional() })
 
+/** A day's finished orders, or only one of them when `orderId` is given. */
+export const deleteHistorySchema = z.object({
+  day: daySchema,
+  orderId: z.string().min(1).max(64).optional(),
+})
+export type DeleteHistory = z.infer<typeof deleteHistorySchema>
+
 export const historyStatsSchema = z.object({
   orders: z.number().int(),
   served: z.number().int(),

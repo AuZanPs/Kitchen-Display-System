@@ -55,6 +55,66 @@ describe('history', () => {
   })
 })
 
+async function servedOrder() {
+  const order = await createOrder()
+  await command(order.orderId, {
+    type: 'accept',
+    expectedVersion: 1,
+    allergyAcknowledged: true,
+  })
+  await command(order.orderId, { type: 'ready', expectedVersion: 2 })
+  await command(order.orderId, { type: 'serve', expectedVersion: 3 })
+  return order
+}
+
+const remove = (body: { day: string; orderId?: string }) =>
+  postJson('/api/manager/history/delete', body)
+
+describe('deleting history', () => {
+  it('deletes one finished order with its sales and timeline', async () => {
+    const served = await servedOrder()
+    const before = await history()
+    const res = await remove({ day: today(), orderId: served.orderId })
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({ deleted: 1 })
+
+    const after = await history()
+    expect(after.orders.map((o) => o.id)).not.toContain(served.orderId)
+    expect(after.stats.revenueIdr).toBe(before.stats.revenueIdr - 84_000)
+    const timeline = await request(`/api/orders/${served.orderId}`, {
+      headers: await adminHeaders(),
+    })
+    expect(timeline.status).toBe(404)
+  })
+
+  it('never deletes an order still in progress', async () => {
+    const open = await createOrder()
+    const res = await remove({ day: today(), orderId: open.orderId })
+    expect((await rejected(res, 409)).code).toBe('invalid_transition')
+    expect((await history()).orders.map((o) => o.id)).toContain(open.orderId)
+  })
+
+  it('refuses an order from another day', async () => {
+    const served = await servedOrder()
+    const res = await remove({ day: '2020-01-01', orderId: served.orderId })
+    expect((await rejected(res, 404)).code).toBe('not_found')
+  })
+
+  it('clears a whole day but keeps orders still in progress', async () => {
+    const served = await servedOrder()
+    const open = await createOrder()
+    const res = await remove({ day: today() })
+    expect(res.status).toBe(200)
+
+    const day = await history()
+    const ids = day.orders.map((o) => o.id)
+    expect(ids).not.toContain(served.orderId)
+    expect(ids).toContain(open.orderId)
+    expect(day.stats.served).toBe(0)
+    expect(day.stats.cancelled).toBe(0)
+  })
+})
+
 describe('export', () => {
   it('exports one CSV row per line, safe to open in a spreadsheet', async () => {
     const item = await postJson('/api/manager/menu', {

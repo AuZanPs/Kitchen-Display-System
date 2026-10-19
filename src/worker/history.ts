@@ -1,4 +1,4 @@
-import { and, asc, between, eq, ne, sql } from 'drizzle-orm'
+import { and, asc, between, eq, inArray, ne, sql } from 'drizzle-orm'
 import { EXPORT_COLUMNS, type ExportRow, type History } from '../shared/history'
 import { ticketLabel } from '../shared/order'
 import { toBoardOrders } from './board'
@@ -41,6 +41,39 @@ export function dayHistory(db: Db, day: string): History {
     },
     orders: toBoardOrders(db, rows, filter),
   }
+}
+
+/**
+ * Deletes a day's served and cancelled orders, or one of them, with their
+ * lines and records. Orders still in progress are never touched.
+ */
+export function deleteFinished(db: Db, day: string, orderId?: string) {
+  const target = and(
+    eq(schema.orders.serviceDay, day),
+    inArray(schema.orders.status, ['served', 'cancelled']),
+    orderId === undefined ? undefined : eq(schema.orders.id, orderId),
+  )
+  const ids = db
+    .select({ id: schema.orders.id })
+    .from(schema.orders)
+    .where(target)
+  db.delete(schema.orderLines)
+    .where(inArray(schema.orderLines.orderId, ids))
+    .run()
+  db.delete(schema.orderChanges)
+    .where(inArray(schema.orderChanges.orderId, ids))
+    .run()
+  db.delete(schema.orderEvents)
+    .where(inArray(schema.orderEvents.orderId, ids))
+    .run()
+  db.delete(schema.displayReceipts)
+    .where(inArray(schema.displayReceipts.orderId, ids))
+    .run()
+  return db
+    .delete(schema.orders)
+    .where(target)
+    .returning({ id: schema.orders.id })
+    .all().length
 }
 
 /** Order lines between two service days, inclusive, in the order they were sent. */
