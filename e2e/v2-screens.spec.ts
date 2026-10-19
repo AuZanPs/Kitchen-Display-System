@@ -141,6 +141,20 @@ test('every screen at phone, tablet and desktop widths', async ({
     }
   }
 
+  // The spreadsheet view of the day, wide and on a phone.
+  await admin.getByRole('button', { name: 'Riwayat', exact: true }).click()
+  await admin.locator('label').filter({ hasText: 'Tabel' }).click()
+  await expect(admin.getByRole('table')).toBeVisible()
+  for (const size of [LAPTOP, PHONE]) {
+    await admin.setViewportSize(size)
+    await expectAccessible(admin, `history table ${size.width}`)
+    await admin.screenshot({
+      path: `test-results/screen-history-table-${size.width}.png`,
+      fullPage: true,
+    })
+  }
+  await admin.locator('label').filter({ hasText: 'Daftar' }).click()
+
   // Deleting history on a phone: one served order, then the rest of the day.
   await admin.unroute('**/api/manager/history*')
   await admin.setViewportSize(PHONE)
