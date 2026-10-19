@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_SETTINGS } from '../src/shared/board'
 import { historySchema } from '../src/shared/history'
 import { jakartaDate } from '../src/shared/order'
 import {
@@ -75,19 +74,6 @@ const remove = (body: { day: string; orderId?: string }) =>
   postJson('/api/manager/history/delete', body)
 
 describe('deleting history', () => {
-  it('is refused until the venue switches it on', async () => {
-    const served = await servedOrder()
-    const off = await remove({ day: today(), orderId: served.orderId })
-    expect((await rejected(off, 403)).code).toBe('forbidden')
-    expect((await history()).orders.map((o) => o.id)).toContain(served.orderId)
-
-    const on = await postJson('/api/admin/settings', {
-      ...DEFAULT_SETTINGS,
-      historyDelete: true,
-    })
-    expect(on.status).toBe(200)
-  })
-
   it('deletes one finished order with its sales and timeline', async () => {
     const served = await servedOrder()
     const before = await history()

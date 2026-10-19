@@ -480,13 +480,6 @@ export class VenueRoom extends DurableObject<Env> {
     input: DeleteHistory,
   ): Result<{ deleted: number; rev: number }> {
     if (credentials.kind !== 'admin') return unauthenticated()
-    if (!getSettings(this.db).historyDelete) {
-      return fail(
-        403,
-        'forbidden',
-        'Hapus riwayat belum diaktifkan di Pengaturan.',
-      )
-    }
     if (input.orderId !== undefined) {
       const order = this.db
         .select({ day: schema.orders.serviceDay, status: schema.orders.status })
