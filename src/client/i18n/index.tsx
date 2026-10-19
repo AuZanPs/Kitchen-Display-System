@@ -98,6 +98,11 @@ const rupiah = new Intl.NumberFormat('id-ID', {
   maximumFractionDigits: 0,
 })
 
+/** Whole minutes; anything under one reads "< 1 min" rather than "0 min". */
+export function formatMinutes(min: number, t: Translate) {
+  return min < 1 ? t('underAMinute') : t('minutes', { min })
+}
+
 export function formatIdr(amount: number) {
   return rupiah.format(amount)
 }

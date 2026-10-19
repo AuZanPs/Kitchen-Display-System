@@ -4,7 +4,7 @@ import { z } from 'zod'
 import type { BoardMessage, BoardOrder } from '../../shared/board'
 import { type HistoryStats, historySchema } from '../../shared/history'
 import { LIMITS, ticketLabel } from '../../shared/order'
-import { type DictKey, formatDay, useI18n } from '../i18n'
+import { type DictKey, formatDay, formatMinutes, useI18n } from '../i18n'
 import { api } from '../lib/api'
 import { whereLabel } from '../lib/board'
 import { failureText, sendCommand } from '../lib/commands'
@@ -273,8 +273,7 @@ function ActiveOrders({
                 <span className="font-medium">
                   {whereLabel(order, t)}{' '}
                   <span className="text-sm font-normal text-ink-soft tabular-nums">
-                    {ticketLabel(order.ticketNo)} ·{' '}
-                    {t('minutes', { min: minutes })}
+                    {ticketLabel(order.ticketNo)} · {formatMinutes(minutes, t)}
                   </span>
                 </span>
                 <span className="text-sm text-ink-soft break-words">
