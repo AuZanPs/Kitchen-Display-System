@@ -155,9 +155,18 @@ test('every screen at phone, tablet and desktop widths', async ({
   }
   await admin.locator('label').filter({ hasText: 'Daftar' }).click()
 
-  // Deleting history on a phone: one served order, then the rest of the day.
+  // Deleting history stays hidden until the admin switches it on.
   await admin.unroute('**/api/manager/history*')
   await admin.setViewportSize(PHONE)
+  const deleteDayButton = admin.getByRole('button', {
+    name: 'Hapus riwayat tanggal ini',
+  })
+  await expect(deleteDayButton).toBeHidden()
+  await admin.getByRole('button', { name: 'Pengaturan', exact: true }).click()
+  await admin.getByRole('switch', { name: /Hapus riwayat/ }).click()
+  await expect(admin.getByText('Pengaturan tersimpan')).toBeVisible()
+
+  // Then on a phone: one served order, then the rest of the day.
   await admin.getByRole('button', { name: 'Riwayat', exact: true }).click()
   await admin
     .getByRole('button', { name: /Sudah diantar/ })
