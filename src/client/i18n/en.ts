@@ -163,6 +163,11 @@ export const en: Dict = {
   settingLineNotes: 'Item notes',
   settingOrderNote: 'Order note',
   settingsSaved: 'Settings saved',
+  settingsAdvanced: 'Advanced',
+  settingsAdvancedHint: 'For the owner. Leave them off unless needed.',
+  settingHistoryDelete: 'Delete history',
+  settingHistoryDeleteHint:
+    'Shows delete buttons in History. Deleted orders are gone for good.',
 
   tabStaff: 'Staff',
   settingStaffPins: 'Staff PINs',

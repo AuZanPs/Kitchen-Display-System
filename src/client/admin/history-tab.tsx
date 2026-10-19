@@ -93,9 +93,12 @@ const finished = (order: BoardOrder) =>
 
 export function HistoryTab({
   devices,
+  canDelete,
   notify,
 }: {
   devices: Device[] | null
+  /** Deleting is a venue setting, off unless the admin turns it on. */
+  canDelete: boolean
   notify: (text: string) => void
 }) {
   const { t } = useI18n()
@@ -217,7 +220,7 @@ export function HistoryTab({
             ))}
           </ul>
         )}
-        {done > 0 && (
+        {canDelete && done > 0 && (
           <Button
             variant="outlined"
             icon={<Trash2 size={18} aria-hidden />}
@@ -243,6 +246,7 @@ export function HistoryTab({
       <OrderDialog
         order={open}
         day={day}
+        canDelete={canDelete}
         onDeleted={deleted}
         onClose={() => setOpen(null)}
         who={(event) =>
@@ -602,12 +606,14 @@ function DeleteDayDialog({
 function OrderDialog({
   order,
   day,
+  canDelete,
   onClose,
   onDeleted,
   who,
 }: {
   order: BoardOrder | null
   day: string
+  canDelete: boolean
   onClose: () => void
   onDeleted: (count: number) => void
   who: (event: OrderEvent) => string
@@ -645,34 +651,37 @@ function OrderDialog({
     onDeleted(result.data.deleted)
   }
 
-  const footer = !shown ? null : !finished(shown) ? (
-    <p className="mr-auto text-[15px] text-ink-soft">{t('deleteActiveHint')}</p>
-  ) : confirming ? (
-    <>
-      <p role="alert" className="min-w-0 flex-1 basis-60 self-center">
-        {error ??
-          t('deleteOrderConfirm', { ticket: ticketLabel(shown.ticketNo) })}
+  const footer =
+    !shown || !canDelete ? null : !finished(shown) ? (
+      <p className="mr-auto text-[15px] text-ink-soft">
+        {t('deleteActiveHint')}
       </p>
-      <Button variant="text" onClick={() => setConfirming(false)}>
-        {t('cancel')}
-      </Button>
+    ) : confirming ? (
+      <>
+        <p role="alert" className="min-w-0 flex-1 basis-60 self-center">
+          {error ??
+            t('deleteOrderConfirm', { ticket: ticketLabel(shown.ticketNo) })}
+        </p>
+        <Button variant="text" onClick={() => setConfirming(false)}>
+          {t('cancel')}
+        </Button>
+        <Button
+          disabled={busy}
+          icon={<Trash2 size={18} aria-hidden />}
+          onClick={() => void remove(shown)}
+        >
+          {t('delete')}
+        </Button>
+      </>
+    ) : (
       <Button
-        disabled={busy}
+        variant="text"
         icon={<Trash2 size={18} aria-hidden />}
-        onClick={() => void remove(shown)}
+        onClick={() => setConfirming(true)}
       >
-        {t('delete')}
+        {t('deleteFromHistory')}
       </Button>
-    </>
-  ) : (
-    <Button
-      variant="text"
-      icon={<Trash2 size={18} aria-hidden />}
-      onClick={() => setConfirming(true)}
-    >
-      {t('deleteFromHistory')}
-    </Button>
-  )
+    )
 
   return (
     <Dialog

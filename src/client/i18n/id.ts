@@ -166,6 +166,11 @@ export const id = {
   settingLineNotes: 'Catatan per item',
   settingOrderNote: 'Catatan pesanan',
   settingsSaved: 'Pengaturan tersimpan',
+  settingsAdvanced: 'Lanjutan',
+  settingsAdvancedHint: 'Untuk pemilik. Biarkan mati kalau tidak dibutuhkan.',
+  settingHistoryDelete: 'Hapus riwayat',
+  settingHistoryDeleteHint:
+    'Menampilkan tombol hapus di Riwayat. Pesanan yang dihapus hilang permanen.',
 
   tabStaff: 'Staf',
   settingStaffPins: 'PIN staf',
