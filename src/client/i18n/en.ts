@@ -163,11 +163,6 @@ export const en: Dict = {
   settingLineNotes: 'Item notes',
   settingOrderNote: 'Order note',
   settingsSaved: 'Settings saved',
-  settingsAdvanced: 'Advanced',
-  settingsAdvancedHint: 'For the owner. Leave them off unless needed.',
-  settingHistoryDelete: 'Delete history',
-  settingHistoryDeleteHint:
-    'Shows delete buttons in History. Deleted orders are gone for good.',
 
   tabStaff: 'Staff',
   settingStaffPins: 'Staff PINs',
@@ -320,11 +315,8 @@ export const en: Dict = {
   slugInvalid: 'Use lowercase letters, numbers or hyphens, at most 30.',
   createdOn: 'Created {date}',
   delete: 'Delete',
-  deleteFromHistory: 'Delete from history',
-  deleteOrderConfirm: 'Delete {ticket} and its sales? This cannot be undone.',
   deleteActiveHint:
-    'Orders in progress cannot be deleted. Cancel it from Overview first.',
-  deleteDay: 'Delete this day',
+    'Orders in progress cannot be deleted. Cancel them from Overview first.',
   deleteDayTitle: 'Delete history for {date}?',
   deleteDayBody:
     '{count} finished orders and their sales are deleted for good. Download the CSV first if you still need it.',
@@ -332,6 +324,15 @@ export const en: Dict = {
   typeToConfirm: 'Type {word} to continue',
   confirmWord: 'DELETE',
   ordersDeleted: '{count} orders deleted',
+  historyDeleteTitle: 'Delete history',
+  historyDeleteHint:
+    'Delete finished orders and their sales. This cannot be undone, so download the CSV in History first if you still need it.',
+  noFinishedDay: 'No finished orders on this day.',
+  deleteAll: 'Delete all ({count})',
+  deleteOrderLabel: 'Delete {ticket}',
+  deleteOrderTitle: 'Delete {ticket}?',
+  deleteOrderBody:
+    'This order leaves the history and sales for good. This cannot be undone.',
   view: 'View',
   viewList: 'List',
   viewTable: 'Table',

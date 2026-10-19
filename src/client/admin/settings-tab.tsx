@@ -5,6 +5,7 @@ import { useI18n } from '../i18n'
 import { api } from '../lib/api'
 import { Card } from '../ui/card'
 import { Switch } from '../ui/switch'
+import { HistoryDeleteCard } from './history-delete'
 
 const ROWS = [
   { key: 'lineNotes', label: 'settingLineNotes', hint: 'settingLineNotesHint' },
@@ -12,16 +13,6 @@ const ROWS = [
   { key: 'allergy', label: 'settingAllergy', hint: 'settingAllergyHint' },
   { key: 'staffPins', label: 'settingStaffPins', hint: 'settingStaffPinsHint' },
 ] as const
-
-// Rare, owner-only switches, kept apart from the everyday order form.
-const ADVANCED = [
-  {
-    key: 'historyDelete',
-    label: 'settingHistoryDelete',
-    hint: 'settingHistoryDeleteHint',
-  },
-] as const
-type Row = (typeof ROWS)[number] | (typeof ADVANCED)[number]
 
 /** Lets each venue choose a simple or a detailed order form. */
 export function SettingsTab({
@@ -49,24 +40,6 @@ export function SettingsTab({
     notify(result.ok ? t('settingsSaved') : t('networkError'))
   }
 
-  const switches = (rows: readonly Row[]) =>
-    shown && (
-      <div className="grid divide-y divide-line">
-        {rows.map((row) => (
-          <Switch
-            key={row.key}
-            label={t(row.label)}
-            hint={t(row.hint)}
-            checked={shown[row.key]}
-            disabled={pending !== null}
-            onChange={(checked) =>
-              void change({ ...shown, [row.key]: checked })
-            }
-          />
-        ))}
-      </div>
-    )
-
   return (
     <div className="grid max-w-2xl gap-6">
       <Card className="grid gap-2">
@@ -74,15 +47,24 @@ export function SettingsTab({
         <p className="mb-2 text-[15px] text-ink-soft">
           {t('orderDetailsHint')}
         </p>
-        {switches(ROWS)}
+        {shown && (
+          <div className="grid divide-y divide-line">
+            {ROWS.map((row) => (
+              <Switch
+                key={row.key}
+                label={t(row.label)}
+                hint={t(row.hint)}
+                checked={shown[row.key]}
+                disabled={pending !== null}
+                onChange={(checked) =>
+                  void change({ ...shown, [row.key]: checked })
+                }
+              />
+            ))}
+          </div>
+        )}
       </Card>
-      <Card className="grid gap-2">
-        <h2 className="text-2xl font-medium">{t('settingsAdvanced')}</h2>
-        <p className="mb-2 text-[15px] text-ink-soft">
-          {t('settingsAdvancedHint')}
-        </p>
-        {switches(ADVANCED)}
-      </Card>
+      <HistoryDeleteCard notify={notify} />
     </div>
   )
 }

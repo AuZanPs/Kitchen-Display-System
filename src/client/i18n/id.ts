@@ -166,11 +166,6 @@ export const id = {
   settingLineNotes: 'Catatan per item',
   settingOrderNote: 'Catatan pesanan',
   settingsSaved: 'Pengaturan tersimpan',
-  settingsAdvanced: 'Lanjutan',
-  settingsAdvancedHint: 'Untuk pemilik. Biarkan mati kalau tidak dibutuhkan.',
-  settingHistoryDelete: 'Hapus riwayat',
-  settingHistoryDeleteHint:
-    'Menampilkan tombol hapus di Riwayat. Pesanan yang dihapus hilang permanen.',
 
   tabStaff: 'Staf',
   settingStaffPins: 'PIN staf',
@@ -325,11 +320,8 @@ export const id = {
   slugInvalid: 'Pakai huruf kecil, angka atau tanda hubung, paling banyak 30.',
   createdOn: 'Dibuat {date}',
   delete: 'Hapus',
-  deleteFromHistory: 'Hapus dari riwayat',
-  deleteOrderConfirm: 'Hapus {ticket} beserta omzetnya? Tidak bisa dibatalkan.',
   deleteActiveHint:
     'Pesanan yang masih berjalan tidak bisa dihapus. Batalkan dulu dari Ringkasan.',
-  deleteDay: 'Hapus riwayat tanggal ini',
   deleteDayTitle: 'Hapus riwayat {date}?',
   deleteDayBody:
     '{count} pesanan selesai beserta omzetnya dihapus permanen. Unduh CSV dulu kalau masih perlu.',
@@ -337,6 +329,15 @@ export const id = {
   typeToConfirm: 'Ketik {word} untuk melanjutkan',
   confirmWord: 'HAPUS',
   ordersDeleted: '{count} pesanan dihapus',
+  historyDeleteTitle: 'Hapus riwayat',
+  historyDeleteHint:
+    'Hapus pesanan yang sudah selesai beserta omzetnya. Tidak bisa dibatalkan, jadi unduh CSV di Riwayat dulu kalau masih perlu.',
+  noFinishedDay: 'Tidak ada pesanan selesai di tanggal ini.',
+  deleteAll: 'Hapus semua ({count})',
+  deleteOrderLabel: 'Hapus {ticket}',
+  deleteOrderTitle: 'Hapus {ticket}?',
+  deleteOrderBody:
+    'Pesanan ini hilang permanen dari riwayat dan omzet. Tidak bisa dibatalkan.',
   view: 'Tampilan',
   viewList: 'Daftar',
   viewTable: 'Tabel',

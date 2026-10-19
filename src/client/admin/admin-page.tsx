@@ -262,11 +262,7 @@ function Console({
         )}
         {tab === 'staff' && <StaffTab notify={snackbar.show} />}
         {tab === 'history' && (
-          <HistoryTab
-            devices={devices}
-            canDelete={board?.settings.historyDelete ?? false}
-            notify={snackbar.show}
-          />
+          <HistoryTab devices={devices} notify={snackbar.show} />
         )}
         {tab === 'devices' && (
           <DevicesTab
