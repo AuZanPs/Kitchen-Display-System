@@ -314,4 +314,17 @@ export const en: Dict = {
   passwordTooShort: 'At least 8 characters.',
   slugInvalid: 'Use lowercase letters, numbers or hyphens, at most 30.',
   createdOn: 'Created {date}',
+  delete: 'Delete',
+  deleteFromHistory: 'Delete from history',
+  deleteOrderConfirm: 'Delete {ticket} and its sales? This cannot be undone.',
+  deleteActiveHint:
+    'Orders in progress cannot be deleted. Cancel it from Overview first.',
+  deleteDay: 'Delete this day',
+  deleteDayTitle: 'Delete history for {date}?',
+  deleteDayBody:
+    '{count} finished orders and their sales are deleted for good. Download the CSV first if you still need it.',
+  deleteDayKeeps: 'Orders still in progress stay.',
+  typeToConfirm: 'Type {word} to continue',
+  confirmWord: 'DELETE',
+  ordersDeleted: '{count} orders deleted',
 }

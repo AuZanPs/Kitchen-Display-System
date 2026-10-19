@@ -1,5 +1,5 @@
-import { Download } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { Download, Trash2 } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
 import { z } from 'zod'
 import type { BoardOrder } from '../../shared/board'
 import {
@@ -10,11 +10,19 @@ import {
 } from '../../shared/history'
 import { jakartaDate, ticketLabel } from '../../shared/order'
 import { adminStaffListSchema } from '../../shared/staff'
-import { type DictKey, formatIdr, formatTime, useI18n } from '../i18n'
+import {
+  type DictKey,
+  formatDay,
+  formatIdr,
+  formatTime,
+  useI18n,
+} from '../i18n'
 import { api } from '../lib/api'
 import { boardLines, whereLabel } from '../lib/board'
+import { failureText } from '../lib/commands'
 import { stagger } from '../lib/stagger'
 import { Ticket } from '../ticket'
+import { Button } from '../ui/button'
 import { Card } from '../ui/card'
 import { Dialog } from '../ui/dialog'
 import { TextField } from '../ui/text-field'
@@ -64,6 +72,10 @@ type OrderEvent = z.infer<typeof eventsSchema>['events'][number]
 
 const jakartaToday = () => jakartaDate(Date.now())
 
+const deletedSchema = z.object({ deleted: z.number().int() })
+const finished = (order: BoardOrder) =>
+  order.status === 'served' || order.status === 'cancelled'
+
 export function HistoryTab({
   devices,
   notify,
@@ -76,15 +88,27 @@ export function HistoryTab({
   const [history, setHistory] = useState<History | null>(null)
   const [staffNames, setStaffNames] = useState(new Map<string, string>())
   const [open, setOpen] = useState<BoardOrder | null>(null)
+  const [confirmDay, setConfirmDay] = useState(false)
+
+  const load = useCallback(async () => {
+    const r = await api(`/api/manager/history?day=${day}`, historySchema)
+    if (r.ok) setHistory(r.data)
+    else notify(t('networkError'))
+  }, [day, notify, t])
 
   useEffect(() => {
     if (!day) return
     setHistory(null)
-    void api(`/api/manager/history?day=${day}`, historySchema).then((r) => {
-      if (r.ok) setHistory(r.data)
-      else notify(t('networkError'))
-    })
-  }, [day, notify, t])
+    void load()
+  }, [day, load])
+
+  const done = history?.orders.filter(finished).length ?? 0
+  const deleted = (count: number) => {
+    notify(t('ordersDeleted', { count }))
+    setOpen(null)
+    setConfirmDay(false)
+    void load()
+  }
 
   useEffect(() => {
     void api('/api/manager/staff', adminStaffListSchema).then((r) => {
@@ -148,12 +172,33 @@ export function HistoryTab({
             </li>
           ))}
         </ul>
+        {done > 0 && (
+          <Button
+            variant="text"
+            icon={<Trash2 size={18} aria-hidden />}
+            onClick={() => setConfirmDay(true)}
+            className="justify-self-start"
+          >
+            {t('deleteDay')}
+          </Button>
+        )}
       </section>
 
       <ExportCard />
 
+      <DeleteDayDialog
+        open={confirmDay}
+        day={day}
+        count={done}
+        keeps={(history?.orders.length ?? 0) > done}
+        onClose={() => setConfirmDay(false)}
+        onDeleted={deleted}
+      />
+
       <OrderDialog
         order={open}
+        day={day}
+        onDeleted={deleted}
         onClose={() => setOpen(null)}
         who={(event) =>
           (event.staffId && staffNames.get(event.staffId)) ||
@@ -262,17 +307,116 @@ function ExportCard() {
   )
 }
 
+function DeleteDayDialog({
+  open,
+  day,
+  count,
+  keeps,
+  onClose,
+  onDeleted,
+}: {
+  open: boolean
+  day: string
+  count: number
+  keeps: boolean
+  onClose: () => void
+  onDeleted: (count: number) => void
+}) {
+  const { t, lang } = useI18n()
+  const [typed, setTyped] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const word = t('confirmWord')
+  const ready = typed.trim().toUpperCase() === word && !busy
+
+  const close = () => {
+    setTyped('')
+    setError(null)
+    onClose()
+  }
+
+  async function remove() {
+    if (!ready) return
+    setBusy(true)
+    const result = await api('/api/manager/history/delete', deletedSchema, {
+      body: { day },
+    })
+    setBusy(false)
+    if (!result.ok) return setError(failureText(result, t))
+    setTyped('')
+    onDeleted(result.data.deleted)
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => !next && close()}
+      title={t('deleteDayTitle', { date: formatDay(day, lang) })}
+      description={
+        keeps
+          ? `${t('deleteDayBody', { count })} ${t('deleteDayKeeps')}`
+          : t('deleteDayBody', { count })
+      }
+      footer={
+        <>
+          <Button variant="text" onClick={close}>
+            {t('cancel')}
+          </Button>
+          <Button
+            type="submit"
+            form="delete-day"
+            disabled={!ready}
+            icon={<Trash2 size={18} aria-hidden />}
+          >
+            {t('delete')}
+          </Button>
+        </>
+      }
+    >
+      <form
+        id="delete-day"
+        noValidate
+        className="pt-2"
+        onSubmit={(event) => {
+          event.preventDefault()
+          void remove()
+        }}
+      >
+        <TextField
+          label={t('typeToConfirm', { word })}
+          autoComplete="off"
+          autoCapitalize="characters"
+          spellCheck={false}
+          value={typed}
+          onChange={(e) => {
+            setTyped(e.target.value)
+            setError(null)
+          }}
+          error={error}
+        />
+      </form>
+    </Dialog>
+  )
+}
+
 function OrderDialog({
   order,
+  day,
   onClose,
+  onDeleted,
   who,
 }: {
   order: BoardOrder | null
+  day: string
   onClose: () => void
+  onDeleted: (count: number) => void
   who: (event: OrderEvent) => string
 }) {
   const { t } = useI18n()
   const [shown, setShown] = useState<BoardOrder | null>(null)
+  const [confirming, setConfirming] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const eventLabel = (type: string) => {
     const key = EVENT_KEY[type]
     return key ? t(key) : type
@@ -284,16 +428,58 @@ function OrderDialog({
     // Kept while the dialog animates out.
     setShown(order)
     setEvents(null)
+    setConfirming(false)
+    setError(null)
     void api(`/api/orders/${order.id}`, eventsSchema).then((r) => {
       if (r.ok) setEvents(r.data.events)
     })
   }, [order])
+
+  async function remove(target: BoardOrder) {
+    setBusy(true)
+    const result = await api('/api/manager/history/delete', deletedSchema, {
+      body: { day, orderId: target.id },
+    })
+    setBusy(false)
+    if (!result.ok) return setError(failureText(result, t))
+    onDeleted(result.data.deleted)
+  }
+
+  const footer = !shown ? null : !finished(shown) ? (
+    <p className="mr-auto text-[15px] text-ink-soft">{t('deleteActiveHint')}</p>
+  ) : confirming ? (
+    <>
+      <p role="alert" className="min-w-0 flex-1 basis-60 self-center">
+        {error ??
+          t('deleteOrderConfirm', { ticket: ticketLabel(shown.ticketNo) })}
+      </p>
+      <Button variant="text" onClick={() => setConfirming(false)}>
+        {t('cancel')}
+      </Button>
+      <Button
+        disabled={busy}
+        icon={<Trash2 size={18} aria-hidden />}
+        onClick={() => void remove(shown)}
+      >
+        {t('delete')}
+      </Button>
+    </>
+  ) : (
+    <Button
+      variant="text"
+      icon={<Trash2 size={18} aria-hidden />}
+      onClick={() => setConfirming(true)}
+    >
+      {t('deleteFromHistory')}
+    </Button>
+  )
 
   return (
     <Dialog
       open={order !== null}
       onOpenChange={(next) => !next && onClose()}
       title={shown ? ticketLabel(shown.ticketNo) : ''}
+      footer={footer}
       wide
     >
       {shown && (

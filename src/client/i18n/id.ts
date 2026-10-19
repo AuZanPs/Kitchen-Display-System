@@ -319,6 +319,19 @@ export const id = {
   passwordTooShort: 'Minimal 8 karakter.',
   slugInvalid: 'Pakai huruf kecil, angka atau tanda hubung, paling banyak 30.',
   createdOn: 'Dibuat {date}',
+  delete: 'Hapus',
+  deleteFromHistory: 'Hapus dari riwayat',
+  deleteOrderConfirm: 'Hapus {ticket} beserta omzetnya? Tidak bisa dibatalkan.',
+  deleteActiveHint:
+    'Pesanan yang masih berjalan tidak bisa dihapus. Batalkan dulu dari Ringkasan.',
+  deleteDay: 'Hapus riwayat tanggal ini',
+  deleteDayTitle: 'Hapus riwayat {date}?',
+  deleteDayBody:
+    '{count} pesanan selesai beserta omzetnya dihapus permanen. Unduh CSV dulu kalau masih perlu.',
+  deleteDayKeeps: 'Pesanan yang masih berjalan tidak ikut terhapus.',
+  typeToConfirm: 'Ketik {word} untuk melanjutkan',
+  confirmWord: 'HAPUS',
+  ordersDeleted: '{count} pesanan dihapus',
 } as const
 
 export type Dict = Record<keyof typeof id, string>
