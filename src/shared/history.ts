@@ -24,10 +24,16 @@ export const historyStatsSchema = z.object({
 })
 export type HistoryStats = z.infer<typeof historyStatsSchema>
 
+/** An order as the history shows it: with what its lines add up to. */
+export const historyOrderSchema = boardOrderSchema.extend({
+  totalIdr: z.number().int(),
+})
+export type HistoryOrder = z.infer<typeof historyOrderSchema>
+
 export const historySchema = z.object({
   day: daySchema,
   stats: historyStatsSchema,
-  orders: z.array(boardOrderSchema),
+  orders: z.array(historyOrderSchema),
 })
 export type History = z.infer<typeof historySchema>
 

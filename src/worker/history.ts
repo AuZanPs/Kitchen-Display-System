@@ -1,4 +1,4 @@
-import { and, asc, between, eq, inArray, ne, sql } from 'drizzle-orm'
+import { and, asc, between, eq, inArray, sql } from 'drizzle-orm'
 import { EXPORT_COLUMNS, type ExportRow, type History } from '../shared/history'
 import { ticketLabel } from '../shared/order'
 import { toBoardOrders } from './board'
@@ -18,14 +18,20 @@ export function dayHistory(db: Db, day: string): History {
   const ready = rows.flatMap((r) =>
     r.readyAt === null ? [] : [r.readyAt - r.createdAt],
   )
-  const revenue = db
-    .select({
-      total: sql<number>`coalesce(sum(${schema.orderLines.priceSnapshot} * ${schema.orderLines.qty}), 0)`,
-    })
-    .from(schema.orderLines)
-    .innerJoin(schema.orders, eq(schema.orders.id, schema.orderLines.orderId))
-    .where(and(filter, ne(schema.orders.status, 'cancelled')))
-    .get()
+  const totals = new Map(
+    db
+      .select({
+        id: schema.orderLines.orderId,
+        total: sql<number>`sum(${schema.orderLines.priceSnapshot} * ${schema.orderLines.qty})`,
+      })
+      .from(schema.orderLines)
+      .innerJoin(schema.orders, eq(schema.orders.id, schema.orderLines.orderId))
+      .where(filter)
+      .groupBy(schema.orderLines.orderId)
+      .all()
+      .map((r) => [r.id, Number(r.total)]),
+  )
+  const totalOf = (id: string) => totals.get(id) ?? 0
   return {
     day,
     stats: {
@@ -37,9 +43,15 @@ export function dayHistory(db: Db, day: string): History {
             ready.reduce((a, b) => a + b, 0) / ready.length / MINUTE_MS,
           )
         : null,
-      revenueIdr: Number(revenue?.total ?? 0),
+      // Cancelled orders never count as sales.
+      revenueIdr: rows
+        .filter((r) => r.status !== 'cancelled')
+        .reduce((sum, r) => sum + totalOf(r.id), 0),
     },
-    orders: toBoardOrders(db, rows, filter),
+    orders: toBoardOrders(db, rows, filter).map((order) => ({
+      ...order,
+      totalIdr: totalOf(order.id),
+    })),
   }
 }
 

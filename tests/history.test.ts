@@ -46,6 +46,9 @@ describe('history', () => {
     expect(day.stats.cancelled).toBeGreaterThanOrEqual(1)
     // Two Nasi Goreng Kampung (42 000) on the served order; cancelled ones never count.
     expect(day.stats.revenueIdr).toBeGreaterThanOrEqual(84_000)
+    const total = (id: string) => day.orders.find((o) => o.id === id)?.totalIdr
+    expect(total(served.orderId)).toBe(84_000)
+    expect(total(cancelled.orderId)).toBe(84_000)
   })
 
   it('returns an empty day without failing', async () => {
