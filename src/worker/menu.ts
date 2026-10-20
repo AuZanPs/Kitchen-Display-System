@@ -2,8 +2,10 @@ import { eq } from 'drizzle-orm'
 import {
   type AdminMenuItem,
   type AdminTable,
+  type MenuItem,
   type MenuItemInput,
   modifierGroupsSchema,
+  type Table,
   type TableInput,
 } from '../shared/menu'
 import { bumpRev, type Db, getMeta, schema, setMeta } from './db'
@@ -30,6 +32,26 @@ function menuChanged(db: Db) {
   const version = Number(getMeta(db, 'menu_version') ?? 0) + 1
   setMeta(db, 'menu_version', String(version))
   bumpRev(db)
+}
+
+/** The menu tablets show: hidden items left out. */
+export function visibleMenu(db: Db): MenuItem[] {
+  return db
+    .select()
+    .from(schema.menuItems)
+    .where(eq(schema.menuItems.hidden, false))
+    .orderBy(schema.menuItems.sort, schema.menuItems.name)
+    .all()
+    .map((item) => ({
+      id: item.id,
+      name: item.name,
+      priceIdr: item.priceIdr,
+      category: item.category,
+      available: item.available,
+      modifierGroups: modifierGroupsSchema.parse(
+        JSON.parse(item.modifierGroupsJson),
+      ),
+    }))
 }
 
 export function adminMenu(db: Db): AdminMenuItem[] {
@@ -74,6 +96,16 @@ export function saveMenuItem(
   }
   menuChanged(db)
   return { id: itemId, ...input }
+}
+
+/** The tables tablets can pick: inactive ones left out. */
+export function activeTables(db: Db): Table[] {
+  return db
+    .select({ id: schema.tables.id, label: schema.tables.label })
+    .from(schema.tables)
+    .where(eq(schema.tables.active, true))
+    .orderBy(schema.tables.sort, schema.tables.label)
+    .all()
 }
 
 export function adminTables(db: Db): AdminTable[] {

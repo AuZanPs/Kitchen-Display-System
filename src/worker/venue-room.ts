@@ -19,7 +19,6 @@ import type {
   Table,
   TableInput,
 } from '../shared/menu'
-import { modifierGroupsSchema } from '../shared/menu'
 import {
   type CreateOrder,
   type CreateOrderResult,
@@ -39,7 +38,7 @@ import {
   safeEqual,
   sha256Hex,
 } from './auth/crypto'
-import { buildBoard } from './board'
+import { applyReceipts, buildBoard } from './board'
 import {
   bumpRev,
   type Db,
@@ -69,7 +68,14 @@ import {
   unauthenticated,
 } from './devices'
 import { dayHistory, deleteFinished, exportRows } from './history'
-import { adminMenu, adminTables, saveMenuItem, saveTable } from './menu'
+import {
+  activeTables,
+  adminMenu,
+  adminTables,
+  saveMenuItem,
+  saveTable,
+  visibleMenu,
+} from './menu'
 import {
   type Actor,
   createOrder,
@@ -398,7 +404,9 @@ export class VenueRoom extends DurableObject<Env> {
     if (now - (this.lastReceiptAt.get(deviceId) ?? 0) < RECEIPT_GAP_MS) return
     this.lastReceiptAt.set(deviceId, now)
     this.write(() => {
-      if (this.applyReceipts(deviceId, rendered.data.items)) bumpRev(this.db)
+      if (applyReceipts(this.db, deviceId, rendered.data.items, Date.now())) {
+        bumpRev(this.db)
+      }
     })
   }
 
@@ -567,36 +575,14 @@ export class VenueRoom extends DurableObject<Env> {
     credentials: Credentials,
   ): Promise<Result<{ items: MenuItem[] }>> {
     if (!(await this.authenticate(credentials))) return unauthenticated()
-    const items = this.db
-      .select()
-      .from(schema.menuItems)
-      .where(eq(schema.menuItems.hidden, false))
-      .orderBy(schema.menuItems.sort, schema.menuItems.name)
-      .all()
-      .map((item) => ({
-        id: item.id,
-        name: item.name,
-        priceIdr: item.priceIdr,
-        category: item.category,
-        available: item.available,
-        modifierGroups: modifierGroupsSchema.parse(
-          JSON.parse(item.modifierGroupsJson),
-        ),
-      }))
-    return ok({ items })
+    return ok({ items: visibleMenu(this.db) })
   }
 
   async getTables(
     credentials: Credentials,
   ): Promise<Result<{ tables: Table[] }>> {
     if (!(await this.authenticate(credentials))) return unauthenticated()
-    const tables = this.db
-      .select({ id: schema.tables.id, label: schema.tables.label })
-      .from(schema.tables)
-      .where(eq(schema.tables.active, true))
-      .orderBy(schema.tables.sort, schema.tables.label)
-      .all()
-    return ok({ tables })
+    return ok({ tables: activeTables(this.db) })
   }
 
   async createOrder(
@@ -919,52 +905,6 @@ export class VenueRoom extends DurableObject<Env> {
     const result = this.ctx.storage.transactionSync(fn)
     if (getRev(this.db) !== before) this.broadcast()
     return result
-  }
-
-  /** Stores render receipts that move a TV forward; ignores stale or bogus ones. */
-  private applyReceipts(
-    deviceId: string,
-    items: { id: string; version: number }[],
-  ): boolean {
-    const now = Date.now()
-    let changed = false
-    for (const item of items) {
-      const order = this.db
-        .select({ version: schema.orders.version })
-        .from(schema.orders)
-        .where(eq(schema.orders.id, item.id))
-        .get()
-      if (!order || item.version > order.version) continue
-      const current = this.db
-        .select({ version: schema.displayReceipts.version })
-        .from(schema.displayReceipts)
-        .where(
-          and(
-            eq(schema.displayReceipts.orderId, item.id),
-            eq(schema.displayReceipts.deviceId, deviceId),
-          ),
-        )
-        .get()
-      if (current && current.version >= item.version) continue
-      this.db
-        .insert(schema.displayReceipts)
-        .values({
-          orderId: item.id,
-          deviceId,
-          version: item.version,
-          renderedAt: now,
-        })
-        .onConflictDoUpdate({
-          target: [
-            schema.displayReceipts.orderId,
-            schema.displayReceipts.deviceId,
-          ],
-          set: { version: item.version, renderedAt: now },
-        })
-        .run()
-      changed = true
-    }
-    return changed
   }
 
   private board(): BoardMessage {

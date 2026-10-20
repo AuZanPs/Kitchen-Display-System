@@ -209,3 +209,49 @@ export function boardOrder(db: Db, orderId: string): BoardOrder | undefined {
   const rows = db.select().from(schema.orders).where(filter).all()
   return toBoardOrders(db, rows, filter)[0]
 }
+
+/** Stores render receipts that move a TV forward; ignores stale or bogus ones. */
+export function applyReceipts(
+  db: Db,
+  deviceId: string,
+  items: { id: string; version: number }[],
+  now: number,
+): boolean {
+  let changed = false
+  for (const item of items) {
+    const order = db
+      .select({ version: schema.orders.version })
+      .from(schema.orders)
+      .where(eq(schema.orders.id, item.id))
+      .get()
+    if (!order || item.version > order.version) continue
+    const current = db
+      .select({ version: schema.displayReceipts.version })
+      .from(schema.displayReceipts)
+      .where(
+        and(
+          eq(schema.displayReceipts.orderId, item.id),
+          eq(schema.displayReceipts.deviceId, deviceId),
+        ),
+      )
+      .get()
+    if (current && current.version >= item.version) continue
+    db.insert(schema.displayReceipts)
+      .values({
+        orderId: item.id,
+        deviceId,
+        version: item.version,
+        renderedAt: now,
+      })
+      .onConflictDoUpdate({
+        target: [
+          schema.displayReceipts.orderId,
+          schema.displayReceipts.deviceId,
+        ],
+        set: { version: item.version, renderedAt: now },
+      })
+      .run()
+    changed = true
+  }
+  return changed
+}
