@@ -1,6 +1,6 @@
-# KDS
+# Layar Dapur
 
-A kitchen display system for one restaurant. Waiters send orders from a tablet, the kitchen reads them on a TV and works them from a phone, and the owner runs everything from a browser. It runs on Cloudflare Workers with a single Durable Object and fits the free plan.
+A kitchen display system for restaurants. Waiters send orders from a tablet, the kitchen reads them on a TV and works them from a phone, and the owner runs everything from a browser. One deploy serves many kitchens ("dapur"), each on its own subdomain, plus a public site where owners sign in with an emailed link and a console for the super admin. It runs on Cloudflare Workers and Durable Objects; the sign-in email needs Workers Paid (Email Service).
 
 The interface is in Indonesian, with an English toggle.
 
@@ -8,6 +8,8 @@ The interface is in Indonesian, with an English toggle.
 
 | Path | Device | What it does |
 |---|---|---|
+| `/`, `/masuk`, `/akun` (bare domain) | any browser | Homepage with a live order demo; owner sign-in by email link; the owner's dapur and invited admins |
+| `/super` (`console.` host) | laptop | Create dapur, set owner email and admin password, rename, switch on or off |
 | `/enroll` | any new device | Shows a 6-digit code to pair the device |
 | `/waiter` | tablet | Table, menu, item options, notes and allergies, review, send; table service with add items, move table, cancel request, served |
 | `/kitchen` | phone | Accept (allergies must be confirmed), accept changes, confirm cancellations, mark ready, control the TV pages |
