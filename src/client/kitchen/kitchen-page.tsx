@@ -166,7 +166,7 @@ function Kitchen({
                         }
                         banner={
                           order.cancelRequested ? (
-                            <p className="mx-4 mb-2 flex items-start gap-2 rounded-sm bg-ink px-3 py-2 text-sm font-semibold text-surface">
+                            <p className="flex items-start gap-2 rounded-sm bg-ink px-3 py-2 text-sm font-semibold text-surface">
                               <Ban
                                 size={16}
                                 className="mt-px shrink-0"
@@ -178,7 +178,7 @@ function Kitchen({
                             </p>
                           ) : (
                             order.changePending && (
-                              <div className="mx-4 mb-2 grid gap-1 rounded-sm bg-ink px-3 py-2 text-sm font-semibold text-surface">
+                              <div className="grid gap-1 rounded-sm bg-ink px-3 py-2 text-sm font-semibold text-surface">
                                 <span className="flex items-center gap-2">
                                   <PencilLine size={16} aria-hidden />
                                   {t('changePending')}
