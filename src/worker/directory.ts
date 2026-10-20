@@ -339,7 +339,15 @@ export class Directory extends DurableObject<Env> {
         email,
         slug,
       )
-      if (old && old !== email) this.signOutOwner(old)
+      if (old && old !== email) {
+        this.signOutOwner(old)
+        // The old owner's invitations end with them, even if the dapur comes back.
+        this.sql.exec(
+          'UPDATE venue_admins SET revoked_at = ? WHERE slug = ? AND revoked_at IS NULL',
+          Date.now(),
+          slug,
+        )
+      }
     })
   }
 

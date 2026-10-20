@@ -625,6 +625,18 @@ describe('owner sign-in on the site', () => {
     expect(late.status, 'a pass made before the change stops working').toBe(401)
     const fresh = cookieOf((await signIn('baru-alih@contoh.id')).verify)
     expect(await venuesOf(fresh)).toMatchObject([{ role: 'owner', admins: [] }])
+
+    // Handing the dapur back does not bring the old invitations back.
+    await call(CONSOLE, '/api/super/venues/alih/owner', {
+      method: 'PUT',
+      headers: { cookie: await superCookie() },
+      body: { ownerEmail: 'lama-alih@contoh.id' },
+    })
+    const back = await call(SITE, '/api/site/login/start', {
+      body: { email: 'teman-lama@contoh.id' },
+      headers: freshIp(),
+    })
+    expect(await back.json(), 'still no link').toEqual({})
   })
 
   it('keeps extra admins to three and never the owner', async () => {
