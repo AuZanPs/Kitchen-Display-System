@@ -1,7 +1,7 @@
 import { Check } from 'lucide-react'
 import { useId } from 'react'
 
-/** Material 3 switch on a native checkbox, so keyboard and forms just work. */
+/** A switch on a native checkbox, so keyboard and forms just work. */
 export function Switch({
   label,
   hint,

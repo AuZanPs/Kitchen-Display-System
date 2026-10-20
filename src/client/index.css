@@ -48,7 +48,7 @@
   --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
-/* Material state layers: hover 8%, focus 12%, pressed 16% of the content
+/* State layers: hover 8%, focus 12%, pressed 16% of the content
    colour mixed over the container colour. Components set --on and --bg. */
 @utility state {
   --bg: transparent;

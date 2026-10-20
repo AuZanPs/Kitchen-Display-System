@@ -75,7 +75,7 @@ describe('placeFromHost', () => {
       slug: 'dapurku',
       room: 'main',
     })
-    expect(placeFromHost('kds.mauzanps.workers.dev', BASE)).toMatchObject({
+    expect(placeFromHost('kds.example.workers.dev', BASE)).toMatchObject({
       room: 'main',
     })
     expect(placeFromHost(`Warung-Budi.${BASE}`, BASE)).toEqual({

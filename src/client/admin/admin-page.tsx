@@ -216,7 +216,7 @@ function Console({
         </Button>
       </AppBar>
 
-      {/* Material primary tabs: icon + label, active indicator underneath. */}
+      {/* Tabs: icon and label, one indicator under the active tab. */}
       <nav
         aria-label={t('adminTitle')}
         className="sticky top-16 z-20 border-b border-line bg-surface/95 backdrop-blur"
