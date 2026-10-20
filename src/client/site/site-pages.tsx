@@ -1,12 +1,4 @@
-import {
-  ChefHat,
-  ExternalLink,
-  LogIn,
-  LogOut,
-  MonitorPlay,
-  Tablet,
-  X,
-} from 'lucide-react'
+import { ExternalLink, LogOut, X } from 'lucide-react'
 import {
   type SubmitEvent,
   useCallback,
@@ -55,58 +47,6 @@ function SiteBar({ children }: { children?: React.ReactNode }) {
       {children}
       <LanguageToggle />
     </header>
-  )
-}
-
-/** The bare domain's front page. A placeholder until the real homepage is designed. */
-export function SiteHome() {
-  const { t } = useI18n()
-  const points = [
-    { icon: Tablet, text: t('sitePointWaiter') },
-    { icon: MonitorPlay, text: t('sitePointTv') },
-    { icon: ChefHat, text: t('sitePointKitchen') },
-  ]
-  return (
-    <div className="min-h-dvh bg-surface">
-      <SiteBar>
-        <Link
-          to="/masuk"
-          className="state hidden min-h-12 items-center gap-2 rounded-full px-5 text-[15px] font-semibold sm:inline-flex"
-        >
-          <LogIn size={18} aria-hidden />
-          {t('signInTitle')}
-        </Link>
-      </SiteBar>
-      <main className="rise mx-auto grid max-w-5xl gap-10 px-4 pt-10 pb-16 sm:px-6 sm:pt-20">
-        <div className="grid max-w-2xl gap-5">
-          <h1 className="text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
-            {t('siteHeadline')}
-          </h1>
-          <p className="text-lg text-ink-soft">{t('siteLead')}</p>
-          <div>
-            <Link
-              to="/masuk"
-              className="state inline-flex min-h-14 items-center gap-3 rounded-full px-8 text-lg font-semibold text-surface [--bg:var(--color-ink)] [--on:var(--color-surface)]"
-            >
-              <LogIn size={20} aria-hidden />
-              {t('signInTitle')}
-            </Link>
-          </div>
-        </div>
-        <ul className="grid gap-3 sm:grid-cols-3">
-          {points.map(({ icon: Icon, text }, index) => (
-            <li
-              key={text}
-              style={stagger(index)}
-              className="rise flex items-start gap-3 rounded-md bg-wash p-5 text-[15px]"
-            >
-              <Icon size={22} className="mt-0.5 shrink-0" aria-hidden />
-              {text}
-            </li>
-          ))}
-        </ul>
-      </main>
-    </div>
   )
 }
 

@@ -1,15 +1,19 @@
 import type { ReactNode } from 'react'
 import { LANGS, useI18n } from './i18n'
 
-export function LanguageToggle() {
+/** `onInk` swaps the colours for a charcoal ground. */
+export function LanguageToggle({ onInk = false }: { onInk?: boolean }) {
   const { lang, setLang, t } = useI18n()
+  const selected = onInk ? 'bg-surface text-ink' : 'bg-ink text-surface'
   return (
-    <fieldset className="flex rounded-full border border-line p-0.5">
+    <fieldset
+      className={`flex rounded-full border p-0.5 ${onInk ? 'border-on-ink-soft' : 'border-line'}`}
+    >
       <legend className="sr-only">{t('language')}</legend>
       {LANGS.map((code) => (
         <label
           key={code}
-          className={`grid h-11 min-w-12 cursor-pointer place-items-center rounded-full px-3 text-sm font-semibold uppercase transition-colors duration-150 has-focus-visible:outline-3 has-focus-visible:outline-current ${lang === code ? 'bg-ink text-surface' : ''}`}
+          className={`grid h-11 min-w-12 cursor-pointer place-items-center rounded-full px-3 text-sm font-semibold uppercase transition-colors duration-150 has-focus-visible:outline-3 has-focus-visible:outline-current ${lang === code ? selected : ''}`}
         >
           <input
             type="radio"

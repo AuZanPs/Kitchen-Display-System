@@ -11,3 +11,7 @@
 
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
+
+# The public homepage may be indexed; every other page and host stays out.
+https://layardapur.web.id/
+  ! X-Robots-Tag

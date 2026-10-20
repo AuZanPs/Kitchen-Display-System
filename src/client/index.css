@@ -21,6 +21,9 @@
   --color-line: color-mix(in srgb, #1f1f1f 16%, #f8fafd);
   --color-wash: color-mix(in srgb, #d3e3fd 40%, #f8fafd);
   --color-surface-soft: color-mix(in srgb, #f8fafd 72%, #1f1f1f);
+  /* The homepage's charcoal ground: one step lighter, and soft text on it. */
+  --color-ink-raised: color-mix(in srgb, #1f1f1f 90%, #f8fafd);
+  --color-on-ink-soft: color-mix(in srgb, #f8fafd 76%, #1f1f1f);
   --color-transparent: transparent;
   --color-current: currentColor;
 
@@ -201,4 +204,50 @@
 }
 .pop {
   animation: pop 160ms var(--ease-out);
+}
+
+/* Homepage. Each headline line rises from behind its own baseline. */
+@keyframes line-up {
+  from {
+    transform: translateY(105%);
+  }
+}
+.mask-line {
+  display: block;
+  overflow: hidden;
+  padding-bottom: 0.08em;
+}
+.mask-line > span {
+  display: block;
+  animation: line-up 900ms var(--ease-out) both;
+  animation-delay: calc(var(--d, 0) * 110ms);
+}
+.after-lines {
+  animation: rise 500ms var(--ease-out) both;
+  animation-delay: 420ms;
+}
+
+/* Parts of a section rise in once they scroll into view; --d staggers them. */
+[data-reveal] {
+  transition:
+    opacity 600ms var(--ease-out),
+    translate 700ms var(--ease-out);
+  transition-delay: calc(var(--d, 0) * 80ms);
+}
+[data-reveal]:not(.is-in) {
+  opacity: 0;
+  translate: 0 24px;
+}
+
+/* The one moving picture: a slow drift across the grill. */
+@keyframes drift {
+  from {
+    transform: scale(1.08) translateX(-1.5%);
+  }
+  to {
+    transform: scale(1.08) translateX(1.5%);
+  }
+}
+.drift {
+  animation: drift 18s ease-in-out infinite alternate;
 }
