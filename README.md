@@ -70,4 +70,10 @@ One deploy serves everything. The bare domain (`BASE_HOST` in `wrangler.jsonc`) 
 - `tests` – Vitest integration tests against the real Worker and Durable Object
 - `e2e` – Playwright end-to-end tests
 
-Third-party licences are listed in `THIRD_PARTY_LICENSES.md`.
+## Licence
+
+© 2026 Auzan. All rights reserved.
+
+This code is public so it can be seen as part of my portfolio. You may read it, but you may not copy, modify, distribute or use it, in whole or in part, without my written permission.
+
+Third-party code, fonts and photos keep their own licences, listed in `THIRD_PARTY_LICENSES.md`.
