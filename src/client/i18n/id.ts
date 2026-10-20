@@ -137,6 +137,7 @@ export const id = {
   itemsSelected: '{count} item dipilih',
   waitingSince: 'Menunggu sejak {time}',
   minutes: '{min} mnt',
+  underAMinute: '< 1 mnt',
   openUnsent: 'Periksa pesanan',
 
   tabOverview: 'Ringkasan',
@@ -176,6 +177,7 @@ export const id = {
   staffName: 'Nama',
   pin: 'PIN',
   pinHint: '4 sampai 6 angka.',
+  pinNeeded: 'Isi PIN 4 sampai 6 angka.',
   pinKeepHint: 'Kosongkan agar PIN lama tetap dipakai.',
   noPin: 'Belum ada PIN',
   staffActive: 'Aktif',
@@ -361,6 +363,36 @@ export const id = {
   removeAdmin: 'Hapus {email}',
   adminAdded: '{email} sekarang bisa masuk',
   adminRemoved: '{email} tidak lagi admin',
+  delete: 'Hapus',
+  deleteActiveHint:
+    'Pesanan yang masih berjalan tidak bisa dihapus. Batalkan dulu dari Ringkasan.',
+  deleteDayTitle: 'Hapus riwayat {date}?',
+  deleteDayBody:
+    '{count} pesanan selesai beserta omzetnya dihapus permanen. Unduh CSV dulu kalau masih perlu.',
+  deleteDayKeeps: 'Pesanan yang masih berjalan tidak ikut terhapus.',
+  typeToConfirm: 'Ketik {word} untuk melanjutkan',
+  confirmWord: 'HAPUS',
+  ordersDeleted: '{count} pesanan dihapus',
+  historyDeleteTitle: 'Hapus riwayat',
+  historyDeleteHint:
+    'Hapus pesanan yang sudah selesai beserta omzetnya. Tidak bisa dibatalkan, jadi unduh CSV di Riwayat dulu kalau masih perlu.',
+  noFinishedDay: 'Tidak ada pesanan selesai di tanggal ini.',
+  deleteAll: 'Hapus semua ({count})',
+  deleteOrderLabel: 'Hapus {ticket}',
+  deleteOrderTitle: 'Hapus {ticket}?',
+  deleteOrderBody:
+    'Pesanan ini hilang permanen dari riwayat dan omzet. Tidak bisa dibatalkan.',
+  view: 'Tampilan',
+  viewList: 'Daftar',
+  viewTable: 'Tabel',
+  colTicket: 'Tiket',
+  colWhere: 'Meja',
+  colStatus: 'Status',
+  colSent: 'Dikirim',
+  colReady: 'Siap',
+  colDone: 'Selesai',
+  colItems: 'Item',
+  colBy: 'Oleh',
 } as const
 
 export type Dict = Record<keyof typeof id, string>

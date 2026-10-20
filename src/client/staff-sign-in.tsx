@@ -175,7 +175,7 @@ function PinPad({
               className="grid size-4 place-items-center rounded-full border-2 border-ink"
             >
               {i < pin.length && (
-                <span className="pop size-4 rounded-full bg-ink" />
+                <span className="pop size-full rounded-full bg-ink" />
               )}
             </span>
           ))}

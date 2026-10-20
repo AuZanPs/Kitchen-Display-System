@@ -133,6 +133,7 @@ function StaffDialog({
   const [pin, setPin] = useState('')
   const [active, setActive] = useState(!(member?.disabled ?? false))
   const [error, setError] = useState<string | null>(null)
+  const [pinError, setPinError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   // A new person needs a PIN; an existing one keeps theirs when left empty.
   const pinOk = /^\d{4,6}$/.test(pin) || (pin === '' && member?.hasPin === true)
@@ -140,7 +141,10 @@ function StaffDialog({
   async function submit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault()
     if (name.trim() === '') return setError(t('fieldRequired'))
-    if (!pinOk) return
+    if (name.length > 40) {
+      return setError(t('tooLong', { count: name.length, max: 40 }))
+    }
+    if (!pinOk) return setPinError(t('pinNeeded'))
     setBusy(true)
     const body = {
       name: name.trim(),
@@ -179,11 +183,7 @@ function StaffDialog({
           <Button variant="text" onClick={onClose}>
             {t('cancel')}
           </Button>
-          <Button
-            type="submit"
-            form="staff-form"
-            disabled={busy || !pinOk || name.length > 40}
-          >
+          <Button type="submit" form="staff-form" disabled={busy}>
             {t('save')}
           </Button>
         </>
@@ -239,9 +239,11 @@ function StaffDialog({
           autoComplete="new-password"
           hint={member?.hasPin ? t('pinKeepHint') : t('pinHint')}
           value={pin}
-          onChange={(e) =>
+          onChange={(e) => {
             setPin(e.target.value.replace(/\D/g, '').slice(0, 6))
-          }
+            setPinError(null)
+          }}
+          error={pinError}
           className="tracking-[0.3em] tabular-nums"
         />
         <Switch

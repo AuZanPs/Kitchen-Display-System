@@ -10,7 +10,7 @@ import {
   type TvControl,
 } from '../shared/board'
 import type { Command, CommandResult } from '../shared/commands'
-import type { ExportRow, History } from '../shared/history'
+import type { DeleteHistory, ExportRow, History } from '../shared/history'
 import type {
   AdminMenuItem,
   AdminTable,
@@ -68,7 +68,7 @@ import {
   touchDevice,
   unauthenticated,
 } from './devices'
-import { dayHistory, exportRows } from './history'
+import { dayHistory, deleteFinished, exportRows } from './history'
 import { adminMenu, adminTables, saveMenuItem, saveTable } from './menu'
 import {
   type Actor,
@@ -495,6 +495,38 @@ export class VenueRoom extends DurableObject<Env> {
   history(credentials: Credentials, day: string | undefined): Result<History> {
     if (credentials.kind !== 'admin') return unauthenticated()
     return ok(dayHistory(this.db, day ?? jakartaDate(Date.now())))
+  }
+
+  /** Deletes finished orders; open screens drop any they still show. */
+  deleteHistory(
+    credentials: Credentials,
+    input: DeleteHistory,
+  ): Result<{ deleted: number; rev: number }> {
+    if (credentials.kind !== 'admin') return unauthenticated()
+    if (input.orderId !== undefined) {
+      const order = this.db
+        .select({ day: schema.orders.serviceDay, status: schema.orders.status })
+        .from(schema.orders)
+        .where(eq(schema.orders.id, input.orderId))
+        .get()
+      if (!order || order.day !== input.day) {
+        return fail(404, 'not_found', 'Pesanan tidak ditemukan.')
+      }
+      if (order.status !== 'served' && order.status !== 'cancelled') {
+        return fail(
+          409,
+          'invalid_transition',
+          'Pesanan masih berjalan. Batalkan dulu dari Ringkasan.',
+        )
+      }
+    }
+    return this.write(() => {
+      const deleted = deleteFinished(this.db, input.day, input.orderId)
+      return ok({
+        deleted,
+        rev: deleted > 0 ? bumpRev(this.db) : getRev(this.db),
+      })
+    })
   }
 
   exportRows(

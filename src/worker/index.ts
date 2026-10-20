@@ -5,7 +5,11 @@ import { secureHeaders } from 'hono/secure-headers'
 import { z } from 'zod'
 import { settingsSchema, tvControlSchema } from '../shared/board'
 import { commandSchema } from '../shared/commands'
-import { exportQuerySchema, historyQuerySchema } from '../shared/history'
+import {
+  deleteHistorySchema,
+  exportQuerySchema,
+  historyQuerySchema,
+} from '../shared/history'
 import { menuItemInputSchema, tableInputSchema } from '../shared/menu'
 import { createOrderSchema } from '../shared/order'
 import { staffInputSchema, staffLoginSchema } from '../shared/staff'
@@ -514,6 +518,20 @@ app.get(
       await venueRoom(c).history(
         await adminCredentials(c),
         c.req.valid('query').day,
+      ),
+    ),
+)
+
+app.post(
+  '/api/manager/history/delete',
+  requireAdmin,
+  invalidInput('json', deleteHistorySchema),
+  async (c) =>
+    reply(
+      c,
+      await venueRoom(c).deleteHistory(
+        await adminCredentials(c),
+        c.req.valid('json'),
       ),
     ),
 )

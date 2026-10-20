@@ -10,7 +10,7 @@ import { useState } from 'react'
 import type { BoardMessage, BoardOrder } from '../../shared/board'
 import type { Table } from '../../shared/menu'
 import { LIMITS, ticketLabel } from '../../shared/order'
-import { type DictKey, useI18n } from '../i18n'
+import { type DictKey, formatMinutes, useI18n } from '../i18n'
 import { whereLabel } from '../lib/board'
 import { failureText, sendCommand } from '../lib/commands'
 import { stagger } from '../lib/stagger'
@@ -155,8 +155,7 @@ export function ServiceList({
                     {whereLabel(order, t)}
                   </span>
                   <span className="text-sm text-ink-soft tabular-nums">
-                    {ticketLabel(order.ticketNo)} ·{' '}
-                    {t('minutes', { min: minutes })}
+                    {ticketLabel(order.ticketNo)} · {formatMinutes(minutes, t)}
                   </span>
                 </div>
                 <span

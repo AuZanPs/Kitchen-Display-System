@@ -172,7 +172,10 @@ function DeviceList({
   }
 
   return (
-    <section aria-labelledby="device-list" className="grid content-start gap-4">
+    <section
+      aria-labelledby="device-list"
+      className="grid content-start gap-4 lg:pt-5"
+    >
       <h2 id="device-list" className="text-2xl font-medium">
         {t('devices')}
       </h2>

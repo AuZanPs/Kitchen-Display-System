@@ -5,6 +5,7 @@ import { useI18n } from '../i18n'
 import { api } from '../lib/api'
 import { Card } from '../ui/card'
 import { Switch } from '../ui/switch'
+import { HistoryDeleteCard } from './history-delete'
 
 const ROWS = [
   { key: 'lineNotes', label: 'settingLineNotes', hint: 'settingLineNotesHint' },
@@ -40,25 +41,30 @@ export function SettingsTab({
   }
 
   return (
-    <Card className="grid max-w-2xl gap-2">
-      <h2 className="text-2xl font-medium">{t('orderDetails')}</h2>
-      <p className="mb-2 text-[15px] text-ink-soft">{t('orderDetailsHint')}</p>
-      {shown && (
-        <div className="grid divide-y divide-line [&>label]:py-3">
-          {ROWS.map((row) => (
-            <Switch
-              key={row.key}
-              label={t(row.label)}
-              hint={t(row.hint)}
-              checked={shown[row.key]}
-              disabled={pending !== null}
-              onChange={(checked) =>
-                void change({ ...shown, [row.key]: checked })
-              }
-            />
-          ))}
-        </div>
-      )}
-    </Card>
+    <div className="grid max-w-2xl gap-6">
+      <Card className="grid gap-2">
+        <h2 className="text-2xl font-medium">{t('orderDetails')}</h2>
+        <p className="mb-2 text-[15px] text-ink-soft">
+          {t('orderDetailsHint')}
+        </p>
+        {shown && (
+          <div className="grid divide-y divide-line [&>label]:py-3">
+            {ROWS.map((row) => (
+              <Switch
+                key={row.key}
+                label={t(row.label)}
+                hint={t(row.hint)}
+                checked={shown[row.key]}
+                disabled={pending !== null}
+                onChange={(checked) =>
+                  void change({ ...shown, [row.key]: checked })
+                }
+              />
+            ))}
+          </div>
+        )}
+      </Card>
+      <HistoryDeleteCard notify={notify} />
+    </div>
   )
 }

@@ -1,4 +1,4 @@
-import { and, asc, between, eq, ne, sql } from 'drizzle-orm'
+import { and, asc, between, eq, inArray, sql } from 'drizzle-orm'
 import { EXPORT_COLUMNS, type ExportRow, type History } from '../shared/history'
 import { ticketLabel } from '../shared/order'
 import { toBoardOrders } from './board'
@@ -18,14 +18,20 @@ export function dayHistory(db: Db, day: string): History {
   const ready = rows.flatMap((r) =>
     r.readyAt === null ? [] : [r.readyAt - r.createdAt],
   )
-  const revenue = db
-    .select({
-      total: sql<number>`coalesce(sum(${schema.orderLines.priceSnapshot} * ${schema.orderLines.qty}), 0)`,
-    })
-    .from(schema.orderLines)
-    .innerJoin(schema.orders, eq(schema.orders.id, schema.orderLines.orderId))
-    .where(and(filter, ne(schema.orders.status, 'cancelled')))
-    .get()
+  const totals = new Map(
+    db
+      .select({
+        id: schema.orderLines.orderId,
+        total: sql<number>`sum(${schema.orderLines.priceSnapshot} * ${schema.orderLines.qty})`,
+      })
+      .from(schema.orderLines)
+      .innerJoin(schema.orders, eq(schema.orders.id, schema.orderLines.orderId))
+      .where(filter)
+      .groupBy(schema.orderLines.orderId)
+      .all()
+      .map((r) => [r.id, Number(r.total)]),
+  )
+  const totalOf = (id: string) => totals.get(id) ?? 0
   return {
     day,
     stats: {
@@ -37,10 +43,49 @@ export function dayHistory(db: Db, day: string): History {
             ready.reduce((a, b) => a + b, 0) / ready.length / MINUTE_MS,
           )
         : null,
-      revenueIdr: Number(revenue?.total ?? 0),
+      // Cancelled orders never count as sales.
+      revenueIdr: rows
+        .filter((r) => r.status !== 'cancelled')
+        .reduce((sum, r) => sum + totalOf(r.id), 0),
     },
-    orders: toBoardOrders(db, rows, filter),
+    orders: toBoardOrders(db, rows, filter).map((order) => ({
+      ...order,
+      totalIdr: totalOf(order.id),
+    })),
   }
+}
+
+/**
+ * Deletes a day's served and cancelled orders, or one of them, with their
+ * lines and records. Orders still in progress are never touched.
+ */
+export function deleteFinished(db: Db, day: string, orderId?: string) {
+  const target = and(
+    eq(schema.orders.serviceDay, day),
+    inArray(schema.orders.status, ['served', 'cancelled']),
+    orderId === undefined ? undefined : eq(schema.orders.id, orderId),
+  )
+  const ids = db
+    .select({ id: schema.orders.id })
+    .from(schema.orders)
+    .where(target)
+  db.delete(schema.orderLines)
+    .where(inArray(schema.orderLines.orderId, ids))
+    .run()
+  db.delete(schema.orderChanges)
+    .where(inArray(schema.orderChanges.orderId, ids))
+    .run()
+  db.delete(schema.orderEvents)
+    .where(inArray(schema.orderEvents.orderId, ids))
+    .run()
+  db.delete(schema.displayReceipts)
+    .where(inArray(schema.displayReceipts.orderId, ids))
+    .run()
+  return db
+    .delete(schema.orders)
+    .where(target)
+    .returning({ id: schema.orders.id })
+    .all().length
 }
 
 /** Order lines between two service days, inclusive, in the order they were sent. */

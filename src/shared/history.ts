@@ -6,6 +6,13 @@ export const MAX_EXPORT_DAYS = 31
 
 export const historyQuerySchema = z.object({ day: daySchema.optional() })
 
+/** A day's finished orders, or only one of them when `orderId` is given. */
+export const deleteHistorySchema = z.object({
+  day: daySchema,
+  orderId: z.string().min(1).max(64).optional(),
+})
+export type DeleteHistory = z.infer<typeof deleteHistorySchema>
+
 export const historyStatsSchema = z.object({
   orders: z.number().int(),
   served: z.number().int(),
@@ -17,10 +24,16 @@ export const historyStatsSchema = z.object({
 })
 export type HistoryStats = z.infer<typeof historyStatsSchema>
 
+/** An order as the history shows it: with what its lines add up to. */
+export const historyOrderSchema = boardOrderSchema.extend({
+  totalIdr: z.number().int(),
+})
+export type HistoryOrder = z.infer<typeof historyOrderSchema>
+
 export const historySchema = z.object({
   day: daySchema,
   stats: historyStatsSchema,
-  orders: z.array(boardOrderSchema),
+  orders: z.array(historyOrderSchema),
 })
 export type History = z.infer<typeof historySchema>
 

@@ -115,7 +115,10 @@ function MenuItems({
 
   let index = 0
   return (
-    <section aria-labelledby="menu-items" className="grid content-start gap-6">
+    <section
+      aria-labelledby="menu-items"
+      className="grid content-start gap-6 lg:pt-5"
+    >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 id="menu-items" className="text-2xl font-medium">
           {t('menuTitle')}

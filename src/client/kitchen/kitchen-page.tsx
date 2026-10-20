@@ -9,7 +9,7 @@ import {
 import { useState } from 'react'
 import type { BoardOrder } from '../../shared/board'
 import { AppBar } from '../app-bar'
-import { formatTime, useI18n } from '../i18n'
+import { formatMinutes, formatTime, useI18n } from '../i18n'
 import { boardLines, whereLabel } from '../lib/board'
 import { failureText, sendCommand } from '../lib/commands'
 import { RequireRole, type Session } from '../lib/session'
@@ -161,7 +161,7 @@ function Kitchen({
                           <span
                             className={`shrink-0 rounded-full px-3 py-1 text-sm tabular-nums ${minutes >= 12 ? 'bg-ink text-surface' : 'bg-tonal'}`}
                           >
-                            {t('minutes', { min: minutes })}
+                            {formatMinutes(minutes, t)}
                           </span>
                         }
                         banner={
