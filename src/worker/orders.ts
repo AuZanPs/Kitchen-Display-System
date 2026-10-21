@@ -446,6 +446,59 @@ const STATUS_TIME: Partial<
   cancelled: 'cancelledAt',
 }
 
+/**
+ * Lines added to a ready or served ticket go on a new ticket linked to it;
+ * the original keeps its version and only records where they went.
+ */
+function addLinkedTicket(
+  db: Db,
+  actor: Actor,
+  order: OrderRow,
+  command: Extract<Command, { type: 'addLines' }>,
+  ctx: WriteContext,
+  key: string,
+): Result<CommandResult> {
+  const closed = serviceClosed(db)
+  if (closed) return closed
+  const lines = resolveLines(db, command.lines)
+  if (!lines.ok) return lines
+  const linked = insertOrder(
+    db,
+    actor,
+    {
+      destination: order.destination,
+      tableLabel: order.tableLabel,
+      orderNote: null,
+      lines: lines.rows,
+      linkedTo: order.id,
+    },
+    ctx.now,
+  )
+  addEvent(
+    db,
+    actor,
+    order.id,
+    order.version,
+    'addLines',
+    {
+      summary: `Tambahan dibuat sebagai ${ticketLabel(linked.ticketNo)}`,
+      linkedOrderId: linked.orderId,
+    },
+    ctx.now,
+  )
+  const body = {
+    orderId: order.id,
+    version: order.version,
+    status: order.status,
+    noop: false,
+    linkedOrderId: linked.orderId,
+    linkedTicketNo: linked.ticketNo,
+    rev: bumpRev(db),
+  }
+  saveOperation(db, command.operationId, key, ctx, body)
+  return ok(body)
+}
+
 export function runCommand(
   db: Db,
   actor: Actor,
@@ -500,45 +553,7 @@ export function runCommand(
 
   if (decision.kind === 'linked') {
     if (command.type !== 'addLines') throw new Error('linked without addLines')
-    const closed = serviceClosed(db)
-    if (closed) return closed
-    const lines = resolveLines(db, command.lines)
-    if (!lines.ok) return lines
-    const linked = insertOrder(
-      db,
-      actor,
-      {
-        destination: order.destination,
-        tableLabel: order.tableLabel,
-        orderNote: null,
-        lines: lines.rows,
-        linkedTo: order.id,
-      },
-      ctx.now,
-    )
-    addEvent(
-      db,
-      actor,
-      order.id,
-      order.version,
-      'addLines',
-      {
-        summary: `Tambahan dibuat sebagai ${ticketLabel(linked.ticketNo)}`,
-        linkedOrderId: linked.orderId,
-      },
-      ctx.now,
-    )
-    const body = {
-      orderId,
-      version: order.version,
-      status: order.status,
-      noop: false,
-      linkedOrderId: linked.orderId,
-      linkedTicketNo: linked.ticketNo,
-      rev: bumpRev(db),
-    }
-    saveOperation(db, command.operationId, key, ctx, body)
-    return ok(body)
+    return addLinkedTicket(db, actor, order, command, ctx, key)
   }
 
   // Validate everything the command needs before the first write.
