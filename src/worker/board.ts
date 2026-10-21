@@ -86,6 +86,8 @@ export function toBoardOrders(
     )
     .orderBy(asc(schema.orderChanges.version))
     .all()
+  const linesOf = Map.groupBy(lines, (l) => l.orderId)
+  const changesOf = Map.groupBy(changes, (c) => c.orderId)
   const receipts = new Map(
     db
       .select({
@@ -127,15 +129,13 @@ export function toBoardOrders(
     cancelRequested: order.cancelRequested,
     cancelReason: order.cancelReason,
     linkedTo: order.linkedTo,
-    pendingChanges: changes
-      .filter((c) => c.orderId === order.id)
-      .map((c) => ({
-        version: c.version,
-        kind: c.kind,
-        summary: summarizeChange(
-          changePayloadSchema.parse(JSON.parse(c.payloadJson)),
-        ),
-      })),
+    pendingChanges: (changesOf.get(order.id) ?? []).map((c) => ({
+      version: c.version,
+      kind: c.kind,
+      summary: summarizeChange(
+        changePayloadSchema.parse(JSON.parse(c.payloadJson)),
+      ),
+    })),
     createdAt: order.createdAt,
     acceptedAt: order.acceptedAt,
     readyAt: order.readyAt,
@@ -143,17 +143,15 @@ export function toBoardOrders(
     cancelledAt: order.cancelledAt,
     createdByName: names.get(order.createdBy) ?? null,
     shownOnTv: (receipts.get(order.id) ?? 0) >= order.version,
-    lines: lines
-      .filter((l) => l.orderId === order.id)
-      .map((l) => ({
-        id: l.id,
-        name: l.nameSnapshot,
-        qty: l.qty,
-        modifiers: stringList.parse(JSON.parse(l.modifiersJson)),
-        note: l.note,
-        allergy: l.allergy,
-        addedInVersion: l.addedInVersion,
-      })),
+    lines: (linesOf.get(order.id) ?? []).map((l) => ({
+      id: l.id,
+      name: l.nameSnapshot,
+      qty: l.qty,
+      modifiers: stringList.parse(JSON.parse(l.modifiersJson)),
+      note: l.note,
+      allergy: l.allergy,
+      addedInVersion: l.addedInVersion,
+    })),
   }))
 }
 

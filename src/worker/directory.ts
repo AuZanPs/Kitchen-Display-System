@@ -292,10 +292,7 @@ export class Directory extends DurableObject<Env> {
 
   /** False when the address is already taken. */
   add(slug: string, name: string, ownerEmail: string | null): boolean {
-    const taken = this.sql
-      .exec('SELECT 1 FROM venues WHERE slug = ?', slug)
-      .toArray().length
-    if (taken) return false
+    if (this.has(slug)) return false
     this.sql.exec(
       'INSERT INTO venues (slug, name, created_at, owner_email) VALUES (?, ?, ?, ?)',
       slug,
@@ -308,6 +305,11 @@ export class Directory extends DurableObject<Env> {
 
   remove(slug: string) {
     this.sql.exec('DELETE FROM venues WHERE slug = ?', slug)
+  }
+
+  /** Whether `email` may open the dapur at `slug`: theirs and switched on. */
+  private canOpen(email: string, slug: string | null) {
+    return this.venuesOf(email).some((v) => v.slug === slug && !v.disabled)
   }
 
   has(slug: string): boolean {
@@ -370,11 +372,10 @@ export class Directory extends DurableObject<Env> {
     ) {
       return false
     }
-    const owned = this.venuesOf(email)
     const allowed =
       kind === 'login'
-        ? owned.length > 0
-        : owned.some((v) => v.slug === slug && !v.disabled)
+        ? this.venuesOf(email).length > 0
+        : this.canOpen(email, slug)
     if (!allowed) return false
     this.sql.exec(
       'INSERT INTO tokens (hash, kind, email, slug, expires_at) VALUES (?, ?, ?, ?, ?)',
@@ -401,12 +402,7 @@ export class Directory extends DurableObject<Env> {
       this.sql.exec('DELETE FROM tokens WHERE hash = ?', hash)
       if (row.expires_at < Date.now() || row.slug !== slug) return null
       // A pass works only while the dapur is still theirs and switched on.
-      if (
-        kind === 'handoff' &&
-        !this.venuesOf(row.email).some((v) => v.slug === slug && !v.disabled)
-      ) {
-        return null
-      }
+      if (kind === 'handoff' && !this.canOpen(row.email, slug)) return null
       return row.email
     })
   }
