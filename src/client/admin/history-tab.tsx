@@ -2,6 +2,7 @@ import { Download, List, Sheet } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { z } from 'zod'
 import type { BoardOrder } from '../../shared/board'
+import type { Device } from '../../shared/devices'
 import {
   type HistoryOrder,
   type HistoryStats,
@@ -24,7 +25,7 @@ import { Card } from '../ui/card'
 import { Dialog } from '../ui/dialog'
 import { TextField } from '../ui/text-field'
 import { DayField, jakartaToday, useDayHistory } from './day-history'
-import { type Device, STATUS_KEY } from './shared'
+import { STATUS_KEY } from './shared'
 
 const EVENT_KEY: Record<string, DictKey> = {
   created: 'evCreated',

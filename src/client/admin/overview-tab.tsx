@@ -6,6 +6,7 @@ import {
   type BoardOrder,
   isFinished,
 } from '../../shared/board'
+import { type Device, PAIR_ROLES, type PairRole } from '../../shared/devices'
 import { type HistoryStats, historySchema } from '../../shared/history'
 import { LIMITS, ticketLabel } from '../../shared/order'
 import { formatDay, formatMinutes, useI18n } from '../i18n'
@@ -20,14 +21,7 @@ import { Card } from '../ui/card'
 import { Dialog } from '../ui/dialog'
 import { TextField } from '../ui/text-field'
 import { StatTiles } from './history-tab'
-import {
-  type Device,
-  PAIR_ROLES,
-  type PairRole,
-  ROLE_ICON,
-  roleName,
-  STATUS_KEY,
-} from './shared'
+import { ROLE_ICON, roleName, STATUS_KEY } from './shared'
 
 export function OverviewTab({
   board,

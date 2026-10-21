@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
+import { approveSchema, pollSchema } from '../../shared/devices'
 import { clearDeviceCookie, ipHash, setDeviceCookie } from '../auth/session'
-import { approveSchema, pollSchema } from '../devices'
 import {
   type AppEnv,
   adminCredentials,

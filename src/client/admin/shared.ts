@@ -1,12 +1,7 @@
 import { ChefHat, MonitorPlay, Tablet } from 'lucide-react'
 import { useState } from 'react'
-import { z } from 'zod'
 import type { OrderStatus } from '../../shared/board'
-import { ROLES } from '../../shared/order'
 import type { DictKey, Translate } from '../i18n'
-
-export const PAIR_ROLES = ['waiter', 'kitchen', 'tv'] as const
-export type PairRole = (typeof PAIR_ROLES)[number]
 
 export const ROLE_ICON = {
   waiter: Tablet,
@@ -21,18 +16,6 @@ export const STATUS_KEY: Record<OrderStatus, DictKey> = {
   served: 'served',
   cancelled: 'cancelled',
 }
-
-export const deviceSchema = z.object({
-  id: z.string(),
-  label: z.string(),
-  role: z.enum(ROLES),
-  createdAt: z.number(),
-  lastSeenAt: z.number().nullable(),
-  revokedAt: z.number().nullable(),
-  online: z.boolean(),
-})
-export type Device = z.infer<typeof deviceSchema>
-export const devicesSchema = z.object({ devices: z.array(deviceSchema) })
 
 export function roleName(role: string, t: Translate) {
   if (role === 'waiter') return t('roleWaiter')

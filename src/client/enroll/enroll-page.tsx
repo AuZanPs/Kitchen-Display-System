@@ -2,6 +2,7 @@ import { LoaderCircle, RefreshCw } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router'
 import { z } from 'zod'
+import { type Challenge, challengeSchema } from '../../shared/devices'
 import { LanguageToggle } from '../app-bar'
 import { formatTime, useI18n } from '../i18n'
 import { api } from '../lib/api'
@@ -15,14 +16,6 @@ import { stagger } from '../lib/stagger'
 import { Button } from '../ui/button'
 
 const POLL_MS = 2_000
-
-const challengeSchema = z.object({
-  challengeId: z.string(),
-  code: z.string().regex(/^\d{6}$/),
-  pollSecret: z.string(),
-  expiresAt: z.number(),
-})
-type Challenge = z.infer<typeof challengeSchema>
 
 const pollResultSchema = z.discriminatedUnion('status', [
   z.object({ status: z.literal('pending') }),

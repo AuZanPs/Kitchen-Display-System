@@ -1,6 +1,14 @@
 import { Trash2 } from 'lucide-react'
 import { type SubmitEvent, useState } from 'react'
 import { z } from 'zod'
+import {
+  DEVICE_LABEL_MAX,
+  type Device,
+  PAIR_CODE,
+  PAIR_CODE_DIGITS,
+  PAIR_ROLES,
+  type PairRole,
+} from '../../shared/devices'
 import { formatTime, type Translate, useI18n } from '../i18n'
 import { api } from '../lib/api'
 import { stagger } from '../lib/stagger'
@@ -8,13 +16,7 @@ import { Button } from '../ui/button'
 import { Card } from '../ui/card'
 import { Dialog } from '../ui/dialog'
 import { TextField } from '../ui/text-field'
-import {
-  type Device,
-  PAIR_ROLES,
-  type PairRole,
-  ROLE_ICON,
-  roleName,
-} from './shared'
+import { ROLE_ICON, roleName } from './shared'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -82,7 +84,9 @@ function PairCard({ onPaired }: { onPaired: (message: string) => void }) {
           className="text-2xl font-semibold tracking-[0.3em] tabular-nums"
           value={code}
           onChange={(e) => {
-            setCode(e.target.value.replace(/\D/g, '').slice(0, 6))
+            setCode(
+              e.target.value.replace(/\D/g, '').slice(0, PAIR_CODE_DIGITS),
+            )
             setError(null)
           }}
           error={error}
@@ -117,14 +121,16 @@ function PairCard({ onPaired }: { onPaired: (message: string) => void }) {
           hint={t('labelHint')}
           name="device-label"
           autoComplete="off"
-          max={40}
+          max={DEVICE_LABEL_MAX}
           value={label}
           onChange={(e) => setLabel(e.target.value)}
         />
         <Button
           type="submit"
           size="lg"
-          disabled={!/^\d{6}$/.test(code) || busy || label.length > 40}
+          disabled={
+            !PAIR_CODE.test(code) || busy || label.length > DEVICE_LABEL_MAX
+          }
         >
           {t('approve')}
         </Button>

@@ -13,6 +13,7 @@ import {
   type TvControl,
 } from '../shared/board'
 import type { Command, CommandResult } from '../shared/commands'
+import type { Approve, Challenge, Poll } from '../shared/devices'
 import type { DeleteHistory, ExportRow, History } from '../shared/history'
 import type {
   AdminMenuItem,
@@ -58,7 +59,6 @@ import {
 } from './db'
 import migrations from './db/migrations/migrations'
 import {
-  type Approve,
   allowAttempt,
   approveChallenge,
   type Credentials,
@@ -66,7 +66,6 @@ import {
   insertChallenge,
   isLockedOut,
   listDevices,
-  type Poll,
   pollChallenge,
   revokeDevice,
   touchDevice,
@@ -711,14 +710,7 @@ export class VenueRoom extends DurableObject<Env> {
   }
 
   /** A new device asks for a pairing code. */
-  async startEnrollment(ipHash: string): Promise<
-    Result<{
-      challengeId: string
-      code: string
-      pollSecret: string
-      expiresAt: number
-    }>
-  > {
+  async startEnrollment(ipHash: string): Promise<Result<Challenge>> {
     const closed = this.closed()
     if (closed) return closed
     if (!this.allowAttempt(`enroll:${ipHash}`, 10, 10 * MINUTE_MS)) {

@@ -15,6 +15,7 @@ import {
 } from 'react'
 import { useSearchParams } from 'react-router'
 import { z } from 'zod'
+import { type Device, devicesSchema } from '../../shared/devices'
 import { AppBar, SignOutButton } from '../app-bar'
 import { useI18n } from '../i18n'
 import { api } from '../lib/api'
@@ -26,7 +27,6 @@ import { HistoryTab } from './history-tab'
 import { MenuTab } from './menu-tab'
 import { OverviewTab } from './overview-tab'
 import { SettingsTab } from './settings-tab'
-import { type Device, devicesSchema } from './shared'
 import { StaffTab } from './staff-tab'
 
 const TABS = [
