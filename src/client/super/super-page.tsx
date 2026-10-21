@@ -10,8 +10,7 @@ import { type SubmitEvent, useCallback, useEffect, useState } from 'react'
 import { z } from 'zod'
 import { jakartaDate } from '../../shared/order'
 import {
-  RESERVED_SLUGS,
-  SLUG_PATTERN,
+  isVenueSlug,
   suggestSlug,
   type Venue,
   venueListSchema,
@@ -345,7 +344,7 @@ function AddVenue({
     setServerError(null)
   }, [open])
 
-  const slugOk = SLUG_PATTERN.test(slug) && !RESERVED_SLUGS.has(slug)
+  const slugOk = isVenueSlug(slug)
   const passwordOk = password.length >= 8
   const ownerOk = owner.trim() === '' || EMAIL_PATTERN.test(owner.trim())
   const base = venueHost('x').replace(/^x\./, '')

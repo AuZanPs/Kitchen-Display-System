@@ -5,6 +5,7 @@ import {
   type AdminStaff,
   adminStaffListSchema,
   adminStaffSchema,
+  pinSchema,
   STAFF_ROLES,
 } from '../../shared/staff'
 import { useI18n } from '../i18n'
@@ -137,7 +138,8 @@ function StaffDialog({
   const [pinError, setPinError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   // A new person needs a PIN; an existing one keeps theirs when left empty.
-  const pinOk = /^\d{4,6}$/.test(pin) || (pin === '' && member?.hasPin === true)
+  const pinOk =
+    pinSchema.safeParse(pin).success || (pin === '' && member?.hasPin === true)
 
   async function submit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault()

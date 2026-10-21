@@ -37,19 +37,21 @@ export const historySchema = z.object({
 })
 export type History = z.infer<typeof historySchema>
 
+/** An export covers at most MAX_EXPORT_DAYS days, `from` no later than `to`. */
+export function isExportRange(from: string, to: string) {
+  const days = (Date.parse(to) - Date.parse(from)) / 86_400_000
+  return days >= 0 && days < MAX_EXPORT_DAYS
+}
+
 export const exportQuerySchema = z
   .object({
     from: daySchema,
     to: daySchema,
     format: z.enum(['csv', 'json']).default('csv'),
   })
-  .refine(
-    ({ from, to }) => {
-      const days = (Date.parse(to) - Date.parse(from)) / 86_400_000
-      return days >= 0 && days < MAX_EXPORT_DAYS
-    },
-    { message: `At most ${MAX_EXPORT_DAYS} days, from before to` },
-  )
+  .refine(({ from, to }) => isExportRange(from, to), {
+    message: `At most ${MAX_EXPORT_DAYS} days, from before to`,
+  })
 
 /** One exported row per order line; notes and allergies stay out. */
 export const exportRowSchema = z.object({

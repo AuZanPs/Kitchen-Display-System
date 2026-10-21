@@ -19,6 +19,11 @@ export const RESERVED_SLUGS: ReadonlySet<string> = new Set([
 export const FIRST_SLUG = 'dapurku'
 const FIRST_ROOM = 'main'
 
+/** A label that can address a dapur: the right shape and not reserved. */
+export function isVenueSlug(label: string) {
+  return SLUG_PATTERN.test(label) && !RESERVED_SLUGS.has(label)
+}
+
 export const venueSlugSchema = z
   .string()
   .regex(SLUG_PATTERN)
@@ -106,8 +111,6 @@ export function placeFromHost(
   }
   const label = host.slice(0, -(base.length + 1))
   if (label === 'console') return { kind: 'console' }
-  if (!SLUG_PATTERN.test(label) || RESERVED_SLUGS.has(label)) {
-    return { kind: 'unknown' }
-  }
+  if (!isVenueSlug(label)) return { kind: 'unknown' }
   return { kind: 'venue', slug: label, room: roomFor(label) }
 }

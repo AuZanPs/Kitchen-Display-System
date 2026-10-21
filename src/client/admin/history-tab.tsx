@@ -5,7 +5,7 @@ import type { BoardOrder } from '../../shared/board'
 import {
   type HistoryOrder,
   type HistoryStats,
-  MAX_EXPORT_DAYS,
+  isExportRange,
 } from '../../shared/history'
 import { ticketLabel } from '../../shared/order'
 import { adminStaffListSchema } from '../../shared/staff'
@@ -395,8 +395,7 @@ function ExportCard() {
   const { t } = useI18n()
   const [from, setFrom] = useState(jakartaToday)
   const [to, setTo] = useState(jakartaToday)
-  const days = (Date.parse(to) - Date.parse(from)) / 86_400_000
-  const valid = days >= 0 && days < MAX_EXPORT_DAYS
+  const valid = isExportRange(from, to)
   const link = (format: 'csv' | 'json') =>
     `/api/manager/export?from=${from}&to=${to}&format=${format}`
 
