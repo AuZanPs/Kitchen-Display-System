@@ -128,15 +128,31 @@ function Console({
 
   const loadDevices = useCallback(async () => {
     const result = await api('/api/devices', devicesSchema)
-    if (result.ok) setDevices(result.data.devices)
-    else if (result.status === 401) onSignedOut()
+    if (result.ok) {
+      const next = result.data.devices
+      // An unchanged list keeps its identity, so the tabs do not re-render.
+      setDevices((prev) =>
+        JSON.stringify(prev) === JSON.stringify(next) ? prev : next,
+      )
+    } else if (result.status === 401) onSignedOut()
   }, [onSignedOut])
 
+  // Presence shows on Overview and Devices only, and only while the page is
+  // in view; other tabs load the list once for its labels.
+  const showsPresence = tab === 'overview' || tab === 'devices'
   useEffect(() => {
     void loadDevices()
-    const timer = setInterval(() => void loadDevices(), DEVICES_EVERY_MS)
-    return () => clearInterval(timer)
-  }, [loadDevices])
+    if (!showsPresence) return
+    const poll = () => {
+      if (document.visibilityState === 'visible') void loadDevices()
+    }
+    const timer = setInterval(poll, DEVICES_EVERY_MS)
+    document.addEventListener('visibilitychange', poll)
+    return () => {
+      clearInterval(timer)
+      document.removeEventListener('visibilitychange', poll)
+    }
+  }, [loadDevices, showsPresence])
 
   async function signOut() {
     await api('/api/admin/logout', z.null(), { method: 'POST' })
