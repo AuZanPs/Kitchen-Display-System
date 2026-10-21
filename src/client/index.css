@@ -238,16 +238,3 @@
   opacity: 0;
   translate: 0 24px;
 }
-
-/* The one moving picture: a slow drift across the grill. */
-@keyframes drift {
-  from {
-    transform: scale(1.08) translateX(-1.5%);
-  }
-  to {
-    transform: scale(1.08) translateX(1.5%);
-  }
-}
-.drift {
-  animation: drift 18s ease-in-out infinite alternate;
-}

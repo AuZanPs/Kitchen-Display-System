@@ -386,7 +386,6 @@ export const id = {
   homeSeeHow: 'Lihat cara kerjanya',
   homeDemoLabel: 'Coba: kirim pesanan ke TV dapur',
   homeDemoTap: 'Ketuk menu untuk menambah',
-  homePhotoGrill: 'Sate ayam di atas bara, di pinggir jalan Jakarta',
   homeHowTitle: 'Satu pesanan, tiga layar',
   homeHow1: 'Pelayan mencatat di tablet.',
   homeHow1Note:
@@ -412,7 +411,6 @@ export const id = {
   homeOutExport: 'Ekspor CSV',
   homeOwnerNote:
     'Pemilik melihat hari ini dari mana saja: pesanan, omzet, layar yang online, sampai riwayat yang bisa diunduh.',
-  homePhotoWarung: 'Bakso dan teh botol di meja warung di Malang',
   homeEveryTitle: 'Untuk warung, kedai dan rumah makan.',
   homeEveryBody:
     'Satu dapur atau beberapa: tiap dapur punya alamat, perangkat dan admin sendiri. Pemilik membuka semuanya dari satu akun.',
@@ -436,10 +434,6 @@ export const id = {
     'Bila PIN staf aktif, pelayan pilih nama dan PIN dulu.',
   homeSetupPhoneDone: 'Pesanan baru masuk ke HP dapur',
   homeSetupPhoneDoneNote: 'Terima, lalu tandai siap saat matang.',
-  homeBy: 'oleh',
-  homePhotos: 'Foto',
-  homeCropped: 'dipotong',
-  homeVia: 'Lewat Wikimedia Commons.',
   homeFooterWhat: 'Layar pesanan untuk dapur',
   homeHowShort: 'Cara kerja',
 } as const

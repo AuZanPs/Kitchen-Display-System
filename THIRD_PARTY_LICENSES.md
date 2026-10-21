@@ -55,10 +55,3 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
-
-## Photos on the homepage
-
-- `public/site/sate-grill.webp`: cropped and resized from "Sate ayam-Jakarta" by Lord Mountbatten, https://commons.wikimedia.org/wiki/File:Sate_ayam-Jakarta.JPG, licensed CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0). The cropped file is shared under the same licence.
-- `public/site/warung-table.webp`: resized from "Malang Food Warungs" by Hugo van den Bos, https://commons.wikimedia.org/wiki/File:Malang_Food_Warungs.jpg, licensed CC BY 2.0 (https://creativecommons.org/licenses/by/2.0).
-
-Both are credited on the page itself, in the homepage footer.

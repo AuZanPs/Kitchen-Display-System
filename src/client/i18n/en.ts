@@ -381,7 +381,6 @@ export const en: Dict = {
   homeSeeHow: 'See how it works',
   homeDemoLabel: 'Try it: send an order to the kitchen TV',
   homeDemoTap: 'Tap a dish to add it',
-  homePhotoGrill: 'Chicken satay over coals on a Jakarta street',
   homeHowTitle: 'One order, three screens',
   homeHow1: 'The waiter takes it on a tablet.',
   homeHow1Note:
@@ -406,7 +405,6 @@ export const en: Dict = {
   homeOutExport: 'CSV export',
   homeOwnerNote:
     'The owner sees the day from anywhere: orders, sales, which screens are online, and a history to download.',
-  homePhotoWarung: 'Meatball soup and bottled tea on a warung table in Malang',
   homeEveryTitle: 'For warungs, cafés and restaurants.',
   homeEveryBody:
     'One kitchen or several: each has its own address, devices and admins. The owner opens them all from one account.',
@@ -430,10 +428,6 @@ export const en: Dict = {
     'With staff PINs on, they pick their name and PIN first.',
   homeSetupPhoneDone: 'New orders reach the kitchen phone',
   homeSetupPhoneDoneNote: 'Accept, then mark ready when cooked.',
-  homeBy: 'by',
-  homePhotos: 'Photos',
-  homeCropped: 'cropped',
-  homeVia: 'Via Wikimedia Commons.',
   homeFooterWhat: 'Order screens for kitchens',
   homeHowShort: 'How it works',
 }

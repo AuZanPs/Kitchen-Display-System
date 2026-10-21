@@ -1,4 +1,3 @@
-import { useI18n } from '../i18n'
 import { EveryKitchen } from './home/every-kitchen'
 import { Hero } from './home/hero'
 import { HowItWorks } from './home/how-it-works'
@@ -14,9 +13,6 @@ export function SiteHome() {
   return (
     <div className="bg-surface text-ink">
       <Hero />
-      <figure className="h-[38svh] overflow-hidden md:h-[62svh]">
-        <PhotoGrill />
-      </figure>
       <HowItWorks />
       <SettingBands />
       <OwnerView />
@@ -24,19 +20,5 @@ export function SiteHome() {
       <Setup />
       <SiteFooter />
     </div>
-  )
-}
-
-function PhotoGrill() {
-  const { t } = useI18n()
-  return (
-    <img
-      src="/site/sate-grill.webp"
-      width={1600}
-      height={600}
-      alt={t('homePhotoGrill')}
-      loading="lazy"
-      className="drift size-full object-cover"
-    />
   )
 }
