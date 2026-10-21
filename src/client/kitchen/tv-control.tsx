@@ -1,18 +1,13 @@
 import { ChevronLeft, ChevronRight, MonitorPlay } from 'lucide-react'
 import { useState } from 'react'
 import { z } from 'zod'
-import type { TvControl as Control } from '../../shared/board'
+import type { TvControl as Control, TvAction } from '../../shared/board'
 import { useI18n } from '../i18n'
 import { api } from '../lib/api'
 import { failureText } from '../lib/commands'
 import { IconButton } from '../ui/button'
 import { Dialog } from '../ui/dialog'
 import { Switch } from '../ui/switch'
-
-type Action =
-  | { action: 'pause' }
-  | { action: 'resume' }
-  | { action: 'page'; page: number }
 
 /** Lets the kitchen stop the TV's page rotation and step through pages. */
 export function TvControl({
@@ -27,7 +22,7 @@ export function TvControl({
   const page = control?.page ?? 0
   const paused = control?.paused ?? false
 
-  async function post(body: Action) {
+  async function post(body: TvAction) {
     const result = await api('/api/tv/control', z.unknown(), { body })
     if (!result.ok) notify(failureText(result, t))
   }

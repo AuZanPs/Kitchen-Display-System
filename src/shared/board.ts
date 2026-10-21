@@ -66,6 +66,14 @@ export const tvControlSchema = z.object({
   page: z.number().int().min(0),
 })
 
+/** What the kitchen asks of the TV: stop or restart paging, or show one page. */
+export const tvActionSchema = z.discriminatedUnion('action', [
+  z.object({ action: z.literal('pause') }),
+  z.object({ action: z.literal('resume') }),
+  z.object({ action: z.literal('page'), page: z.number().int().min(0) }),
+])
+export type TvAction = z.infer<typeof tvActionSchema>
+
 /** What the waiter is asked per order; each venue picks how detailed. */
 export const settingsSchema = z.object({
   allergy: z.boolean(),
@@ -114,7 +122,6 @@ export const renderedMessageSchema = z.object({
     .max(200),
 })
 
-export type BoardLine = z.infer<typeof boardLineSchema>
 export type BoardOrder = z.infer<typeof boardOrderSchema>
 export type BoardMessage = z.infer<typeof boardMessageSchema>
 export type TvControl = z.infer<typeof tvControlSchema>

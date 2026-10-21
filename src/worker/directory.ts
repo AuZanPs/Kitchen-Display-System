@@ -1,5 +1,5 @@
 import { DurableObject } from 'cloudflare:workers'
-import { FIRST_SLUG, type Venue } from '../shared/venue'
+import { type AccountVenue, FIRST_SLUG, type Venue } from '../shared/venue'
 
 type TokenKind = 'login' | 'handoff'
 
@@ -80,15 +80,6 @@ const MIGRATIONS: ((sql: SqlStorage) => void)[] = [
 
 /** Admins an owner may invite to one dapur, besides themselves. */
 const MAX_INVITED = 3
-
-export type AccountVenue = {
-  slug: string
-  name: string
-  disabled: boolean
-  role: 'owner' | 'admin'
-  /** The owner's invited admins; empty for an invited admin. */
-  admins: string[]
-}
 
 /**
  * The list of dapur, their owners' emails and one-time sign-in tokens. Each

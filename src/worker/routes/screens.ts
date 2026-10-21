@@ -1,6 +1,5 @@
 import { Hono } from 'hono'
-import { z } from 'zod'
-import { tvControlSchema } from '../../shared/board'
+import { tvActionSchema, tvControlSchema } from '../../shared/board'
 import { commandSchema } from '../../shared/commands'
 import { createOrderSchema } from '../../shared/order'
 import {
@@ -89,14 +88,7 @@ screens.post(
 
 screens.post(
   '/api/tv/control',
-  invalidInput(
-    'json',
-    z.discriminatedUnion('action', [
-      z.object({ action: z.literal('pause') }),
-      z.object({ action: z.literal('resume') }),
-      z.object({ action: z.literal('page'), page: z.number().int().min(0) }),
-    ]),
-  ),
+  invalidInput('json', tvActionSchema),
   async (c) => {
     const room = venueRoom(c)
     const body = c.req.valid('json')

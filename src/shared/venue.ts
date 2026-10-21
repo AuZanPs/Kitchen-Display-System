@@ -39,7 +39,22 @@ export const venueCreateSchema = z.object({
   adminPassword: adminPasswordSchema,
   ownerEmail: ownerEmailSchema.optional(),
 })
-export type VenueCreate = z.infer<typeof venueCreateSchema>
+
+export const accountVenueSchema = z.object({
+  slug: z.string(),
+  name: z.string(),
+  disabled: z.boolean(),
+  role: z.enum(['owner', 'admin']),
+  /** The owner's invited admins; empty for an invited admin. */
+  admins: z.array(z.string()),
+})
+export type AccountVenue = z.infer<typeof accountVenueSchema>
+
+/** The signed-in owner on the site and the dapur they can open. */
+export const accountSchema = z.object({
+  email: z.string(),
+  venues: z.array(accountVenueSchema),
+})
 
 export const venueSchema = z.object({
   slug: z.string(),

@@ -8,7 +8,7 @@ import {
 } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { z } from 'zod'
-import { ownerEmailSchema } from '../../shared/venue'
+import { accountSchema, ownerEmailSchema } from '../../shared/venue'
 import { BrandMark, LanguageToggle } from '../app-bar'
 import { useI18n } from '../i18n'
 import { api } from '../lib/api'
@@ -18,19 +18,6 @@ import { Monogram } from '../staff-sign-in'
 import { Button, IconButton } from '../ui/button'
 import { useSnackbar } from '../ui/snackbar'
 import { TextField } from '../ui/text-field'
-
-const accountSchema = z.object({
-  email: z.string(),
-  venues: z.array(
-    z.object({
-      slug: z.string(),
-      name: z.string(),
-      disabled: z.boolean(),
-      role: z.enum(['owner', 'admin']),
-      admins: z.array(z.string()),
-    }),
-  ),
-})
 
 function SiteBar({ children }: { children?: React.ReactNode }) {
   const { t } = useI18n()
