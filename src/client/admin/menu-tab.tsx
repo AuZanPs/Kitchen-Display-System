@@ -13,6 +13,7 @@ import {
   adminMenuSchema,
   adminTableSchema,
   adminTablesSchema,
+  MENU_LIMITS,
   type TableInput,
 } from '../../shared/menu'
 import { formatIdr, useI18n } from '../i18n'
@@ -358,7 +359,7 @@ function TableDialog({
           <Button
             type="submit"
             form="table-form"
-            disabled={busy || label.length > 20}
+            disabled={busy || label.length > MENU_LIMITS.tableLabel}
           >
             {t('save')}
           </Button>
@@ -374,7 +375,7 @@ function TableDialog({
         <TextField
           label={t('tableLabel')}
           hint={t('tableLabelHint')}
-          max={20}
+          max={MENU_LIMITS.tableLabel}
           autoComplete="off"
           autoFocus
           value={label}

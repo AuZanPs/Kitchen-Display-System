@@ -2,6 +2,7 @@ import { ArrowLeft, Check, Delete, UserRound } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { z } from 'zod'
 import {
+  STAFF_LIMITS,
   type StaffMember,
   staffListSchema,
   staffMemberSchema,
@@ -11,9 +12,6 @@ import { useI18n } from './i18n'
 import { api } from './lib/api'
 import { stagger } from './lib/stagger'
 import { Button, IconButton } from './ui/button'
-
-const MIN_PIN = 4
-const MAX_PIN = 6
 
 /** Full-screen "who is working?" step for waiter and kitchen devices. */
 export function StaffSignIn({
@@ -113,12 +111,12 @@ function PinPad({
 
   const press = useCallback((digit: string) => {
     setError(null)
-    setPin((p) => (p.length < MAX_PIN ? p + digit : p))
+    setPin((p) => (p.length < STAFF_LIMITS.pinMax ? p + digit : p))
   }, [])
   const erase = useCallback(() => setPin((p) => p.slice(0, -1)), [])
 
   const submit = useCallback(async () => {
-    if (pin.length < MIN_PIN || busy) return
+    if (pin.length < STAFF_LIMITS.pinMin || busy) return
     setBusy(true)
     const result = await api(
       '/api/staff/login',
@@ -149,7 +147,7 @@ function PinPad({
     return () => window.removeEventListener('keydown', onKey)
   }, [press, erase, submit])
 
-  const slots = Math.max(MIN_PIN, pin.length)
+  const slots = Math.max(STAFF_LIMITS.pinMin, pin.length)
   return (
     <section className="rise mx-auto grid w-full max-w-sm justify-items-center gap-4 sm:gap-6">
       <div className="flex w-full items-center gap-3">
@@ -204,7 +202,7 @@ function PinPad({
         <button
           type="button"
           aria-label={t('signIn')}
-          disabled={pin.length < MIN_PIN || busy}
+          disabled={pin.length < STAFF_LIMITS.pinMin || busy}
           onClick={() => void submit()}
           className={`${KEY} text-surface [--bg:var(--color-ink)] [--on:var(--color-surface)] disabled:border-2 disabled:border-ink-soft disabled:text-ink-soft disabled:[--bg:transparent]`}
         >

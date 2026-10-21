@@ -12,6 +12,7 @@ import { jakartaDate } from '../../shared/order'
 import {
   isVenueSlug,
   suggestSlug,
+  VENUE_LIMITS,
   type Venue,
   venueListSchema,
 } from '../../shared/venue'
@@ -345,7 +346,7 @@ function AddVenue({
   }, [open])
 
   const slugOk = isVenueSlug(slug)
-  const passwordOk = password.length >= 8
+  const passwordOk = password.length >= VENUE_LIMITS.passwordMin
   const ownerOk = owner.trim() === '' || EMAIL_PATTERN.test(owner.trim())
   const base = venueHost('x').replace(/^x\./, '')
 
@@ -387,7 +388,7 @@ function AddVenue({
         <TextField
           label={t('venueName')}
           hint={t('venueNameHint')}
-          max={60}
+          max={VENUE_LIMITS.name}
           value={name}
           onChange={(e) => {
             setName(e.target.value)
@@ -463,7 +464,9 @@ function ResetPassword({
   async function submit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!venue) return
-    if (password.length < 8) return setError(t('passwordTooShort'))
+    if (password.length < VENUE_LIMITS.passwordMin) {
+      return setError(t('passwordTooShort'))
+    }
     setBusy(true)
     const result = await api(
       `/api/super/venues/${venue.slug}/password`,
@@ -599,7 +602,7 @@ function RenameVenue({
     if (!venue) return
     const value = name.trim()
     if (!value) return setError(t('required'))
-    if (value.length > 60) return
+    if (value.length > VENUE_LIMITS.name) return
     setBusy(true)
     const result = await api(`/api/super/venues/${venue.slug}/name`, z.null(), {
       method: 'PUT',
@@ -631,7 +634,7 @@ function RenameVenue({
         <TextField
           label={t('venueName')}
           value={name}
-          max={60}
+          max={VENUE_LIMITS.name}
           onChange={(e) => {
             setName(e.target.value)
             setError(null)

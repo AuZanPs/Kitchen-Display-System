@@ -1,20 +1,33 @@
 import { z } from 'zod'
 
+/** Menu and table limits; the admin forms check the same numbers. */
+export const MENU_LIMITS = {
+  /** Item, option group and option names. */
+  name: 60,
+  category: 30,
+  priceIdr: 10_000_000,
+  groups: 10,
+  options: 20,
+  tableLabel: 20,
+} as const
+
 export const modifierOptionSchema = z.object({
   id: z.string().min(1).max(40),
-  name: z.string().min(1).max(60),
-  priceDeltaIdr: z.number().int().min(0).max(10_000_000),
+  name: z.string().min(1).max(MENU_LIMITS.name),
+  priceDeltaIdr: z.number().int().min(0).max(MENU_LIMITS.priceIdr),
 })
 
 export const modifierGroupSchema = z.object({
   id: z.string().min(1).max(40),
-  name: z.string().min(1).max(60),
+  name: z.string().min(1).max(MENU_LIMITS.name),
   required: z.boolean(),
   multi: z.boolean(),
-  options: z.array(modifierOptionSchema).min(1).max(20),
+  options: z.array(modifierOptionSchema).min(1).max(MENU_LIMITS.options),
 })
 
-export const modifierGroupsSchema = z.array(modifierGroupSchema).max(10)
+export const modifierGroupsSchema = z
+  .array(modifierGroupSchema)
+  .max(MENU_LIMITS.groups)
 
 export const menuItemSchema = z.object({
   id: z.string(),
@@ -44,9 +57,9 @@ function uniqueIds(groups: ModifierGroup[]) {
 
 /** What the admin sends to create or replace a menu item. */
 export const menuItemInputSchema = z.object({
-  name: z.string().trim().min(1).max(60),
-  priceIdr: z.number().int().min(0).max(10_000_000),
-  category: z.string().trim().min(1).max(30),
+  name: z.string().trim().min(1).max(MENU_LIMITS.name),
+  priceIdr: z.number().int().min(0).max(MENU_LIMITS.priceIdr),
+  category: z.string().trim().min(1).max(MENU_LIMITS.category),
   sort: z.number().int().min(0).max(100_000),
   available: z.boolean(),
   hidden: z.boolean(),
@@ -61,7 +74,7 @@ export const adminMenuItemSchema = menuItemInputSchema.extend({
 export const adminMenuSchema = z.object({ items: z.array(adminMenuItemSchema) })
 
 export const tableInputSchema = z.object({
-  label: z.string().trim().min(1).max(20),
+  label: z.string().trim().min(1).max(MENU_LIMITS.tableLabel),
   sort: z.number().int().min(0).max(100_000),
   active: z.boolean(),
 })

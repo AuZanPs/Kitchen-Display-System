@@ -115,11 +115,14 @@ export const serverMessageSchema = z.discriminatedUnion('type', [
 ])
 
 /** The only message a client sends besides "ping": the TV's render receipt. */
+/** Orders one TV receipt may report. */
+export const RECEIPT_ITEMS_MAX = 200
+
 export const renderedMessageSchema = z.object({
   type: z.literal('rendered'),
   items: z
     .array(z.object({ id: z.string().max(64), version: z.number().int() }))
-    .max(200),
+    .max(RECEIPT_ITEMS_MAX),
 })
 
 export type BoardOrder = z.infer<typeof boardOrderSchema>

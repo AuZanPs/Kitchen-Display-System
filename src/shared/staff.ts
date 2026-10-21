@@ -1,11 +1,17 @@
 import { z } from 'zod'
 
 export const STAFF_ROLES = ['waiter', 'kitchen'] as const
-export const pinSchema = z.string().regex(/^\d{4,6}$/)
+
+/** Staff limits; the admin form and the PIN pad check the same numbers. */
+export const STAFF_LIMITS = { name: 40, pinMin: 4, pinMax: 6 } as const
+
+export const pinSchema = z
+  .string()
+  .regex(new RegExp(`^\\d{${STAFF_LIMITS.pinMin},${STAFF_LIMITS.pinMax}}$`))
 
 /** What the admin sends; a PIN only when setting or changing it. */
 export const staffInputSchema = z.object({
-  name: z.string().trim().min(1).max(40),
+  name: z.string().trim().min(1).max(STAFF_LIMITS.name),
   role: z.enum(STAFF_ROLES),
   disabled: z.boolean().default(false),
   pin: pinSchema.optional(),

@@ -1,5 +1,10 @@
 import { DurableObject } from 'cloudflare:workers'
-import { type AccountVenue, FIRST_SLUG, type Venue } from '../shared/venue'
+import {
+  type AccountVenue,
+  FIRST_SLUG,
+  VENUE_LIMITS,
+  type Venue,
+} from '../shared/venue'
 
 type TokenKind = 'login' | 'handoff'
 
@@ -77,9 +82,6 @@ const MIGRATIONS: ((sql: SqlStorage) => void)[] = [
       CREATE INDEX IF NOT EXISTS venue_admins_email ON venue_admins (email);
     `),
 ]
-
-/** Admins an owner may invite to one dapur, besides themselves. */
-const MAX_INVITED = 3
 
 /**
  * The list of dapur, their owners' emails and one-time sign-in tokens. Each
@@ -200,7 +202,10 @@ export class Directory extends DurableObject<Env> {
     if (email === owner) return 'self'
     return this.ctx.storage.transactionSync(() => {
       const current = this.invitedAdmins(slug)
-      if (!current.includes(email) && current.length >= MAX_INVITED) {
+      if (
+        !current.includes(email) &&
+        current.length >= VENUE_LIMITS.invitedAdmins
+      ) {
         return 'full'
       }
       this.sql.exec(

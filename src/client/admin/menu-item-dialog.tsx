@@ -4,6 +4,7 @@ import { z } from 'zod'
 import {
   type AdminMenuItem,
   adminMenuItemSchema,
+  MENU_LIMITS,
   type MenuItemInput,
 } from '../../shared/menu'
 import { formatIdr, useI18n } from '../i18n'
@@ -15,10 +16,6 @@ import { Chip } from '../ui/chip'
 import { Dialog } from '../ui/dialog'
 import { Switch } from '../ui/switch'
 import { TextField } from '../ui/text-field'
-
-const MAX_GROUPS = 10
-const MAX_OPTIONS = 20
-const MAX_PRICE = 10_000_000
 
 type OptionDraft = { id: string; name: string; price: string }
 type GroupDraft = {
@@ -48,7 +45,7 @@ const digits = (value: string) => value.replace(/\D/g, '').slice(0, 8)
 function money(value: string): number | null {
   if (value === '') return null
   const n = Number(value)
-  return n <= MAX_PRICE ? n : null
+  return n <= MENU_LIMITS.priceIdr ? n : null
 }
 
 const itemResult = z.object({ item: adminMenuItemSchema })
@@ -109,18 +106,18 @@ export function MenuItemDialog({
   const sortValue = Number(sort || '0')
   const valid =
     name.trim() !== '' &&
-    name.length <= 60 &&
+    name.length <= MENU_LIMITS.name &&
     priceIdr !== null &&
     category.trim() !== '' &&
-    category.length <= 30 &&
+    category.length <= MENU_LIMITS.category &&
     groups.every(
       (g) =>
         g.name.trim() !== '' &&
-        g.name.length <= 60 &&
+        g.name.length <= MENU_LIMITS.name &&
         g.options.every(
           (o) =>
             o.name.trim() !== '' &&
-            o.name.length <= 60 &&
+            o.name.length <= MENU_LIMITS.name &&
             money(o.price) !== null,
         ),
     )
@@ -216,7 +213,7 @@ export function MenuItemDialog({
         <div className="grid gap-x-4 sm:grid-cols-[minmax(0,1fr)_11rem]">
           <TextField
             label={t('itemName')}
-            max={60}
+            max={MENU_LIMITS.name}
             value={name}
             onChange={(e) => setName(e.target.value)}
             error={required(name)}
@@ -236,7 +233,7 @@ export function MenuItemDialog({
           <TextField
             label={t('category')}
             hint={t('categoryHint')}
-            max={30}
+            max={MENU_LIMITS.category}
             list="menu-categories"
             autoComplete="off"
             value={category}
@@ -276,7 +273,7 @@ export function MenuItemDialog({
                 <div className="flex-1">
                   <TextField
                     label={t('groupName')}
-                    max={60}
+                    max={MENU_LIMITS.name}
                     autoComplete="off"
                     value={group.name}
                     onChange={(e) =>
@@ -318,7 +315,7 @@ export function MenuItemDialog({
                 >
                   <TextField
                     label={t('optionName', { n: index + 1 })}
-                    max={60}
+                    max={MENU_LIMITS.name}
                     autoComplete="off"
                     value={option.name}
                     onChange={(e) =>
@@ -358,7 +355,7 @@ export function MenuItemDialog({
                 variant="text"
                 className="justify-self-start"
                 icon={<Plus size={18} aria-hidden />}
-                disabled={group.options.length >= MAX_OPTIONS}
+                disabled={group.options.length >= MENU_LIMITS.options}
                 onClick={() =>
                   updateGroup(group.id, {
                     options: [...group.options, newOption()],
@@ -373,7 +370,7 @@ export function MenuItemDialog({
             variant="outlined"
             className="justify-self-start"
             icon={<Plus size={18} aria-hidden />}
-            disabled={groups.length >= MAX_GROUPS}
+            disabled={groups.length >= MENU_LIMITS.groups}
             onClick={() => setGroups((list) => [...list, newGroup()])}
           >
             {t('addGroup')}

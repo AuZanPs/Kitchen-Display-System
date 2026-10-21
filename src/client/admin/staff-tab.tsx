@@ -6,6 +6,7 @@ import {
   adminStaffListSchema,
   adminStaffSchema,
   pinSchema,
+  STAFF_LIMITS,
   STAFF_ROLES,
 } from '../../shared/staff'
 import { useI18n } from '../i18n'
@@ -144,8 +145,10 @@ function StaffDialog({
   async function submit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault()
     if (name.trim() === '') return setError(t('fieldRequired'))
-    if (name.length > 40) {
-      return setError(t('tooLong', { count: name.length, max: 40 }))
+    if (name.length > STAFF_LIMITS.name) {
+      return setError(
+        t('tooLong', { count: name.length, max: STAFF_LIMITS.name }),
+      )
     }
     if (!pinOk) return setPinError(t('pinNeeded'))
     setBusy(true)
@@ -196,7 +199,7 @@ function StaffDialog({
       >
         <TextField
           label={t('staffName')}
-          max={40}
+          max={STAFF_LIMITS.name}
           autoComplete="off"
           autoFocus={!member}
           value={name}
@@ -239,7 +242,9 @@ function StaffDialog({
           hint={member?.hasPin ? t('pinKeepHint') : t('pinHint')}
           value={pin}
           onChange={(e) => {
-            setPin(e.target.value.replace(/\D/g, '').slice(0, 6))
+            setPin(
+              e.target.value.replace(/\D/g, '').slice(0, STAFF_LIMITS.pinMax),
+            )
             setPinError(null)
           }}
           error={pinError}

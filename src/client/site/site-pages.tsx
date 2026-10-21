@@ -8,7 +8,11 @@ import {
 } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { z } from 'zod'
-import { accountSchema, ownerEmailSchema } from '../../shared/venue'
+import {
+  accountSchema,
+  ownerEmailSchema,
+  VENUE_LIMITS,
+} from '../../shared/venue'
 import { BrandMark, LanguageToggle, SignOutButton } from '../app-bar'
 import { useI18n } from '../i18n'
 import { api } from '../lib/api'
@@ -353,7 +357,7 @@ function InvitedAdmins({
           ))}
         </ul>
       )}
-      {admins.length < 3 && (
+      {admins.length < VENUE_LIMITS.invitedAdmins && (
         <form onSubmit={add} noValidate className="grid gap-2 sm:max-w-md">
           <TextField
             label={t('email')}

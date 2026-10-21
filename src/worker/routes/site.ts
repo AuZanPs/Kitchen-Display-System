@@ -1,6 +1,10 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
-import { ownerEmailSchema, SLUG_PATTERN } from '../../shared/venue'
+import {
+  ownerEmailSchema,
+  SLUG_PATTERN,
+  VENUE_LIMITS,
+} from '../../shared/venue'
 import { randomHex, sha256Hex } from '../auth/crypto'
 import {
   canSignSessions,
@@ -187,7 +191,11 @@ site.post(
     if (result === 'full') {
       return reply(
         c,
-        fail(409, 'operation_conflict', 'Paling banyak 3 admin lain.'),
+        fail(
+          409,
+          'operation_conflict',
+          `Paling banyak ${VENUE_LIMITS.invitedAdmins} admin lain.`,
+        ),
       )
     }
     return c.body(null, 204)

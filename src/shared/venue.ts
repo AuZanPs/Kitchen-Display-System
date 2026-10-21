@@ -15,6 +15,14 @@ export const RESERVED_SLUGS: ReadonlySet<string> = new Set([
   'www',
 ])
 
+/** Dapur limits; the console and the account page check the same numbers. */
+export const VENUE_LIMITS = {
+  name: 60,
+  passwordMin: 8,
+  /** Admins an owner may invite to one dapur, besides themselves. */
+  invitedAdmins: 3,
+} as const
+
 /** The first dapur; its data lives in the room the pilot started with. */
 export const FIRST_SLUG = 'dapurku'
 const FIRST_ROOM = 'main'
@@ -29,14 +37,17 @@ export const venueSlugSchema = z
   .regex(SLUG_PATTERN)
   .refine((slug) => !RESERVED_SLUGS.has(slug))
 
-export const adminPasswordSchema = z.string().min(8).max(200)
+export const adminPasswordSchema = z
+  .string()
+  .min(VENUE_LIMITS.passwordMin)
+  .max(200)
 
 export const ownerEmailSchema = z
   .email()
   .max(200)
   .transform((e) => e.toLowerCase())
 
-export const venueNameSchema = z.string().trim().min(1).max(60)
+export const venueNameSchema = z.string().trim().min(1).max(VENUE_LIMITS.name)
 
 export const venueCreateSchema = z.object({
   slug: venueSlugSchema,
