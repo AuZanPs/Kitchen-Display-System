@@ -180,6 +180,31 @@ describe('kitchen TV', () => {
     tv.ws.close()
   })
 
+  it('rebroadcasts only when the first TV shows an order', async () => {
+    const first = await openBoardSocket('tv')
+    const second = await openBoardSocket('tv')
+    const { orderId } = await createOrder()
+    const board = await first.boardWhere((b) =>
+      b.orders.some((o) => o.id === orderId),
+    )
+    const rendered = JSON.stringify({
+      type: 'rendered',
+      items: [{ id: orderId, version: 1 }],
+    })
+
+    first.ws.send(rendered)
+    const shown = await first.boardWhere((b) => b.rev > board.rev)
+    expect(shown.orders.find((o) => o.id === orderId)?.shownOnTv).toBe(true)
+
+    // The second TV's receipt is stored but changes nothing on the board.
+    second.ws.send(rendered)
+    const next = await createOrder()
+    expect((await first.nextBoard()).rev).toBe(next.rev)
+    expect(next.rev).toBe(shown.rev + 1)
+    first.ws.close()
+    second.ws.close()
+  })
+
   it('pauses and pages through kitchen control', async () => {
     const res = await postJson('/api/tv/control', { action: 'pause' })
     expect(res.status).toBe(200)

@@ -208,14 +208,27 @@ export function boardOrder(db: Db, orderId: string): BoardOrder | undefined {
   return toBoardOrders(db, rows, filter)[0]
 }
 
-/** Stores render receipts that move a TV forward; ignores stale or bogus ones. */
+function shownOnTv(db: Db, orderId: string, version: number) {
+  const row = db
+    .select({ version: max(schema.displayReceipts.version) })
+    .from(schema.displayReceipts)
+    .where(eq(schema.displayReceipts.orderId, orderId))
+    .get()
+  return (row?.version ?? 0) >= version
+}
+
+/**
+ * Stores render receipts that move a TV forward; ignores stale or bogus ones.
+ * True when an order newly counts as shown on TV, the only receipt fact the
+ * board carries, so further TVs and older versions cause no rebroadcast.
+ */
 export function applyReceipts(
   db: Db,
   deviceId: string,
   items: { id: string; version: number }[],
   now: number,
 ): boolean {
-  let changed = false
+  let newlyShown = false
   for (const item of items) {
     const order = db
       .select({ version: schema.orders.version })
@@ -234,6 +247,12 @@ export function applyReceipts(
       )
       .get()
     if (current && current.version >= item.version) continue
+    if (
+      item.version === order.version &&
+      !shownOnTv(db, item.id, order.version)
+    ) {
+      newlyShown = true
+    }
     db.insert(schema.displayReceipts)
       .values({
         orderId: item.id,
@@ -249,7 +268,6 @@ export function applyReceipts(
         set: { version: item.version, renderedAt: now },
       })
       .run()
-    changed = true
   }
-  return changed
+  return newlyShown
 }
