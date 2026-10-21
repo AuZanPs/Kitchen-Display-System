@@ -73,13 +73,20 @@ export function useI18n(): I18n {
 
 const TIME_ZONE = 'Asia/Jakarta'
 
+const clock = new Intl.DateTimeFormat('en-GB', {
+  timeZone: TIME_ZONE,
+  hour: '2-digit',
+  minute: '2-digit',
+})
+const clockWithSeconds = new Intl.DateTimeFormat('en-GB', {
+  timeZone: TIME_ZONE,
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+})
+
 export function formatTime(at: number, withSeconds = false) {
-  return new Date(at).toLocaleTimeString('en-GB', {
-    timeZone: TIME_ZONE,
-    hour: '2-digit',
-    minute: '2-digit',
-    second: withSeconds ? '2-digit' : undefined,
-  })
+  return (withSeconds ? clockWithSeconds : clock).format(at)
 }
 
 /** A `YYYY-MM-DD` service day in the reader's language. */

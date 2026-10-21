@@ -1,20 +1,26 @@
-import { ExternalLink, KeyRound, LogOut, Plus, Shuffle } from 'lucide-react'
+import {
+  ExternalLink,
+  KeyRound,
+  Mail,
+  Pencil,
+  Plus,
+  Shuffle,
+} from 'lucide-react'
 import { type SubmitEvent, useCallback, useEffect, useState } from 'react'
 import { z } from 'zod'
 import { jakartaDate } from '../../shared/order'
 import {
-  MAIN_SLUG,
-  RESERVED_SLUGS,
-  SLUG_PATTERN,
+  isVenueSlug,
   suggestSlug,
+  VENUE_LIMITS,
   type Venue,
   venueListSchema,
 } from '../../shared/venue'
-import { AppBar, BrandMark, LanguageToggle } from '../app-bar'
+import { AppBar, SignOutButton } from '../app-bar'
 import { formatDay, useI18n } from '../i18n'
 import { api } from '../lib/api'
-import { CenterNote } from '../lib/session'
 import { stagger } from '../lib/stagger'
+import { PasswordSignIn } from '../password-sign-in'
 import { Monogram } from '../staff-sign-in'
 import { Button, IconButton } from '../ui/button'
 import { Dialog } from '../ui/dialog'
@@ -24,9 +30,10 @@ import { TextField } from '../ui/text-field'
 
 /** The console runs on console.<base>; every dapur lives on <slug>.<base>. */
 function venueHost(slug: string) {
-  const base = window.location.host.replace(/^console\./, '')
-  return slug === MAIN_SLUG ? base : `${slug}.${base}`
+  return `${slug}.${window.location.host.replace(/^console\./, '')}`
 }
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 /** Twelve readable characters, no look-alikes (0/O, 1/l). */
 function randomPassword() {
@@ -49,60 +56,15 @@ export function SuperPage() {
 
 function Login({ onSignedIn }: { onSignedIn: () => void }) {
   const { t } = useI18n()
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
-
-  async function submit(event: SubmitEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setBusy(true)
-    const result = await api('/api/super/login', z.null(), {
-      body: { password },
-    })
-    setBusy(false)
-    if (result.ok) return onSignedIn()
-    setError(result.status === 0 ? t('networkError') : result.message)
-  }
-
   return (
-    <CenterNote>
-      <div className="fixed top-4 right-4">
-        <LanguageToggle />
-      </div>
-      <form
-        onSubmit={submit}
-        className="grid w-[min(24rem,calc(100vw-3rem))] gap-6 text-left"
-      >
-        <div className="grid gap-5">
-          <span
-            translate="no"
-            className="flex items-center gap-3 text-lg font-semibold"
-          >
-            <BrandMark />
-            {t('appName')}
-          </span>
-          <h1 className="text-4xl font-semibold tracking-tight">
-            {t('superTitle')}
-          </h1>
-        </div>
-        <TextField
-          label={t('password')}
-          type="password"
-          autoComplete="current-password"
-          value={password}
-          onChange={(e) => {
-            setPassword(e.target.value)
-            setError(null)
-          }}
-          error={error}
-          required
-          autoFocus
-        />
-        <Button type="submit" size="lg" disabled={busy || password === ''}>
-          {t('signIn')}
-        </Button>
-      </form>
-    </CenterNote>
+    <PasswordSignIn
+      title={t('superTitle')}
+      endpoint="/api/super/login"
+      errorText={(result) =>
+        result.status === 0 ? t('networkError') : result.message
+      }
+      onSignedIn={onSignedIn}
+    />
   )
 }
 
@@ -112,6 +74,8 @@ function Venues({ onSignedOut }: { onSignedOut: () => void }) {
   const [venues, setVenues] = useState<Venue[] | null>(null)
   const [adding, setAdding] = useState(false)
   const [resetting, setResetting] = useState<Venue | null>(null)
+  const [owning, setOwning] = useState<Venue | null>(null)
+  const [renaming, setRenaming] = useState<Venue | null>(null)
   const [disabling, setDisabling] = useState<Venue | null>(null)
 
   const load = useCallback(async () => {
@@ -147,14 +111,7 @@ function Venues({ onSignedOut }: { onSignedOut: () => void }) {
   return (
     <div className="min-h-dvh bg-surface pb-16">
       <AppBar title={t('appName')} device={t('superTitle')}>
-        <Button
-          variant="text"
-          icon={<LogOut size={18} aria-hidden />}
-          aria-label={t('signOut')}
-          onClick={() => void signOut()}
-        >
-          <span className="hidden sm:inline">{t('signOut')}</span>
-        </Button>
+        <SignOutButton onClick={() => void signOut()} />
       </AppBar>
 
       <main className="rise mx-auto grid max-w-3xl gap-6 px-4 pt-8 sm:px-6">
@@ -184,9 +141,9 @@ function Venues({ onSignedOut }: { onSignedOut: () => void }) {
                 style={stagger(index)}
                 className={`rise grid gap-4 rounded-md p-4 sm:p-5 ${venue.disabled ? 'border border-line' : 'bg-wash'}`}
               >
-                <div className="flex items-start gap-4">
+                <div className="flex flex-wrap items-start gap-x-4 gap-y-2">
                   <Monogram name={venue.name} muted={venue.disabled} />
-                  <div className="grid min-w-0 flex-1 gap-0.5">
+                  <div className="grid min-w-48 flex-1 gap-0.5">
                     <span className="text-lg font-medium break-words">
                       {venue.name}
                     </span>
@@ -194,10 +151,13 @@ function Venues({ onSignedOut }: { onSignedOut: () => void }) {
                       href={`${window.location.protocol}//${host}/admin`}
                       target="_blank"
                       rel="noreferrer"
-                      className="w-fit text-[15px] break-all text-ink-soft underline-offset-4 hover:underline"
+                      className="w-fit text-[15px] wrap-anywhere text-ink-soft underline-offset-4 hover:underline"
                     >
                       {host}
                     </a>
+                    <span className="text-[13px] wrap-anywhere text-ink-soft">
+                      {venue.ownerEmail ?? t('noOwner')}
+                    </span>
                     {venue.createdAt > 0 && (
                       <span className="text-[13px] text-ink-soft">
                         {t('createdOn', {
@@ -206,13 +166,18 @@ function Venues({ onSignedOut }: { onSignedOut: () => void }) {
                       </span>
                     )}
                   </div>
-                  <Switch
-                    label={venue.disabled ? t('venueOff') : t('venueActive')}
-                    checked={!venue.disabled}
-                    onChange={(on) =>
-                      on ? void setDisabled(venue, false) : setDisabling(venue)
-                    }
-                  />
+                  {/* Drops under the details on a phone instead of squeezing them. */}
+                  <div className="ml-auto">
+                    <Switch
+                      label={venue.disabled ? t('venueOff') : t('venueActive')}
+                      checked={!venue.disabled}
+                      onChange={(on) =>
+                        on
+                          ? void setDisabled(venue, false)
+                          : setDisabling(venue)
+                      }
+                    />
+                  </div>
                 </div>
                 <div className="-mx-2 -mb-1 flex flex-wrap gap-1 border-t border-line pt-2">
                   <a
@@ -231,6 +196,20 @@ function Venues({ onSignedOut }: { onSignedOut: () => void }) {
                   >
                     {t('resetPassword')}
                   </Button>
+                  <Button
+                    variant="text"
+                    icon={<Mail size={18} aria-hidden />}
+                    onClick={() => setOwning(venue)}
+                  >
+                    {t('ownerEmail')}
+                  </Button>
+                  <Button
+                    variant="text"
+                    icon={<Pencil size={18} aria-hidden />}
+                    onClick={() => setRenaming(venue)}
+                  >
+                    {t('renameVenue')}
+                  </Button>
                 </div>
               </li>
             )
@@ -245,6 +224,26 @@ function Venues({ onSignedOut }: { onSignedOut: () => void }) {
           setAdding(false)
           snackbar.show(t('venueCreated', { name }))
           void load()
+        }}
+      />
+      <OwnerEmail
+        venue={owning}
+        onDone={(saved) => {
+          setOwning(null)
+          if (saved) {
+            snackbar.show(t('ownerSaved', { name: saved }))
+            void load()
+          }
+        }}
+      />
+      <RenameVenue
+        venue={renaming}
+        onDone={(saved) => {
+          setRenaming(null)
+          if (saved) {
+            snackbar.show(t('venueRenamed', { name: saved }))
+            void load()
+          }
         }}
       />
       <ResetPassword
@@ -330,6 +329,7 @@ function AddVenue({
   const [slug, setSlug] = useState('')
   const [slugEdited, setSlugEdited] = useState(false)
   const [password, setPassword] = useState('')
+  const [owner, setOwner] = useState('')
   const [showErrors, setShowErrors] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -337,6 +337,7 @@ function AddVenue({
   useEffect(() => {
     if (!open) return
     setName('')
+    setOwner('')
     setSlug('')
     setSlugEdited(false)
     setPassword(randomPassword())
@@ -344,17 +345,23 @@ function AddVenue({
     setServerError(null)
   }, [open])
 
-  const slugOk = SLUG_PATTERN.test(slug) && !RESERVED_SLUGS.has(slug)
-  const passwordOk = password.length >= 8
+  const slugOk = isVenueSlug(slug)
+  const passwordOk = password.length >= VENUE_LIMITS.passwordMin
+  const ownerOk = owner.trim() === '' || EMAIL_PATTERN.test(owner.trim())
   const base = venueHost('x').replace(/^x\./, '')
 
   async function submit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault()
     setShowErrors(true)
-    if (!name.trim() || !slugOk || !passwordOk) return
+    if (!name.trim() || !slugOk || !passwordOk || !ownerOk) return
     setBusy(true)
     const result = await api('/api/super/venues', z.unknown(), {
-      body: { slug, name: name.trim(), adminPassword: password },
+      body: {
+        slug,
+        name: name.trim(),
+        adminPassword: password,
+        ...(owner.trim() ? { ownerEmail: owner.trim() } : {}),
+      },
     })
     setBusy(false)
     if (result.ok) return onCreated(name.trim())
@@ -381,7 +388,7 @@ function AddVenue({
         <TextField
           label={t('venueName')}
           hint={t('venueNameHint')}
-          max={60}
+          max={VENUE_LIMITS.name}
           value={name}
           onChange={(e) => {
             setName(e.target.value)
@@ -416,6 +423,15 @@ function AddVenue({
           }
           required
         />
+        <TextField
+          label={t('ownerEmail')}
+          hint={t('ownerEmailHint')}
+          type="email"
+          autoComplete="off"
+          value={owner}
+          onChange={(e) => setOwner(e.target.value)}
+          error={showErrors && !ownerOk ? t('emailInvalid') : null}
+        />
         <PasswordField
           label={t('venueAdminPassword')}
           value={password}
@@ -448,7 +464,9 @@ function ResetPassword({
   async function submit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!venue) return
-    if (password.length < 8) return setError(t('passwordTooShort'))
+    if (password.length < VENUE_LIMITS.passwordMin) {
+      return setError(t('passwordTooShort'))
+    }
     setBusy(true)
     const result = await api(
       `/api/super/venues/${venue.slug}/password`,
@@ -486,6 +504,143 @@ function ResetPassword({
             setError(null)
           }}
           error={error}
+        />
+      </form>
+    </Dialog>
+  )
+}
+
+function OwnerEmail({
+  venue,
+  onDone,
+}: {
+  venue: Venue | null
+  onDone: (savedFor: string | null) => void
+}) {
+  const { t } = useI18n()
+  const [email, setEmail] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    if (!venue) return
+    setEmail(venue.ownerEmail ?? '')
+    setError(null)
+  }, [venue])
+
+  async function submit(event: SubmitEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!venue) return
+    const value = email.trim()
+    if (value && !EMAIL_PATTERN.test(value)) return setError(t('emailInvalid'))
+    setBusy(true)
+    const result = await api(
+      `/api/super/venues/${venue.slug}/owner`,
+      z.null(),
+      { method: 'PUT', body: { ownerEmail: value || null } },
+    )
+    setBusy(false)
+    if (result.ok) return onDone(venue.name)
+    setError(result.message)
+  }
+
+  return (
+    <Dialog
+      open={venue !== null}
+      onOpenChange={(open) => !open && onDone(null)}
+      title={t('ownerEmailFor', { name: venue?.name ?? '' })}
+      description={t('ownerEmailHint')}
+      footer={
+        <>
+          <Button variant="text" onClick={() => onDone(null)}>
+            {t('cancel')}
+          </Button>
+          <Button type="submit" form="owner-email" disabled={busy}>
+            {t('save')}
+          </Button>
+        </>
+      }
+    >
+      <form id="owner-email" onSubmit={submit} noValidate>
+        <TextField
+          label={t('ownerEmail')}
+          type="email"
+          autoComplete="off"
+          value={email}
+          onChange={(e) => {
+            setEmail(e.target.value)
+            setError(null)
+          }}
+          error={error}
+          autoFocus
+        />
+      </form>
+    </Dialog>
+  )
+}
+
+function RenameVenue({
+  venue,
+  onDone,
+}: {
+  venue: Venue | null
+  onDone: (savedAs: string | null) => void
+}) {
+  const { t } = useI18n()
+  const [name, setName] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    if (!venue) return
+    setName(venue.name)
+    setError(null)
+  }, [venue])
+
+  async function submit(event: SubmitEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!venue) return
+    const value = name.trim()
+    if (!value) return setError(t('required'))
+    if (value.length > VENUE_LIMITS.name) return
+    setBusy(true)
+    const result = await api(`/api/super/venues/${venue.slug}/name`, z.null(), {
+      method: 'PUT',
+      body: { name: value },
+    })
+    setBusy(false)
+    if (result.ok) return onDone(value)
+    setError(result.message)
+  }
+
+  return (
+    <Dialog
+      open={venue !== null}
+      onOpenChange={(open) => !open && onDone(null)}
+      title={t('renameVenueFor', { name: venue?.name ?? '' })}
+      description={t('venueNameHint')}
+      footer={
+        <>
+          <Button variant="text" onClick={() => onDone(null)}>
+            {t('cancel')}
+          </Button>
+          <Button type="submit" form="rename-venue" disabled={busy}>
+            {t('save')}
+          </Button>
+        </>
+      }
+    >
+      <form id="rename-venue" onSubmit={submit} noValidate>
+        <TextField
+          label={t('venueName')}
+          value={name}
+          max={VENUE_LIMITS.name}
+          onChange={(e) => {
+            setName(e.target.value)
+            setError(null)
+          }}
+          error={error}
+          autoFocus
         />
       </form>
     </Dialog>

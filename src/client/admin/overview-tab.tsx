@@ -1,13 +1,19 @@
 import { Ban, ExternalLink } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { z } from 'zod'
-import type { BoardMessage, BoardOrder } from '../../shared/board'
+import {
+  type BoardMessage,
+  type BoardOrder,
+  isFinished,
+} from '../../shared/board'
+import { type Device, PAIR_ROLES, type PairRole } from '../../shared/devices'
 import { type HistoryStats, historySchema } from '../../shared/history'
 import { LIMITS, ticketLabel } from '../../shared/order'
-import { type DictKey, formatDay, formatMinutes, useI18n } from '../i18n'
+import { formatDay, formatMinutes, useI18n } from '../i18n'
 import { api } from '../lib/api'
-import { whereLabel } from '../lib/board'
+import { minutesSince, whereLabel } from '../lib/board'
 import { failureText, sendCommand } from '../lib/commands'
+import { HOME_BY_ROLE } from '../lib/session'
 import { stagger } from '../lib/stagger'
 import { useNow } from '../lib/use-now'
 import { Button } from '../ui/button'
@@ -15,19 +21,7 @@ import { Card } from '../ui/card'
 import { Dialog } from '../ui/dialog'
 import { TextField } from '../ui/text-field'
 import { StatTiles } from './history-tab'
-import {
-  type Device,
-  PAIR_ROLES,
-  ROLE_ICON,
-  ROLE_PATH,
-  roleName,
-} from './shared'
-
-const STATUS_KEY: Record<string, DictKey> = {
-  new: 'laneNew',
-  accepted: 'lanePreparing',
-  ready: 'laneReady',
-}
+import { ROLE_ICON, roleName, STATUS_KEY } from './shared'
 
 export function OverviewTab({
   board,
@@ -67,22 +61,32 @@ export function OverviewTab({
   )
 }
 
-/** Today's numbers; refetched when an order is added or changes state. */
+/** The newest moment of an order that today's numbers count. */
+function lastCounted(order: BoardOrder) {
+  return Math.max(
+    order.createdAt,
+    order.readyAt ?? 0,
+    order.servedAt ?? 0,
+    order.cancelledAt ?? 0,
+  )
+}
+
+/** Today's numbers; refetched when an order is sent, ready, served or cancelled. */
 function Today({ board }: { board: BoardMessage | null }) {
   const { t } = useI18n()
   const [stats, setStats] = useState<HistoryStats | null>(null)
-  // Render receipts move the board too; only order changes matter here.
-  const orders = useMemo(
-    () => board?.orders.map((o) => `${o.id}:${o.status}`).join() ?? '',
-    [board],
-  )
+  // Accepting an order, TV receipts and orders leaving the board move the
+  // board without changing the numbers, so only a newer moment refetches.
+  const latest = Math.max(0, ...(board?.orders.map(lastCounted) ?? []))
+  const fetchedUpTo = useRef(-1)
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: `orders` only triggers a refetch
   useEffect(() => {
+    if (latest <= fetchedUpTo.current) return
+    fetchedUpTo.current = latest
     void api('/api/manager/history', historySchema).then((r) => {
       if (r.ok) setStats(r.data.stats)
     })
-  }, [orders])
+  }, [latest])
 
   return (
     <section aria-labelledby="today" className="grid gap-4">
@@ -101,7 +105,7 @@ function ScreenTile({
   onManage,
 }: {
   index: number
-  role: (typeof PAIR_ROLES)[number]
+  role: PairRole
   devices: Device[] | null
   onManage: () => void
 }) {
@@ -141,7 +145,7 @@ function ScreenTile({
           </Button>
         ) : (
           <a
-            href={ROLE_PATH[role]}
+            href={HOME_BY_ROLE[role]}
             target="_blank"
             rel="noopener"
             className="state inline-flex min-h-12 items-center gap-2 rounded-full border border-ink-soft px-5 text-[15px] font-semibold"
@@ -224,10 +228,7 @@ function ActiveOrders({
   const [target, setTarget] = useState<BoardOrder | null>(null)
   const [reason, setReason] = useState('')
   const [busy, setBusy] = useState(false)
-  const active = (board?.orders ?? []).filter(
-    (o) =>
-      o.status === 'new' || o.status === 'accepted' || o.status === 'ready',
-  )
+  const active = (board?.orders ?? []).filter((o) => !isFinished(o.status))
 
   async function cancel(order: BoardOrder) {
     setBusy(true)
@@ -259,9 +260,7 @@ function ActiveOrders({
       )}
       <ul className="grid gap-2">
         {active.map((order, index) => {
-          const minutes = Math.floor(
-            Math.max(0, now - order.createdAt) / 60_000,
-          )
+          const minutes = minutesSince(order.createdAt, now)
           const items = order.lines.map((l) => `${l.qty}× ${l.name}`).join(', ')
           return (
             <li
@@ -281,7 +280,7 @@ function ActiveOrders({
                 </span>
               </div>
               <span className="rounded-full bg-tonal px-3 py-1 text-sm">
-                {t(STATUS_KEY[order.status] ?? 'laneNew')}
+                {t(STATUS_KEY[order.status])}
               </span>
               <Button
                 variant="text"

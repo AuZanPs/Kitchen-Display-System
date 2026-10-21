@@ -1,14 +1,12 @@
 import {
   History,
   LayoutDashboard,
-  LogOut,
   MonitorSmartphone,
   SlidersHorizontal,
   UsersRound,
   UtensilsCrossed,
 } from 'lucide-react'
 import {
-  type SubmitEvent,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -17,20 +15,18 @@ import {
 } from 'react'
 import { useSearchParams } from 'react-router'
 import { z } from 'zod'
-import { AppBar, BrandMark, LanguageToggle } from '../app-bar'
+import { type Device, devicesSchema } from '../../shared/devices'
+import { AppBar, SignOutButton } from '../app-bar'
 import { useI18n } from '../i18n'
 import { api } from '../lib/api'
-import { CenterNote } from '../lib/session'
 import { useBoardSocket } from '../lib/use-board-socket'
-import { Button } from '../ui/button'
+import { PasswordSignIn } from '../password-sign-in'
 import { useSnackbar } from '../ui/snackbar'
-import { TextField } from '../ui/text-field'
 import { DevicesTab } from './devices-tab'
 import { HistoryTab } from './history-tab'
 import { MenuTab } from './menu-tab'
 import { OverviewTab } from './overview-tab'
 import { SettingsTab } from './settings-tab'
-import { type Device, devicesSchema } from './shared'
 import { StaffTab } from './staff-tab'
 
 const TABS = [
@@ -51,6 +47,14 @@ export function AdminPage() {
   const [state, setState] = useState<'loading' | 'out' | 'in'>('loading')
   const [venueName, setVenueName] = useState<string | null>(null)
   const check = useCallback(async () => {
+    // Arriving from the site's account page: a one-time pass signs the owner in.
+    const handoff = new URLSearchParams(window.location.hash.slice(1)).get(
+      'handoff',
+    )
+    if (handoff) {
+      window.history.replaceState(null, '', window.location.pathname)
+      await api('/api/admin/handoff', z.null(), { body: { token: handoff } })
+    }
     const result = await api('/api/admin/session', adminSessionSchema)
     if (result.ok) setVenueName(result.data.venueName)
     setState(result.ok ? 'in' : 'out')
@@ -65,69 +69,22 @@ export function AdminPage() {
 
 function Login({ onSignedIn }: { onSignedIn: () => void }) {
   const { t } = useI18n()
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
-
-  async function submit(event: SubmitEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setBusy(true)
-    const result = await api('/api/admin/login', z.null(), {
-      body: { password },
-    })
-    setBusy(false)
-    if (result.ok) return onSignedIn()
-    setError(
-      result.status === 429
-        ? t('tooManyAttempts')
-        : result.status === 0
-          ? t('networkError')
-          : // A switched-off or unknown dapur says so itself.
-            result.status === 403 || result.status === 404
-            ? result.message
-            : t('wrongPassword'),
-    )
-  }
-
   return (
-    <CenterNote>
-      <div className="fixed top-4 right-4">
-        <LanguageToggle />
-      </div>
-      <form
-        onSubmit={submit}
-        className="grid w-[min(24rem,calc(100vw-3rem))] gap-6 text-left"
-      >
-        <div className="grid gap-5">
-          <span
-            translate="no"
-            className="flex items-center gap-3 text-lg font-semibold"
-          >
-            <BrandMark />
-            {t('appName')}
-          </span>
-          <h1 className="text-4xl font-semibold tracking-tight">
-            {t('adminTitle')}
-          </h1>
-        </div>
-        <TextField
-          label={t('password')}
-          type="password"
-          autoComplete="current-password"
-          value={password}
-          onChange={(e) => {
-            setPassword(e.target.value)
-            setError(null)
-          }}
-          error={error}
-          required
-          autoFocus
-        />
-        <Button type="submit" size="lg" disabled={busy || password === ''}>
-          {t('signIn')}
-        </Button>
-      </form>
-    </CenterNote>
+    <PasswordSignIn
+      title={t('adminTitle')}
+      endpoint="/api/admin/login"
+      errorText={(result) =>
+        result.status === 429
+          ? t('tooManyAttempts')
+          : result.status === 0
+            ? t('networkError')
+            : // A switched-off or unknown dapur says so itself.
+              result.status === 403 || result.status === 404
+              ? result.message
+              : t('wrongPassword')
+      }
+      onSignedIn={onSignedIn}
+    />
   )
 }
 
@@ -171,15 +128,31 @@ function Console({
 
   const loadDevices = useCallback(async () => {
     const result = await api('/api/devices', devicesSchema)
-    if (result.ok) setDevices(result.data.devices)
-    else if (result.status === 401) onSignedOut()
+    if (result.ok) {
+      const next = result.data.devices
+      // An unchanged list keeps its identity, so the tabs do not re-render.
+      setDevices((prev) =>
+        JSON.stringify(prev) === JSON.stringify(next) ? prev : next,
+      )
+    } else if (result.status === 401) onSignedOut()
   }, [onSignedOut])
 
+  // Presence shows on Overview and Devices only, and only while the page is
+  // in view; other tabs load the list once for its labels.
+  const showsPresence = tab === 'overview' || tab === 'devices'
   useEffect(() => {
     void loadDevices()
-    const timer = setInterval(() => void loadDevices(), DEVICES_EVERY_MS)
-    return () => clearInterval(timer)
-  }, [loadDevices])
+    if (!showsPresence) return
+    const poll = () => {
+      if (document.visibilityState === 'visible') void loadDevices()
+    }
+    const timer = setInterval(poll, DEVICES_EVERY_MS)
+    document.addEventListener('visibilitychange', poll)
+    return () => {
+      clearInterval(timer)
+      document.removeEventListener('visibilitychange', poll)
+    }
+  }, [loadDevices, showsPresence])
 
   async function signOut() {
     await api('/api/admin/logout', z.null(), { method: 'POST' })
@@ -198,24 +171,17 @@ function Console({
   return (
     <div className="min-h-dvh bg-surface pb-16">
       <AppBar title={t('adminTitle')} device={venueName ?? undefined}>
-        <Button
-          variant="text"
-          icon={<LogOut size={18} aria-hidden />}
-          aria-label={t('signOut')}
-          onClick={() => void signOut()}
-        >
-          <span className="hidden sm:inline">{t('signOut')}</span>
-        </Button>
+        <SignOutButton onClick={() => void signOut()} />
       </AppBar>
 
-      {/* Material primary tabs: icon + label, active indicator underneath. */}
+      {/* Tabs: icon and label, one indicator under the active tab. */}
       <nav
         aria-label={t('adminTitle')}
         className="sticky top-16 z-20 border-b border-line bg-surface/95 backdrop-blur"
       >
         <div
           ref={tabsRef}
-          className="relative mx-auto flex max-w-5xl overflow-x-auto px-2 [scrollbar-width:none] sm:px-4"
+          className="relative mx-auto flex max-w-5xl overflow-x-auto px-2 [scrollbar-width:none] sm:px-6"
         >
           {tabs.map((item) => {
             const active = tab === item.id
@@ -227,7 +193,7 @@ function Console({
                 onClick={() =>
                   setParams(item.id === 'overview' ? {} : { tab: item.id })
                 }
-                className="state relative flex min-h-16 min-w-max flex-1 flex-col items-center justify-center gap-1 px-3 text-[13px] font-medium sm:min-h-14 sm:flex-none sm:flex-row sm:gap-2 sm:px-6 sm:text-[15px]"
+                className="state relative flex min-h-16 min-w-max flex-1 flex-col items-center justify-center gap-1 px-1 text-xs font-medium sm:min-h-14 sm:flex-none sm:flex-row sm:gap-2 sm:px-6 sm:text-[15px]"
               >
                 <item.icon size={20} aria-hidden />
                 {item.label}

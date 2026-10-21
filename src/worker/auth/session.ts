@@ -1,15 +1,17 @@
 import type { Context } from 'hono'
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie'
 import type { Credentials } from '../devices'
-import { hmacHex, safeEqual, sha256Hex } from './crypto'
+import { hmacHex, safeEqual, sameSecret, sha256Hex } from './crypto'
 
 export const ADMIN_COOKIE = 'kds_admin'
 export const DEVICE_COOKIE = 'kds_device'
 export const STAFF_COOKIE = 'kds_staff'
 export const SUPER_COOKIE = 'kds_super'
+export const OWNER_COOKIE = 'kds_owner'
 const ADMIN_TTL_S = 12 * 60 * 60
 const STAFF_TTL_S = 12 * 60 * 60
 const SUPER_TTL_S = 4 * 60 * 60
+const OWNER_TTL_S = 14 * 24 * 60 * 60
 const DEVICE_TTL_S = 400 * 24 * 60 * 60 // browsers cap cookie lifetime at 400 days
 const DEVICE_TOKEN = /^main\.([0-9a-f-]{36})\.([0-9a-f]{64})$/
 // Short secrets would make the session signature guessable.
@@ -46,11 +48,7 @@ export async function isSuperPassword(env: Env, candidate: string) {
   const configured = env.SUPER_ADMIN_PASSWORD
   if (!configured || configured.length < MIN_SUPER_PASSWORD_LENGTH) return false
   if (!sessionSecret(env)) return false
-  const [a, b] = await Promise.all([
-    sha256Hex(candidate),
-    sha256Hex(env.SUPER_ADMIN_PASSWORD),
-  ])
-  return safeEqual(a, b)
+  return sameSecret(candidate, configured)
 }
 
 /**
@@ -107,6 +105,74 @@ export async function hasSuperSession(c: Ctx): Promise<boolean> {
   const [exp, signature] = value.split('.')
   if (!exp || !signature || !(Number(exp) > Date.now())) return false
   return safeEqual(signature, await hmacHex(secret, `super.${exp}`))
+}
+
+/** An owner signed in on the site (bare domain) with an emailed link. */
+export async function setOwnerSession(c: Ctx, email: string) {
+  const secret = sessionSecret(c.env)
+  if (!secret) throw new Error('SESSION_SECRET is not configured')
+  const iat = Date.now()
+  const exp = iat + OWNER_TTL_S * 1000
+  const encoded = encodeEmail(email)
+  const signature = await hmacHex(secret, ownerMessage(encoded, iat, exp))
+  setCookie(
+    c,
+    OWNER_COOKIE,
+    `${encoded}.${iat}.${exp}.${signature}`,
+    cookieOptions(c, OWNER_TTL_S),
+  )
+}
+
+export function clearOwnerSession(c: Ctx) {
+  deleteCookie(c, OWNER_COOKIE, { path: '/' })
+}
+
+/**
+ * The signed-in owner and when this sign-in began; the Directory still checks
+ * that it began after the owner's last "sign out everywhere".
+ */
+export async function ownerSession(
+  c: Ctx,
+): Promise<{ email: string; issuedAt: number } | null> {
+  const secret = sessionSecret(c.env)
+  const [encoded, iat, exp, signature] = (
+    getCookie(c, OWNER_COOKIE) ?? ''
+  ).split('.')
+  if (!secret || !encoded || !iat || !exp || !signature) return null
+  if (!DIGITS.test(iat) || !DIGITS.test(exp)) return null
+  if (!(Number(exp) > Date.now())) return null
+  // The issue time is signed, never worked out from the lifetime.
+  const expected = await hmacHex(secret, ownerMessage(encoded, iat, exp))
+  if (!safeEqual(signature, expected)) return null
+  const email = decodeEmail(encoded)
+  return email ? { email, issuedAt: Number(iat) } : null
+}
+
+const DIGITS = /^\d{1,15}$/
+
+/** Versioned, and the email signed encoded, so no two cookies sign the same text. */
+function ownerMessage(
+  encodedEmail: string,
+  iat: string | number,
+  exp: string | number,
+) {
+  return `owner.v2.${encodedEmail}.${iat}.${exp}`
+}
+
+// Emails contain dots, the cookie's separator; base64url has none.
+function encodeEmail(email: string) {
+  return btoa(email)
+    .replaceAll('+', '-')
+    .replaceAll('/', '_')
+    .replaceAll('=', '')
+}
+
+function decodeEmail(encoded: string): string | null {
+  try {
+    return atob(encoded.replaceAll('-', '+').replaceAll('_', '/'))
+  } catch {
+    return null
+  }
 }
 
 export function setDeviceCookie(c: Ctx, token: string) {

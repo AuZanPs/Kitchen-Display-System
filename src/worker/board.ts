@@ -86,6 +86,8 @@ export function toBoardOrders(
     )
     .orderBy(asc(schema.orderChanges.version))
     .all()
+  const linesOf = Map.groupBy(lines, (l) => l.orderId)
+  const changesOf = Map.groupBy(changes, (c) => c.orderId)
   const receipts = new Map(
     db
       .select({
@@ -127,15 +129,13 @@ export function toBoardOrders(
     cancelRequested: order.cancelRequested,
     cancelReason: order.cancelReason,
     linkedTo: order.linkedTo,
-    pendingChanges: changes
-      .filter((c) => c.orderId === order.id)
-      .map((c) => ({
-        version: c.version,
-        kind: c.kind,
-        summary: summarizeChange(
-          changePayloadSchema.parse(JSON.parse(c.payloadJson)),
-        ),
-      })),
+    pendingChanges: (changesOf.get(order.id) ?? []).map((c) => ({
+      version: c.version,
+      kind: c.kind,
+      summary: summarizeChange(
+        changePayloadSchema.parse(JSON.parse(c.payloadJson)),
+      ),
+    })),
     createdAt: order.createdAt,
     acceptedAt: order.acceptedAt,
     readyAt: order.readyAt,
@@ -143,17 +143,15 @@ export function toBoardOrders(
     cancelledAt: order.cancelledAt,
     createdByName: names.get(order.createdBy) ?? null,
     shownOnTv: (receipts.get(order.id) ?? 0) >= order.version,
-    lines: lines
-      .filter((l) => l.orderId === order.id)
-      .map((l) => ({
-        id: l.id,
-        name: l.nameSnapshot,
-        qty: l.qty,
-        modifiers: stringList.parse(JSON.parse(l.modifiersJson)),
-        note: l.note,
-        allergy: l.allergy,
-        addedInVersion: l.addedInVersion,
-      })),
+    lines: (linesOf.get(order.id) ?? []).map((l) => ({
+      id: l.id,
+      name: l.nameSnapshot,
+      qty: l.qty,
+      modifiers: stringList.parse(JSON.parse(l.modifiersJson)),
+      note: l.note,
+      allergy: l.allergy,
+      addedInVersion: l.addedInVersion,
+    })),
   }))
 }
 
@@ -208,4 +206,68 @@ export function boardOrder(db: Db, orderId: string): BoardOrder | undefined {
   const filter = eq(schema.orders.id, orderId)
   const rows = db.select().from(schema.orders).where(filter).all()
   return toBoardOrders(db, rows, filter)[0]
+}
+
+function shownOnTv(db: Db, orderId: string, version: number) {
+  const row = db
+    .select({ version: max(schema.displayReceipts.version) })
+    .from(schema.displayReceipts)
+    .where(eq(schema.displayReceipts.orderId, orderId))
+    .get()
+  return (row?.version ?? 0) >= version
+}
+
+/**
+ * Stores render receipts that move a TV forward; ignores stale or bogus ones.
+ * True when an order newly counts as shown on TV, the only receipt fact the
+ * board carries, so further TVs and older versions cause no rebroadcast.
+ */
+export function applyReceipts(
+  db: Db,
+  deviceId: string,
+  items: { id: string; version: number }[],
+  now: number,
+): boolean {
+  let newlyShown = false
+  for (const item of items) {
+    const order = db
+      .select({ version: schema.orders.version })
+      .from(schema.orders)
+      .where(eq(schema.orders.id, item.id))
+      .get()
+    if (!order || item.version > order.version) continue
+    const current = db
+      .select({ version: schema.displayReceipts.version })
+      .from(schema.displayReceipts)
+      .where(
+        and(
+          eq(schema.displayReceipts.orderId, item.id),
+          eq(schema.displayReceipts.deviceId, deviceId),
+        ),
+      )
+      .get()
+    if (current && current.version >= item.version) continue
+    if (
+      item.version === order.version &&
+      !shownOnTv(db, item.id, order.version)
+    ) {
+      newlyShown = true
+    }
+    db.insert(schema.displayReceipts)
+      .values({
+        orderId: item.id,
+        deviceId,
+        version: item.version,
+        renderedAt: now,
+      })
+      .onConflictDoUpdate({
+        target: [
+          schema.displayReceipts.orderId,
+          schema.displayReceipts.deviceId,
+        ],
+        set: { version: item.version, renderedAt: now },
+      })
+      .run()
+  }
+  return newlyShown
 }

@@ -10,6 +10,12 @@ export const ORDER_STATUSES = [
 export type OrderStatus = (typeof ORDER_STATUSES)[number]
 
 export const ACTIVE_STATUSES = ['new', 'accepted', 'ready'] as const
+export const FINISHED_STATUSES = ['served', 'cancelled'] as const
+
+/** Served and cancelled orders are done; every other status is still active. */
+export function isFinished(status: OrderStatus) {
+  return status === 'served' || status === 'cancelled'
+}
 
 export const DESTINATIONS = ['table', 'takeaway'] as const
 
@@ -60,6 +66,14 @@ export const tvControlSchema = z.object({
   page: z.number().int().min(0),
 })
 
+/** What the kitchen asks of the TV: stop or restart paging, or show one page. */
+export const tvActionSchema = z.discriminatedUnion('action', [
+  z.object({ action: z.literal('pause') }),
+  z.object({ action: z.literal('resume') }),
+  z.object({ action: z.literal('page'), page: z.number().int().min(0) }),
+])
+export type TvAction = z.infer<typeof tvActionSchema>
+
 /** What the waiter is asked per order; each venue picks how detailed. */
 export const settingsSchema = z.object({
   allergy: z.boolean(),
@@ -101,14 +115,16 @@ export const serverMessageSchema = z.discriminatedUnion('type', [
 ])
 
 /** The only message a client sends besides "ping": the TV's render receipt. */
+/** Orders one TV receipt may report. */
+export const RECEIPT_ITEMS_MAX = 200
+
 export const renderedMessageSchema = z.object({
   type: z.literal('rendered'),
   items: z
     .array(z.object({ id: z.string().max(64), version: z.number().int() }))
-    .max(200),
+    .max(RECEIPT_ITEMS_MAX),
 })
 
-export type BoardLine = z.infer<typeof boardLineSchema>
 export type BoardOrder = z.infer<typeof boardOrderSchema>
 export type BoardMessage = z.infer<typeof boardMessageSchema>
 export type TvControl = z.infer<typeof tvControlSchema>

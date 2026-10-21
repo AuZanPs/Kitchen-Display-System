@@ -12,7 +12,6 @@ const TV = { width: 1920, height: 1080 }
 // phone, portrait tablet and desktop widths. Screenshots land in test-results/.
 test('every screen at phone, tablet and desktop widths', async ({
   browser,
-  baseURL,
 }) => {
   test.setTimeout(240_000)
   // Screens seen before pairing or signing in.
@@ -36,11 +35,21 @@ test('every screen at phone, tablet and desktop widths', async ({
   }
 
   const admin = await signInAdmin(browser)
-  const settings = await admin.request.post('/api/admin/settings', {
-    data: { allergy: true, lineNotes: true, orderNote: true, staffPins: false },
-    headers: { origin: baseURL ?? '' },
+  // From the page itself: Node cannot resolve *.localhost, the browser can.
+  const settings = await admin.evaluate(async () => {
+    const res = await fetch('/api/admin/settings', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        allergy: true,
+        lineNotes: true,
+        orderNote: true,
+        staffPins: false,
+      }),
+    })
+    return res.status
   })
-  expect(settings.status()).toBe(200)
+  expect(settings).toBe(200)
   await admin.getByRole('button', { name: 'Perangkat', exact: true }).click()
   const tablet = await pair(
     browser,
@@ -108,17 +117,27 @@ test('every screen at phone, tablet and desktop widths', async ({
   }
 
   // A busy day's numbers, so the widest totals are what the tiles must hold.
-  await admin.route('**/api/manager/history*', async (route) => {
-    const response = await route.fetch()
-    const body = await response.json()
-    body.stats = {
-      orders: 1234,
-      served: 1200,
-      cancelled: 34,
-      avgReadyMinutes: 125,
-      revenueIdr: 987_654_321,
+  // Patched inside the page: Node cannot resolve *.localhost, so route.fetch()
+  // cannot reach the app. The tabs below never reload, so the patch holds.
+  await admin.evaluate(() => {
+    const real = window.fetch.bind(window)
+    const patched: typeof window.fetch = async (input, init) => {
+      const response = await real(input, init)
+      const url = input instanceof Request ? input.url : String(input)
+      if (!url.includes('/api/manager/history') || !response.ok) {
+        return response
+      }
+      const body = await response.clone().json()
+      body.stats = {
+        orders: 1234,
+        served: 1200,
+        cancelled: 34,
+        avgReadyMinutes: 125,
+        revenueIdr: 987_654_321,
+      }
+      return Response.json(body, { status: response.status })
     }
-    await route.fulfill({ response, json: body })
+    Object.assign(window, { fetch: patched, realFetch: real })
   })
   const tabs = [
     'Ringkasan',
@@ -156,7 +175,9 @@ test('every screen at phone, tablet and desktop widths', async ({
   await admin.locator('label').filter({ hasText: 'Daftar' }).click()
 
   // Deleting lives in Pengaturan, never on the history itself.
-  await admin.unroute('**/api/manager/history*')
+  await admin.evaluate(() => {
+    Object.assign(window, { fetch: Reflect.get(window, 'realFetch') })
+  })
   await admin.setViewportSize(PHONE)
   await expect(admin.getByRole('button', { name: /^Hapus/ })).toHaveCount(0)
   await admin.getByRole('button', { name: 'Pengaturan', exact: true }).click()

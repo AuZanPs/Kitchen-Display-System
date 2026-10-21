@@ -3,6 +3,7 @@ import { env, exports } from 'cloudflare:workers'
 import { describe, expect, it } from 'vitest'
 import { placeFromHost, suggestSlug } from '../src/shared/venue'
 import { clientNetwork } from '../src/worker/auth/session'
+import { migrateDirectory } from '../src/worker/directory'
 import { freshIp } from './helpers'
 
 const BASE = 'layardapur.web.id'
@@ -45,10 +46,14 @@ async function superCookie() {
 }
 
 /** Creates a dapur through the console and returns its origin. */
-async function createVenue(slug: string, adminPassword = `${slug}-password`) {
+async function createVenue(
+  slug: string,
+  adminPassword = `${slug}-password`,
+  ownerEmail?: string,
+) {
   const res = await call(CONSOLE, '/api/super/venues', {
     headers: { cookie: await superCookie() },
-    body: { slug, name: `Dapur ${slug}`, adminPassword },
+    body: { slug, name: `Dapur ${slug}`, adminPassword, ownerEmail },
   })
   expect(res.status).toBe(201)
   return `https://${slug}.${BASE}`
@@ -62,14 +67,15 @@ async function adminLogin(origin: string, password: string) {
 }
 
 describe('placeFromHost', () => {
-  it('maps hosts to a dapur, the console or nothing', () => {
-    expect(placeFromHost(BASE, BASE)).toEqual({
+  it('maps hosts to the site, a dapur, the console or nothing', () => {
+    expect(placeFromHost(BASE, BASE)).toEqual({ kind: 'site' })
+    expect(placeFromHost(`www.${BASE}`, BASE)).toEqual({ kind: 'site' })
+    expect(placeFromHost(`dapurku.${BASE}`, BASE)).toEqual({
       kind: 'venue',
-      slug: 'main',
+      slug: 'dapurku',
       room: 'main',
     })
-    expect(placeFromHost(`www.${BASE}`, BASE)).toMatchObject({ room: 'main' })
-    expect(placeFromHost('kds.mauzanps.workers.dev', BASE)).toMatchObject({
+    expect(placeFromHost('kds.example.workers.dev', BASE)).toMatchObject({
       room: 'main',
     })
     expect(placeFromHost(`Warung-Budi.${BASE}`, BASE)).toEqual({
@@ -138,7 +144,7 @@ describe('dapur isolation', () => {
     const a = await createVenue('dapur-a')
     const b = await createVenue('dapur-b')
     const cookie = cookieOf(await adminLogin(a, 'dapur-a-password'))
-    for (const origin of [b, `https://${BASE}`]) {
+    for (const origin of [b, `https://dapurku.${BASE}`]) {
       const res = await call(origin, '/api/admin/session', {
         headers: { cookie },
       })
@@ -214,7 +220,7 @@ describe('super admin', () => {
     })
     const { venues } = (await res.json()) as { venues: { slug: string }[] }
     expect(venues.map((v) => v.slug)).toEqual(
-      expect.arrayContaining(['main', 'daftar']),
+      expect.arrayContaining(['dapurku', 'daftar']),
     )
   })
 
@@ -335,5 +341,458 @@ describe('super admin', () => {
       body: { disabled: true },
     })
     expect(res.status).toBe(404)
+  })
+})
+
+describe('owner sign-in on the site', () => {
+  const SITE = `https://${BASE}`
+
+  async function signIn(email: string) {
+    const start = await call(SITE, '/api/site/login/start', {
+      body: { email },
+      headers: freshIp(),
+    })
+    expect(start.status).toBe(200)
+    const { devLink } = (await start.json()) as { devLink?: string }
+    const token = devLink?.split('#token=')[1] ?? ''
+    const verify = await call(SITE, '/api/site/login/verify', {
+      body: { token },
+      headers: freshIp(),
+    })
+    return { token, verify }
+  }
+
+  it('signs an owner in with a one-time link and opens their dapur', async () => {
+    const origin = await createVenue(
+      'milik',
+      'milik-password',
+      'Pemilik@Contoh.id',
+    )
+    const { token, verify } = await signIn('pemilik@contoh.id')
+    expect(verify.status).toBe(204)
+    const owner = cookieOf(verify)
+
+    const again = await call(SITE, '/api/site/login/verify', {
+      body: { token },
+      headers: freshIp(),
+    })
+    expect(again.status, 'a link works once').toBe(401)
+
+    const account = await call(SITE, '/api/site/session', {
+      headers: { cookie: owner },
+    })
+    expect(await account.json()).toEqual({
+      email: 'pemilik@contoh.id',
+      venues: [
+        {
+          slug: 'milik',
+          name: 'Dapur milik',
+          disabled: false,
+          role: 'owner',
+          admins: [],
+        },
+      ],
+    })
+
+    const handoff = await call(SITE, '/api/site/handoff', {
+      headers: { cookie: owner },
+      body: { slug: 'milik' },
+    })
+    const { url } = (await handoff.json()) as { url: string }
+    expect(url.startsWith(`https://milik.${BASE}/admin#handoff=`)).toBe(true)
+    const pass = url.split('#handoff=')[1] ?? ''
+
+    // A pass for one dapur is useless at another.
+    const elsewhere = await call(
+      `https://dapurku.${BASE}`,
+      '/api/admin/handoff',
+      {
+        body: { token: pass },
+      },
+    )
+    expect(elsewhere.status).toBe(401)
+
+    const handoff2 = await call(SITE, '/api/site/handoff', {
+      headers: { cookie: owner },
+      body: { slug: 'milik' },
+    })
+    const pass2 =
+      ((await handoff2.json()) as { url: string }).url.split('#handoff=')[1] ??
+      ''
+    const arrive = await call(origin, '/api/admin/handoff', {
+      body: { token: pass2 },
+    })
+    expect(arrive.status).toBe(204)
+    const admin = await call(origin, '/api/admin/session', {
+      headers: { cookie: cookieOf(arrive) },
+    })
+    expect(admin.status).toBe(200)
+  })
+
+  it('signs out the old owner when the owner changes', async () => {
+    const origin = await createVenue(
+      'ganti',
+      'ganti-password',
+      'lama@contoh.id',
+    )
+    const admin = cookieOf(await adminLogin(origin, 'ganti-password'))
+    const res = await call(CONSOLE, '/api/super/venues/ganti/owner', {
+      method: 'PUT',
+      headers: { cookie: await superCookie() },
+      body: { ownerEmail: 'baru@contoh.id' },
+    })
+    expect(res.status).toBe(204)
+    const session = await call(origin, '/api/admin/session', {
+      headers: { cookie: admin },
+    })
+    expect(session.status).toBe(401)
+  })
+
+  it('lists every dapur of one owner, and only theirs', async () => {
+    await createVenue('satu', 'satu-password', 'banyak@contoh.id')
+    await createVenue('dua', 'dua-password', 'banyak@contoh.id')
+    await createVenue('bukan', 'bukan-password', 'yang-lain@contoh.id')
+    const { verify } = await signIn('banyak@contoh.id')
+    const res = await call(SITE, '/api/site/session', {
+      headers: { cookie: cookieOf(verify) },
+    })
+    const { venues } = (await res.json()) as { venues: { slug: string }[] }
+    expect(venues.map((v) => v.slug).sort()).toEqual(['dua', 'satu'])
+  })
+
+  it('signs an owner out on every browser at once', async () => {
+    await createVenue('semua', 'semua-password', 'keluar@contoh.id')
+    const phone = cookieOf((await signIn('keluar@contoh.id')).verify)
+    // A sign-in starts on a later millisecond than the one before it.
+    await new Promise((r) => setTimeout(r, 5))
+    const laptop = cookieOf((await signIn('keluar@contoh.id')).verify)
+    // A pass opened just before signing out everywhere must die with it.
+    const pending = await call(SITE, '/api/site/handoff', {
+      headers: { cookie: laptop },
+      body: { slug: 'semua' },
+    })
+    const pass =
+      ((await pending.json()) as { url: string }).url.split('#handoff=')[1] ??
+      ''
+    await new Promise((r) => setTimeout(r, 5))
+    const out = await call(SITE, '/api/site/logout-everywhere', {
+      method: 'POST',
+      headers: { cookie: laptop },
+    })
+    expect(out.status).toBe(204)
+    const late = await call(`https://semua.${BASE}`, '/api/admin/handoff', {
+      body: { token: pass },
+    })
+    expect(late.status, 'an earlier pass stops working').toBe(401)
+    for (const cookie of [phone, laptop]) {
+      const session = await call(SITE, '/api/site/session', {
+        headers: { cookie },
+      })
+      expect(session.status).toBe(401)
+      const handoff = await call(SITE, '/api/site/handoff', {
+        headers: { cookie },
+        body: { slug: 'semua' },
+      })
+      expect(handoff.status).toBe(403)
+    }
+    await new Promise((r) => setTimeout(r, 5))
+    const again = await signIn('keluar@contoh.id')
+    expect(again.verify.status, 'a fresh sign-in still works').toBe(204)
+  })
+
+  it('takes the dapur away from an owner who was replaced', async () => {
+    await createVenue('pindah', 'pindah-password', 'awal@contoh.id')
+    const before = cookieOf((await signIn('awal@contoh.id')).verify)
+    await call(CONSOLE, '/api/super/venues/pindah/owner', {
+      method: 'PUT',
+      headers: { cookie: await superCookie() },
+      body: { ownerEmail: 'akhir@contoh.id' },
+    })
+    const handoff = await call(SITE, '/api/site/handoff', {
+      headers: { cookie: before },
+      body: { slug: 'pindah' },
+    })
+    expect(handoff.status).toBe(403)
+  })
+
+  it('never opens a dapur the owner does not own', async () => {
+    await createVenue('orang-lain', 'orang-lain-password', 'lain@contoh.id')
+    await createVenue('punyaku', 'punyaku-password', 'aku@contoh.id')
+    const { verify } = await signIn('aku@contoh.id')
+    const res = await call(SITE, '/api/site/handoff', {
+      headers: { cookie: cookieOf(verify) },
+      body: { slug: 'orang-lain' },
+    })
+    expect(res.status).toBe(403)
+  })
+
+  it('answers the same for an email that owns nothing', async () => {
+    const start = await call(SITE, '/api/site/login/start', {
+      body: { email: 'siapa@contoh.id' },
+      headers: freshIp(),
+    })
+    expect(start.status).toBe(200)
+    expect(await start.json()).toEqual({})
+  })
+
+  it('keeps site routes on the bare domain only', async () => {
+    const res = await call(`https://dapurku.${BASE}`, '/api/site/session')
+    expect(res.status).toBe(404)
+  })
+
+  function addAdmin(owner: string, slug: string, email: string) {
+    return call(SITE, `/api/site/venues/${slug}/admins`, {
+      headers: { cookie: owner },
+      body: { email },
+    })
+  }
+
+  function removeAdmin(owner: string, slug: string, email: string) {
+    return call(SITE, `/api/site/venues/${slug}/admins/remove`, {
+      headers: { cookie: owner },
+      body: { email },
+    })
+  }
+
+  async function venuesOf(cookie: string) {
+    const res = await call(SITE, '/api/site/session', { headers: { cookie } })
+    return ((await res.json()) as { venues: unknown[] }).venues
+  }
+
+  it('lets an owner add other admins who can open the dapur', async () => {
+    await createVenue('bersama', 'bersama-password', 'bos@contoh.id')
+    const boss = cookieOf((await signIn('bos@contoh.id')).verify)
+    expect((await addAdmin(boss, 'bersama', 'Bantu@Contoh.id')).status).toBe(
+      204,
+    )
+    expect(await venuesOf(boss)).toEqual([
+      {
+        slug: 'bersama',
+        name: 'Dapur bersama',
+        disabled: false,
+        role: 'owner',
+        admins: ['bantu@contoh.id'],
+      },
+    ])
+
+    const helper = cookieOf((await signIn('bantu@contoh.id')).verify)
+    expect(await venuesOf(helper)).toEqual([
+      {
+        slug: 'bersama',
+        name: 'Dapur bersama',
+        disabled: false,
+        role: 'admin',
+        admins: [],
+      },
+    ])
+    const handoff = await call(SITE, '/api/site/handoff', {
+      headers: { cookie: helper },
+      body: { slug: 'bersama' },
+    })
+    expect(handoff.status).toBe(200)
+
+    // An invited admin manages nobody.
+    expect((await addAdmin(helper, 'bersama', 'lain@contoh.id')).status).toBe(
+      403,
+    )
+    expect((await removeAdmin(helper, 'bersama', 'bos@contoh.id')).status).toBe(
+      403,
+    )
+  })
+
+  it('ends a removed admin’s access at once', async () => {
+    const origin = await createVenue(
+      'lepas',
+      'lepas-password',
+      'p-lepas@contoh.id',
+    )
+    const boss = cookieOf((await signIn('p-lepas@contoh.id')).verify)
+    await addAdmin(boss, 'lepas', 'mantan@contoh.id')
+    const helper = cookieOf((await signIn('mantan@contoh.id')).verify)
+    const handoff = await call(SITE, '/api/site/handoff', {
+      headers: { cookie: helper },
+      body: { slug: 'lepas' },
+    })
+    const pass =
+      ((await handoff.json()) as { url: string }).url.split('#handoff=')[1] ??
+      ''
+    const arrive = await call(origin, '/api/admin/handoff', {
+      body: { token: pass },
+    })
+    expect(arrive.status).toBe(204)
+
+    expect((await removeAdmin(boss, 'lepas', 'mantan@contoh.id')).status).toBe(
+      204,
+    )
+    const again = await call(SITE, '/api/site/handoff', {
+      headers: { cookie: helper },
+      body: { slug: 'lepas' },
+    })
+    expect(again.status).toBe(403)
+    const session = await call(origin, '/api/admin/session', {
+      headers: { cookie: cookieOf(arrive) },
+    })
+    expect(session.status, 'their admin sign-in ends too').toBe(401)
+    expect(await venuesOf(boss)).toMatchObject([{ admins: [] }])
+  })
+
+  it('drops the invited admins when the owner changes', async () => {
+    const origin = await createVenue(
+      'alih',
+      'alih-password',
+      'lama-alih@contoh.id',
+    )
+    const boss = cookieOf((await signIn('lama-alih@contoh.id')).verify)
+    await addAdmin(boss, 'alih', 'teman-lama@contoh.id')
+    const friend = cookieOf((await signIn('teman-lama@contoh.id')).verify)
+    const pending = await call(SITE, '/api/site/handoff', {
+      headers: { cookie: friend },
+      body: { slug: 'alih' },
+    })
+    const pass =
+      ((await pending.json()) as { url: string }).url.split('#handoff=')[1] ??
+      ''
+    await call(CONSOLE, '/api/super/venues/alih/owner', {
+      method: 'PUT',
+      headers: { cookie: await superCookie() },
+      body: { ownerEmail: 'baru-alih@contoh.id' },
+    })
+    const start = await call(SITE, '/api/site/login/start', {
+      body: { email: 'teman-lama@contoh.id' },
+      headers: freshIp(),
+    })
+    expect(await start.json(), 'no dapur left, so no link').toEqual({})
+    const late = await call(origin, '/api/admin/handoff', {
+      body: { token: pass },
+    })
+    expect(late.status, 'a pass made before the change stops working').toBe(401)
+    const fresh = cookieOf((await signIn('baru-alih@contoh.id')).verify)
+    expect(await venuesOf(fresh)).toMatchObject([{ role: 'owner', admins: [] }])
+
+    // Handing the dapur back does not bring the old invitations back.
+    await call(CONSOLE, '/api/super/venues/alih/owner', {
+      method: 'PUT',
+      headers: { cookie: await superCookie() },
+      body: { ownerEmail: 'lama-alih@contoh.id' },
+    })
+    const back = await call(SITE, '/api/site/login/start', {
+      body: { email: 'teman-lama@contoh.id' },
+      headers: freshIp(),
+    })
+    expect(await back.json(), 'still no link').toEqual({})
+  })
+
+  it('keeps extra admins to three and never the owner', async () => {
+    await createVenue('penuh', 'penuh-password', 'p-penuh@contoh.id')
+    const boss = cookieOf((await signIn('p-penuh@contoh.id')).verify)
+    expect((await addAdmin(boss, 'penuh', 'p-penuh@contoh.id')).status).toBe(
+      422,
+    )
+    for (const n of [1, 2, 3]) {
+      expect((await addAdmin(boss, 'penuh', `a${n}@contoh.id`)).status).toBe(
+        204,
+      )
+    }
+    expect((await addAdmin(boss, 'penuh', 'a4@contoh.id')).status).toBe(409)
+    expect(
+      (await addAdmin(boss, 'penuh', 'a1@contoh.id')).status,
+      'adding someone twice is fine',
+    ).toBe(204)
+  })
+})
+
+describe('renaming a dapur', () => {
+  it('renames a dapur in the console and on its admin page', async () => {
+    const origin = await createVenue('nama-lama')
+    const admin = cookieOf(await adminLogin(origin, 'nama-lama-password'))
+    const res = await call(CONSOLE, '/api/super/venues/nama-lama/name', {
+      method: 'PUT',
+      headers: { cookie: await superCookie() },
+      body: { name: '  Warung Baru  ' },
+    })
+    expect(res.status).toBe(204)
+    const list = await call(CONSOLE, '/api/super/venues', {
+      headers: { cookie: await superCookie() },
+    })
+    const { venues } = (await list.json()) as {
+      venues: { slug: string; name: string }[]
+    }
+    expect(venues.find((v) => v.slug === 'nama-lama')?.name).toBe('Warung Baru')
+    const session = await call(origin, '/api/admin/session', {
+      headers: { cookie: admin },
+    })
+    expect(await session.json()).toMatchObject({ venueName: 'Warung Baru' })
+  })
+
+  it('refuses an empty name and anyone but the super admin', async () => {
+    await createVenue('nama-kosong')
+    const empty = await call(CONSOLE, '/api/super/venues/nama-kosong/name', {
+      method: 'PUT',
+      headers: { cookie: await superCookie() },
+      body: { name: '   ' },
+    })
+    expect(empty.status).toBe(422)
+    const anonymous = await call(
+      CONSOLE,
+      '/api/super/venues/nama-kosong/name',
+      { method: 'PUT', body: { name: 'Bukan' } },
+    )
+    expect(anonymous.status).toBe(401)
+  })
+})
+
+describe('directory migrations', () => {
+  it('upgrades the directory as it was first deployed', async () => {
+    await runInDurableObject(
+      env.DIRECTORY.getByName('upgrade-test'),
+      (_, state) => {
+        const sql = state.storage.sql
+        // Back to the first deployed shape: no owners, the pilot listed as `main`.
+        for (const table of [
+          'schema_version',
+          'venues',
+          'attempts',
+          'owners',
+          'tokens',
+        ]) {
+          sql.exec(`DROP TABLE IF EXISTS ${table}`)
+        }
+        sql.exec(
+          'CREATE TABLE venues (slug TEXT PRIMARY KEY, name TEXT NOT NULL, created_at INTEGER NOT NULL, disabled INTEGER NOT NULL DEFAULT 0)',
+        )
+        sql.exec(
+          'CREATE TABLE attempts (key TEXT PRIMARY KEY, window_start INTEGER NOT NULL, count INTEGER NOT NULL)',
+        )
+        sql.exec("INSERT INTO venues VALUES ('main', 'Dapur utama', 0, 0)")
+        sql.exec("INSERT INTO venues VALUES ('warung', 'Warung', 5, 1)")
+
+        migrateDirectory(state.storage)
+        migrateDirectory(state.storage)
+
+        expect(
+          sql
+            .exec(
+              'SELECT slug, name, disabled, owner_email FROM venues ORDER BY slug',
+            )
+            .toArray(),
+        ).toEqual([
+          { slug: 'dapurku', name: 'Dapurku', disabled: 0, owner_email: null },
+          { slug: 'warung', name: 'Warung', disabled: 1, owner_email: null },
+        ])
+        const indexes = sql
+          .exec(
+            "SELECT name FROM sqlite_master WHERE type = 'index' AND name NOT LIKE 'sqlite_%'",
+          )
+          .toArray()
+          .map((r) => r.name)
+        expect(indexes).toEqual(
+          expect.arrayContaining([
+            'venues_owner_email',
+            'tokens_email',
+            'venue_admins_email',
+          ]),
+        )
+      },
+    )
   })
 })

@@ -48,7 +48,7 @@ export function SettingsTab({
           {t('orderDetailsHint')}
         </p>
         {shown && (
-          <div className="grid divide-y divide-line">
+          <div className="grid divide-y divide-line [&>label]:py-3">
             {ROWS.map((row) => (
               <Switch
                 key={row.key}

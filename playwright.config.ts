@@ -8,7 +8,11 @@ export default defineConfig({
   // Every spec drives the same venue room, so they run one after another.
   workers: 1,
   timeout: 60_000,
-  use: { baseURL: `http://localhost:${PORT}`, trace: 'retain-on-failure' },
+  // The bare localhost is the public site; the pilot dapur lives on its own address.
+  use: {
+    baseURL: `http://dapurku.localhost:${PORT}`,
+    trace: 'retain-on-failure',
+  },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: {
     // Every run starts from an empty room.

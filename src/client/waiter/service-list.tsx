@@ -7,13 +7,18 @@ import {
   MonitorOff,
 } from 'lucide-react'
 import { useState } from 'react'
-import type { BoardMessage, BoardOrder } from '../../shared/board'
+import {
+  type BoardMessage,
+  type BoardOrder,
+  isFinished,
+} from '../../shared/board'
 import type { Table } from '../../shared/menu'
 import { LIMITS, ticketLabel } from '../../shared/order'
 import { type DictKey, formatMinutes, useI18n } from '../i18n'
-import { whereLabel } from '../lib/board'
+import { minutesSince, whereLabel } from '../lib/board'
 import { failureText, sendCommand } from '../lib/commands'
 import { stagger } from '../lib/stagger'
+import { useNow } from '../lib/use-now'
 import { Button } from '../ui/button'
 import { Dialog } from '../ui/dialog'
 import { TextField } from '../ui/text-field'
@@ -42,7 +47,7 @@ function statusText(order: BoardOrder, tvCount: number): DictKey {
 export function ServiceList({
   board,
   tables,
-  serverNow,
+  serverOffsetMs,
   unsent,
   onOpenUnsent,
   onAddItems,
@@ -50,13 +55,15 @@ export function ServiceList({
 }: {
   board: BoardMessage | null
   tables: Table[] | null
-  serverNow: number
+  serverOffsetMs: number
   unsent: Draft | null
   onOpenUnsent: () => void
   onAddItems: (order: BoardOrder) => void
   notify: (text: string) => void
 }) {
   const { t } = useI18n()
+  // The clock ticks here, not on the page, so the order composer stays still.
+  const serverNow = useNow(1000) + serverOffsetMs
   const [busy, setBusy] = useState<string | null>(null)
   const [moving, setMoving] = useState<BoardOrder | null>(null)
   const [cancelling, setCancelling] = useState<BoardOrder | null>(null)
@@ -137,11 +144,8 @@ export function ServiceList({
         {orders.map((order, index) => {
           const step = progress(order)
           const text = statusText(order, board?.tvCount ?? 0)
-          const minutes = Math.floor(
-            Math.max(0, serverNow - order.createdAt) / 60_000,
-          )
-          const closed =
-            order.status === 'served' || order.status === 'cancelled'
+          const minutes = minutesSince(order.createdAt, serverNow)
+          const closed = isFinished(order.status)
           const editable = !closed && !order.cancelRequested
           return (
             <li

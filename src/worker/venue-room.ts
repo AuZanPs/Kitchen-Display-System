@@ -1,15 +1,19 @@
 import { DurableObject } from 'cloudflare:workers'
-import { and, eq, inArray, lt } from 'drizzle-orm'
+import { eq, inArray } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/durable-sqlite'
 import { migrate } from 'drizzle-orm/durable-sqlite/migrator'
 import { z } from 'zod'
 import {
+  ACTIVE_STATUSES,
   type BoardMessage,
+  isFinished,
   renderedMessageSchema,
   type Settings,
+  type TvAction,
   type TvControl,
 } from '../shared/board'
 import type { Command, CommandResult } from '../shared/commands'
+import type { Approve, Challenge, Poll } from '../shared/devices'
 import type { DeleteHistory, ExportRow, History } from '../shared/history'
 import type {
   AdminMenuItem,
@@ -19,7 +23,6 @@ import type {
   Table,
   TableInput,
 } from '../shared/menu'
-import { modifierGroupsSchema } from '../shared/menu'
 import {
   type CreateOrder,
   type CreateOrderResult,
@@ -33,13 +36,15 @@ import type {
   StaffMember,
 } from '../shared/staff'
 import {
-  pbkdf2Hex,
+  hashSecret,
   randomCode,
   randomHex,
   safeEqual,
+  sameSecret,
+  secretMatches,
   sha256Hex,
 } from './auth/crypto'
-import { buildBoard } from './board'
+import { applyReceipts, buildBoard } from './board'
 import {
   bumpRev,
   type Db,
@@ -54,7 +59,6 @@ import {
 } from './db'
 import migrations from './db/migrations/migrations'
 import {
-  type Approve,
   allowAttempt,
   approveChallenge,
   type Credentials,
@@ -62,19 +66,26 @@ import {
   insertChallenge,
   isLockedOut,
   listDevices,
-  type Poll,
   pollChallenge,
   revokeDevice,
   touchDevice,
   unauthenticated,
 } from './devices'
-import { dayHistory, deleteFinished, exportRows } from './history'
-import { adminMenu, adminTables, saveMenuItem, saveTable } from './menu'
+import { cleanup, dayHistory, deleteFinished, exportRows } from './history'
+import {
+  activeTables,
+  adminMenu,
+  adminTables,
+  saveMenuItem,
+  saveTable,
+  visibleMenu,
+} from './menu'
 import {
   type Actor,
   createOrder,
   type Failure,
   fail,
+  ok,
   orderHistory,
   type Result,
   runCommand,
@@ -122,57 +133,12 @@ function socketCredentials(headers: Headers): Credentials {
     : { kind: 'none' }
 }
 
-function ok<T>(body: T): Result<T> {
-  return { ok: true, status: 200, body }
-}
-
 /** Cleanup runs daily at 04:00 Jakarta time (21:00 UTC), outside service. */
 export function nextCleanupAt(now: number) {
   const next = new Date(now)
   next.setUTCHours(21, 0, 0, 0)
   if (next.getTime() <= now) next.setTime(next.getTime() + DAY_MS)
   return next.getTime()
-}
-
-export function cleanup(db: Db, now: number) {
-  const orderDays = Number(getMeta(db, 'retention_orders_days') ?? 90)
-  const auditDays = Number(getMeta(db, 'retention_audit_days') ?? 180)
-  const orderCutoff = now - orderDays * DAY_MS
-  const auditCutoff = now - auditDays * DAY_MS
-  // Active tickets are never deleted, however old.
-  const old = and(
-    inArray(schema.orders.status, ['served', 'cancelled']),
-    lt(schema.orders.createdAt, orderCutoff),
-  )
-  const oldIds = db
-    .select({ id: schema.orders.id })
-    .from(schema.orders)
-    .where(old)
-  db.delete(schema.orderLines)
-    .where(inArray(schema.orderLines.orderId, oldIds))
-    .run()
-  db.delete(schema.orderChanges)
-    .where(inArray(schema.orderChanges.orderId, oldIds))
-    .run()
-  db.delete(schema.displayReceipts)
-    .where(inArray(schema.displayReceipts.orderId, oldIds))
-    .run()
-  db.delete(schema.orders).where(old).run()
-  db.delete(schema.operations)
-    .where(lt(schema.operations.createdAt, orderCutoff))
-    .run()
-  db.delete(schema.orderEvents)
-    .where(lt(schema.orderEvents.at, auditCutoff))
-    .run()
-  db.delete(schema.metrics)
-    .where(lt(schema.metrics.day, jakartaDate(auditCutoff)))
-    .run()
-  db.delete(schema.rateLimits)
-    .where(lt(schema.rateLimits.windowStart, now - DAY_MS))
-    .run()
-  db.delete(schema.enrollChallenges)
-    .where(lt(schema.enrollChallenges.expiresAt, now - DAY_MS))
-    .run()
 }
 
 export class VenueRoom extends DurableObject<Env> {
@@ -223,11 +189,17 @@ export class VenueRoom extends DurableObject<Env> {
     }
   }
 
+  /** A dapur the super admin never created answers 404 to everyone. */
+  private missing(): Failure | null {
+    return this.provisioned
+      ? null
+      : fail(404, 'not_found', 'Dapur ini tidak ditemukan.')
+  }
+
   /** Why this dapur answers nobody right now, if it doesn't. */
   private closed(): Failure | null {
-    if (!this.provisioned) {
-      return fail(404, 'not_found', 'Dapur ini tidak ditemukan.')
-    }
+    const missing = this.missing()
+    if (missing) return missing
     if (getMeta(this.db, 'disabled') === '1') {
       return fail(403, 'forbidden', 'Dapur ini sedang dinonaktifkan.')
     }
@@ -255,8 +227,8 @@ export class VenueRoom extends DurableObject<Env> {
 
   /** Super admin: a new admin password signs nobody out but works at once. */
   async setAdminPassword(password: string): Promise<Result<null>> {
-    if (!this.provisioned)
-      return fail(404, 'not_found', 'Dapur ini tidak ditemukan.')
+    const missing = this.missing()
+    if (missing) return missing
     const hashed = await hashAdminPassword(password)
     this.ctx.storage.transactionSync(() => {
       setMeta(this.db, 'admin_password', hashed)
@@ -267,8 +239,8 @@ export class VenueRoom extends DurableObject<Env> {
 
   /** Super admin: a disabled dapur refuses every screen until switched back on. */
   async setDisabled(disabled: boolean): Promise<Result<null>> {
-    if (!this.provisioned)
-      return fail(404, 'not_found', 'Dapur ini tidak ditemukan.')
+    const missing = this.missing()
+    if (missing) return missing
     setMeta(this.db, 'disabled', disabled ? '1' : '0')
     if (disabled) {
       this.newAdminEpoch()
@@ -325,6 +297,29 @@ export class VenueRoom extends DurableObject<Env> {
     return matches
       ? ok({ epoch: this.adminEpoch() })
       : fail(401, 'unauthenticated', 'Kata sandi salah.')
+  }
+
+  /** Super admin: the name shown on this dapur's admin page. */
+  async rename(name: string): Promise<Result<null>> {
+    const missing = this.missing()
+    if (missing) return missing
+    setMeta(this.db, 'venue_name', name)
+    return ok(null)
+  }
+
+  /** Super admin changed the owner: whoever was signed in as admin starts over. */
+  async signOutAdmins(): Promise<Result<null>> {
+    const missing = this.missing()
+    if (missing) return missing
+    this.newAdminEpoch()
+    return ok(null)
+  }
+
+  /** The owner arrives from the site with a handoff the Worker already checked. */
+  async adminHandoff(): Promise<Result<{ epoch: string }>> {
+    const closed = this.closed()
+    if (closed) return closed
+    return ok({ epoch: this.adminEpoch() })
   }
 
   /** The signed-in admin's dapur name; refused once the dapur is closed. */
@@ -388,21 +383,20 @@ export class VenueRoom extends DurableObject<Env> {
     if (now - (this.lastReceiptAt.get(deviceId) ?? 0) < RECEIPT_GAP_MS) return
     this.lastReceiptAt.set(deviceId, now)
     this.write(() => {
-      if (this.applyReceipts(deviceId, rendered.data.items)) bumpRev(this.db)
+      if (applyReceipts(this.db, deviceId, rendered.data.items, Date.now())) {
+        bumpRev(this.db)
+      }
     })
   }
 
   async webSocketClose(ws: WebSocket) {
     const attachment = attachmentSchema.safeParse(ws.deserializeAttachment())
-    if (attachment.success) {
-      const { deviceId } = attachment.data
-      this.ctx.storage.transactionSync(() =>
-        touchDevice(this.db, deviceId, Date.now()),
-      )
-    }
-    if (attachment.success && attachment.data.role === 'tv') {
-      this.write(() => bumpRev(this.db))
-    }
+    if (!attachment.success) return
+    const { deviceId, role } = attachment.data
+    this.ctx.storage.transactionSync(() =>
+      touchDevice(this.db, deviceId, Date.now()),
+    )
+    if (role === 'tv') this.write(() => bumpRev(this.db))
   }
 
   async session(
@@ -504,7 +498,7 @@ export class VenueRoom extends DurableObject<Env> {
       if (!order || order.day !== input.day) {
         return fail(404, 'not_found', 'Pesanan tidak ditemukan.')
       }
-      if (order.status !== 'served' && order.status !== 'cancelled') {
+      if (!isFinished(order.status)) {
         return fail(
           409,
           'invalid_transition',
@@ -550,7 +544,7 @@ export class VenueRoom extends DurableObject<Env> {
       saveStaff(this.db, id, input, pin, Date.now()),
     )
     if (!staff) return fail(404, 'not_found', 'Staf tidak ditemukan.')
-    return { ok: true, status: id === null ? 201 : 200, body: { staff } }
+    return ok({ staff }, id === null ? 201 : 200)
   }
 
   async getBoard(credentials: Credentials): Promise<Result<BoardMessage>> {
@@ -562,36 +556,14 @@ export class VenueRoom extends DurableObject<Env> {
     credentials: Credentials,
   ): Promise<Result<{ items: MenuItem[] }>> {
     if (!(await this.authenticate(credentials))) return unauthenticated()
-    const items = this.db
-      .select()
-      .from(schema.menuItems)
-      .where(eq(schema.menuItems.hidden, false))
-      .orderBy(schema.menuItems.sort, schema.menuItems.name)
-      .all()
-      .map((item) => ({
-        id: item.id,
-        name: item.name,
-        priceIdr: item.priceIdr,
-        category: item.category,
-        available: item.available,
-        modifierGroups: modifierGroupsSchema.parse(
-          JSON.parse(item.modifierGroupsJson),
-        ),
-      }))
-    return ok({ items })
+    return ok({ items: visibleMenu(this.db) })
   }
 
   async getTables(
     credentials: Credentials,
   ): Promise<Result<{ tables: Table[] }>> {
     if (!(await this.authenticate(credentials))) return unauthenticated()
-    const tables = this.db
-      .select({ id: schema.tables.id, label: schema.tables.label })
-      .from(schema.tables)
-      .where(eq(schema.tables.active, true))
-      .orderBy(schema.tables.sort, schema.tables.label)
-      .all()
-    return ok({ tables })
+    return ok({ tables: activeTables(this.db) })
   }
 
   async createOrder(
@@ -638,9 +610,10 @@ export class VenueRoom extends DurableObject<Env> {
     return orderHistory(this.db, orderId)
   }
 
+  /** The kitchen stops or restarts the TV's paging, or shows one page. */
   async controlTv(
     credentials: Credentials,
-    control: TvControl,
+    action: TvAction,
   ): Promise<Result<{ tvControl: TvControl; rev: number }>> {
     const actor = await this.authenticate(credentials)
     if (!actor) return unauthenticated()
@@ -649,13 +622,12 @@ export class VenueRoom extends DurableObject<Env> {
     }
     const signedOut = this.staffRequired(actor)
     if (signedOut) return signedOut
-    this.tvControl = control
+    this.tvControl =
+      action.action === 'page'
+        ? { ...this.tvControl, page: action.page }
+        : { ...this.tvControl, paused: action.action === 'pause' }
     const rev = this.write(() => bumpRev(this.db))
-    return { ok: true, status: 200, body: { tvControl: control, rev } }
-  }
-
-  getTvControl(): TvControl {
-    return this.tvControl
+    return ok({ tvControl: this.tvControl, rev })
   }
 
   /** Opening on a new date restarts ticket numbers at A-001. */
@@ -669,11 +641,7 @@ export class VenueRoom extends DurableObject<Env> {
     return this.write(() => {
       const today = rollServiceDay(this.db, Date.now())
       setMeta(this.db, 'service_open', '1')
-      return {
-        ok: true,
-        status: 200,
-        body: { serviceDay: today, rev: bumpRev(this.db) },
-      }
+      return ok({ serviceDay: today, rev: bumpRev(this.db) })
     })
   }
 
@@ -689,7 +657,7 @@ export class VenueRoom extends DurableObject<Env> {
       const active = this.db
         .select({ id: schema.orders.id })
         .from(schema.orders)
-        .where(inArray(schema.orders.status, ['new', 'accepted', 'ready']))
+        .where(inArray(schema.orders.status, ACTIVE_STATUSES))
         .limit(1)
         .all()
       if (active.length && !force) {
@@ -700,14 +668,10 @@ export class VenueRoom extends DurableObject<Env> {
         )
       }
       setMeta(this.db, 'service_open', '0')
-      return {
-        ok: true,
-        status: 200,
-        body: {
-          serviceDay: getMeta(this.db, 'service_day') ?? '',
-          rev: bumpRev(this.db),
-        },
-      }
+      return ok({
+        serviceDay: getMeta(this.db, 'service_day') ?? '',
+        rev: bumpRev(this.db),
+      })
     })
   }
 
@@ -739,7 +703,7 @@ export class VenueRoom extends DurableObject<Env> {
     if (refused) return refused
     const item = this.write(() => saveMenuItem(this.db, id, input, Date.now()))
     if (!item) return fail(404, 'not_found', 'Menu tidak ditemukan.')
-    return { ok: true, status: id === null ? 201 : 200, body: { item } }
+    return ok({ item }, id === null ? 201 : 200)
   }
 
   adminTables(credentials: Credentials): Result<{ tables: AdminTable[] }> {
@@ -758,7 +722,7 @@ export class VenueRoom extends DurableObject<Env> {
     if (refused) return refused
     const table = this.write(() => saveTable(this.db, id, input))
     if (!table) return fail(404, 'not_found', 'Meja tidak ditemukan.')
-    return { ok: true, status: id === null ? 201 : 200, body: { table } }
+    return ok({ table }, id === null ? 201 : 200)
   }
 
   /** Counts one attempt against `key`; false once the limit is reached. */
@@ -769,14 +733,7 @@ export class VenueRoom extends DurableObject<Env> {
   }
 
   /** A new device asks for a pairing code. */
-  async startEnrollment(ipHash: string): Promise<
-    Result<{
-      challengeId: string
-      code: string
-      pollSecret: string
-      expiresAt: number
-    }>
-  > {
+  async startEnrollment(ipHash: string): Promise<Result<Challenge>> {
     const closed = this.closed()
     if (closed) return closed
     if (!this.allowAttempt(`enroll:${ipHash}`, 10, 10 * MINUTE_MS)) {
@@ -924,52 +881,6 @@ export class VenueRoom extends DurableObject<Env> {
     return result
   }
 
-  /** Stores render receipts that move a TV forward; ignores stale or bogus ones. */
-  private applyReceipts(
-    deviceId: string,
-    items: { id: string; version: number }[],
-  ): boolean {
-    const now = Date.now()
-    let changed = false
-    for (const item of items) {
-      const order = this.db
-        .select({ version: schema.orders.version })
-        .from(schema.orders)
-        .where(eq(schema.orders.id, item.id))
-        .get()
-      if (!order || item.version > order.version) continue
-      const current = this.db
-        .select({ version: schema.displayReceipts.version })
-        .from(schema.displayReceipts)
-        .where(
-          and(
-            eq(schema.displayReceipts.orderId, item.id),
-            eq(schema.displayReceipts.deviceId, deviceId),
-          ),
-        )
-        .get()
-      if (current && current.version >= item.version) continue
-      this.db
-        .insert(schema.displayReceipts)
-        .values({
-          orderId: item.id,
-          deviceId,
-          version: item.version,
-          renderedAt: now,
-        })
-        .onConflictDoUpdate({
-          target: [
-            schema.displayReceipts.orderId,
-            schema.displayReceipts.deviceId,
-          ],
-          set: { version: item.version, renderedAt: now },
-        })
-        .run()
-      changed = true
-    }
-    return changed
-  }
-
   private board(): BoardMessage {
     const tvCount = this.ctx
       .getWebSockets('tv')
@@ -994,22 +905,18 @@ export class VenueRoom extends DurableObject<Env> {
 }
 
 async function hashAdminPassword(password: string) {
-  const salt = randomHex(16)
-  return `${salt}.${await pbkdf2Hex(password, salt)}`
+  const { salt, hash } = await hashSecret(password)
+  return `${salt}.${hash}`
 }
 
 async function adminPasswordMatches(stored: string, candidate: string) {
   const [salt, hash] = stored.split('.')
   if (!salt || !hash) return false
-  return safeEqual(hash, await pbkdf2Hex(candidate, salt))
+  return secretMatches(candidate, salt, hash)
 }
 
 /** The original dapur's password from the ADMIN_PASSWORD secret, until one is set. */
 async function envPasswordMatches(env: Env, candidate: string) {
   if (!env.ADMIN_PASSWORD) return false
-  const [a, b] = await Promise.all([
-    sha256Hex(candidate),
-    sha256Hex(env.ADMIN_PASSWORD),
-  ])
-  return safeEqual(a, b)
+  return sameSecret(candidate, env.ADMIN_PASSWORD)
 }

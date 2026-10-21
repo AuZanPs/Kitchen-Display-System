@@ -7,10 +7,10 @@ import {
   WifiOff,
 } from 'lucide-react'
 import { useState } from 'react'
-import type { BoardOrder } from '../../shared/board'
+import { type BoardOrder, isFinished } from '../../shared/board'
 import { AppBar } from '../app-bar'
 import { formatMinutes, formatTime, useI18n } from '../i18n'
-import { boardLines, whereLabel } from '../lib/board'
+import { boardLines, minutesSince, whereLabel } from '../lib/board'
 import { failureText, sendCommand } from '../lib/commands'
 import { RequireRole, type Session } from '../lib/session'
 import { stagger } from '../lib/stagger'
@@ -78,12 +78,7 @@ function Kitchen({
   const sections = [
     {
       title: t('changesStrip'),
-      orders: orders.filter(
-        (o) =>
-          o.cancelRequested &&
-          o.status !== 'served' &&
-          o.status !== 'cancelled',
-      ),
+      orders: orders.filter((o) => o.cancelRequested && !isFinished(o.status)),
     },
     {
       title: t('laneNew'),
@@ -120,9 +115,10 @@ function Kitchen({
           })}
         </p>
       )}
-      <main className="mx-auto grid max-w-2xl gap-8 px-4 pt-6">
+      {/* A landscape tablet shows the lanes side by side. */}
+      <main className="mx-auto grid max-w-2xl gap-8 px-4 pt-6 lg:max-w-6xl lg:grid-cols-[repeat(auto-fill,minmax(22rem,1fr))] lg:items-start lg:px-6">
         {board && sections.every((s) => s.orders.length === 0) && (
-          <p className="grid justify-items-center gap-3 py-20 text-center text-lg text-ink-soft">
+          <p className="col-span-full grid justify-items-center gap-3 py-20 text-center text-lg text-ink-soft">
             <ChefHat size={40} aria-hidden />
             {t('noTickets')}
           </p>
@@ -138,9 +134,9 @@ function Kitchen({
                   </span>
                 </h2>
                 {section.orders.map((order, index) => {
-                  const minutes = Math.floor(
-                    Math.max(0, now + serverOffsetMs - order.createdAt) /
-                      60_000,
+                  const minutes = minutesSince(
+                    order.createdAt,
+                    now + serverOffsetMs,
                   )
                   return (
                     <div
@@ -165,7 +161,7 @@ function Kitchen({
                         }
                         banner={
                           order.cancelRequested ? (
-                            <p className="mx-4 mb-2 flex items-start gap-2 rounded-sm bg-ink px-3 py-2 text-sm font-semibold text-surface">
+                            <p className="flex items-start gap-2 rounded-sm bg-ink px-3 py-2 text-sm font-semibold text-surface">
                               <Ban
                                 size={16}
                                 className="mt-px shrink-0"
@@ -177,7 +173,7 @@ function Kitchen({
                             </p>
                           ) : (
                             order.changePending && (
-                              <div className="mx-4 mb-2 grid gap-1 rounded-sm bg-ink px-3 py-2 text-sm font-semibold text-surface">
+                              <div className="grid gap-1 rounded-sm bg-ink px-3 py-2 text-sm font-semibold text-surface">
                                 <span className="flex items-center gap-2">
                                   <PencilLine size={16} aria-hidden />
                                   {t('changePending')}

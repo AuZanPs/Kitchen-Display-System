@@ -13,10 +13,12 @@ import {
   adminMenuSchema,
   adminTableSchema,
   adminTablesSchema,
+  MENU_LIMITS,
   type TableInput,
 } from '../../shared/menu'
 import { formatIdr, useI18n } from '../i18n'
 import { api } from '../lib/api'
+import { failureText } from '../lib/commands'
 import { stagger } from '../lib/stagger'
 import { Button } from '../ui/button'
 import { Card } from '../ui/card'
@@ -338,11 +340,7 @@ function TableDialog({
     })
     setBusy(false)
     if (!result.ok) {
-      setError(
-        result.status === 0
-          ? t('networkError')
-          : t('rejected', { message: result.message }),
-      )
+      setError(failureText(result, t))
       return
     }
     onSaved(result.data.table.label)
@@ -361,7 +359,7 @@ function TableDialog({
           <Button
             type="submit"
             form="table-form"
-            disabled={busy || label.length > 20}
+            disabled={busy || label.length > MENU_LIMITS.tableLabel}
           >
             {t('save')}
           </Button>
@@ -377,7 +375,7 @@ function TableDialog({
         <TextField
           label={t('tableLabel')}
           hint={t('tableLabelHint')}
-          max={20}
+          max={MENU_LIMITS.tableLabel}
           autoComplete="off"
           autoFocus
           value={label}

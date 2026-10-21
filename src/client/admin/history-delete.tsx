@@ -1,12 +1,9 @@
 import { Trash2 } from 'lucide-react'
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { z } from 'zod'
-import {
-  type History,
-  type HistoryOrder,
-  historySchema,
-} from '../../shared/history'
-import { jakartaDate, ticketLabel } from '../../shared/order'
+import { isFinished } from '../../shared/board'
+import type { HistoryOrder } from '../../shared/history'
+import { ticketLabel } from '../../shared/order'
 import { formatDay, formatIdr, formatTime, useI18n } from '../i18n'
 import { api } from '../lib/api'
 import { whereLabel } from '../lib/board'
@@ -16,6 +13,7 @@ import { Button, IconButton } from '../ui/button'
 import { Card } from '../ui/card'
 import { Dialog } from '../ui/dialog'
 import { TextField } from '../ui/text-field'
+import { DayField, jakartaToday, useDayHistory } from './day-history'
 
 const deletedSchema = z.object({ deleted: z.number().int() })
 const deleteHistory = (body: { day: string; orderId?: string }) =>
@@ -31,35 +29,20 @@ export function HistoryDeleteCard({
   notify: (text: string) => void
 }) {
   const { t } = useI18n()
-  const [day, setDay] = useState(() => jakartaDate(Date.now()))
-  const [history, setHistory] = useState<History | null>(null)
+  const [day, setDay] = useState(jakartaToday)
+  const { history, reload } = useDayHistory(day, notify)
   const [target, setTarget] = useState<HistoryOrder | null>(null)
   const [wholeDay, setWholeDay] = useState(false)
 
-  const load = useCallback(async () => {
-    const r = await api(`/api/manager/history?day=${day}`, historySchema)
-    if (r.ok) setHistory(r.data)
-    else notify(t('networkError'))
-  }, [day, notify, t])
-
-  useEffect(() => {
-    if (!day) return
-    setHistory(null)
-    void load()
-  }, [day, load])
-
   // Orders still in progress are cancelled from the overview first.
-  const done =
-    history?.orders.filter(
-      (o) => o.status === 'served' || o.status === 'cancelled',
-    ) ?? []
+  const done = history?.orders.filter((o) => isFinished(o.status)) ?? []
   const active = (history?.orders.length ?? 0) - done.length
 
   const deleted = (count: number) => {
     notify(t('ordersDeleted', { count }))
     setTarget(null)
     setWholeDay(false)
-    void load()
+    void reload()
   }
 
   return (
@@ -68,16 +51,7 @@ export function HistoryDeleteCard({
         <h2 className="text-2xl font-medium">{t('historyDeleteTitle')}</h2>
         <p className="text-[15px] text-ink-soft">{t('historyDeleteHint')}</p>
       </div>
-      <label className="flex items-center gap-3 text-sm font-medium">
-        {t('date')}
-        <input
-          type="date"
-          value={day}
-          max={jakartaDate(Date.now())}
-          onChange={(e) => setDay(e.target.value)}
-          className="h-12 rounded-sm border border-ink-soft bg-surface px-3 text-base outline-none focus:border-ink focus:shadow-[inset_0_0_0_1px_var(--color-ink)]"
-        />
-      </label>
+      <DayField label={t('date')} value={day} onChange={setDay} />
 
       {history && done.length === 0 && (
         <p className="text-ink-soft">{t('noFinishedDay')}</p>

@@ -115,6 +115,11 @@ export function toCreateOrder(draft: Draft): CreateOrder | null {
   }
 }
 
+/** Items in the draft, counting each line's quantity. */
+export function draftCount(draft: Draft) {
+  return draft.lines.reduce((n, line) => n + line.qty, 0)
+}
+
 export function draftTotal(draft: Draft) {
   return draft.lines.reduce(
     (sum, line) => sum + line.qty * line.unitPriceIdr,

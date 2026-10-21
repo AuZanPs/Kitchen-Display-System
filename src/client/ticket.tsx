@@ -73,7 +73,7 @@ export function Ticket({
   tonalHeader?: boolean
   /** Top-right slot: the age on the TV, a status elsewhere. */
   aside?: ReactNode
-  /** Full-width slot under the header, e.g. change flags or actions. */
+  /** First thing under the header, e.g. change flags; spaced like the lines. */
   banner?: ReactNode
   /** A later part of a ticket split across TV pages. */
   continued?: boolean
@@ -106,10 +106,11 @@ export function Ticket({
         </div>
         {aside}
       </header>
-      {banner}
+      {/* The banner shares the body's spacing; a coloured header needs room below it. */}
       <div
-        className={`grid ${size === 'tv' ? 'gap-4 pb-5' : 'gap-3 pb-4'} ${s.pad}`}
+        className={`grid ${size === 'tv' ? 'gap-4 pb-5' : 'gap-3 pb-4'} ${s.pad} ${tonalHeader ? (size === 'tv' ? 'pt-4' : 'pt-3') : ''}`}
       >
+        {banner}
         {allergies.length > 0 && (
           <AllergyBlock
             size={size}

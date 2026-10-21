@@ -49,13 +49,18 @@ export type Failure = {
   status: 401 | 403 | 404 | 409 | 422 | 429
   body: ApiError
 }
-export type Result<T> = { ok: true; status: 200 | 201; body: T } | Failure
+export type Success<T> = { ok: true; status: 200 | 201; body: T }
+export type Result<T> = Success<T> | Failure
 
 /** Timing and idempotency inputs computed outside the transaction. */
 export type WriteContext = {
   payloadHash: string
   now: number
   receivedAt: number
+}
+
+export function ok<T>(body: T, status: Success<T>['status'] = 200): Success<T> {
+  return { ok: true, status, body }
 }
 
 export function fail(
@@ -334,7 +339,7 @@ export function createOrder(
   if (previous.kind === 'conflict') return previous.failure
   if (previous.kind === 'replay') {
     const body = createOrderResultSchema.parse(previous.response)
-    return { ok: true, status: 201, body: { ...body, replayed: true } }
+    return ok({ ...body, replayed: true }, 201)
   }
 
   const closed = serviceClosed(db)
@@ -363,7 +368,7 @@ export function createOrder(
   const body = { orderId, ticketNo, version: 1, rev: bumpRev(db) }
   saveOperation(db, input.operationId, key, ctx, body)
   recordMetric(db, 'order_commit_ms', ctx.now - ctx.receivedAt, ctx.now)
-  return { ok: true, status: 201, body }
+  return ok(body, 201)
 }
 
 type OrderRow = typeof schema.orders.$inferSelect
@@ -441,6 +446,59 @@ const STATUS_TIME: Partial<
   cancelled: 'cancelledAt',
 }
 
+/**
+ * Lines added to a ready or served ticket go on a new ticket linked to it;
+ * the original keeps its version and only records where they went.
+ */
+function addLinkedTicket(
+  db: Db,
+  actor: Actor,
+  order: OrderRow,
+  command: Extract<Command, { type: 'addLines' }>,
+  ctx: WriteContext,
+  key: string,
+): Result<CommandResult> {
+  const closed = serviceClosed(db)
+  if (closed) return closed
+  const lines = resolveLines(db, command.lines)
+  if (!lines.ok) return lines
+  const linked = insertOrder(
+    db,
+    actor,
+    {
+      destination: order.destination,
+      tableLabel: order.tableLabel,
+      orderNote: null,
+      lines: lines.rows,
+      linkedTo: order.id,
+    },
+    ctx.now,
+  )
+  addEvent(
+    db,
+    actor,
+    order.id,
+    order.version,
+    'addLines',
+    {
+      summary: `Tambahan dibuat sebagai ${ticketLabel(linked.ticketNo)}`,
+      linkedOrderId: linked.orderId,
+    },
+    ctx.now,
+  )
+  const body = {
+    orderId: order.id,
+    version: order.version,
+    status: order.status,
+    noop: false,
+    linkedOrderId: linked.orderId,
+    linkedTicketNo: linked.ticketNo,
+    rev: bumpRev(db),
+  }
+  saveOperation(db, command.operationId, key, ctx, body)
+  return ok(body)
+}
+
 export function runCommand(
   db: Db,
   actor: Actor,
@@ -459,7 +517,7 @@ export function runCommand(
   if (previous.kind === 'conflict') return previous.failure
   if (previous.kind === 'replay') {
     const body = commandResultSchema.parse(previous.response)
-    return { ok: true, status: 200, body: { ...body, replayed: true } }
+    return ok({ ...body, replayed: true })
   }
 
   const order = db
@@ -490,50 +548,12 @@ export function runCommand(
       rev: getRev(db),
     }
     saveOperation(db, command.operationId, key, ctx, body)
-    return { ok: true, status: 200, body }
+    return ok(body)
   }
 
   if (decision.kind === 'linked') {
     if (command.type !== 'addLines') throw new Error('linked without addLines')
-    const closed = serviceClosed(db)
-    if (closed) return closed
-    const lines = resolveLines(db, command.lines)
-    if (!lines.ok) return lines
-    const linked = insertOrder(
-      db,
-      actor,
-      {
-        destination: order.destination,
-        tableLabel: order.tableLabel,
-        orderNote: null,
-        lines: lines.rows,
-        linkedTo: order.id,
-      },
-      ctx.now,
-    )
-    addEvent(
-      db,
-      actor,
-      order.id,
-      order.version,
-      'addLines',
-      {
-        summary: `Tambahan dibuat sebagai ${ticketLabel(linked.ticketNo)}`,
-        linkedOrderId: linked.orderId,
-      },
-      ctx.now,
-    )
-    const body = {
-      orderId,
-      version: order.version,
-      status: order.status,
-      noop: false,
-      linkedOrderId: linked.orderId,
-      linkedTicketNo: linked.ticketNo,
-      rev: bumpRev(db),
-    }
-    saveOperation(db, command.operationId, key, ctx, body)
-    return { ok: true, status: 200, body }
+    return addLinkedTicket(db, actor, order, command, ctx, key)
   }
 
   // Validate everything the command needs before the first write.
@@ -644,7 +664,7 @@ export function runCommand(
     rev: bumpRev(db),
   }
   saveOperation(db, command.operationId, key, ctx, body)
-  return { ok: true, status: 200, body }
+  return ok(body)
 }
 
 export function orderHistory(db: Db, orderId: string) {
@@ -667,5 +687,5 @@ export function orderHistory(db: Db, orderId: string) {
       managerUser: e.managerUser,
       at: e.at,
     }))
-  return { ok: true as const, status: 200 as const, body: { order, events } }
+  return ok({ order, events })
 }

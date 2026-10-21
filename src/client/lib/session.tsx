@@ -29,6 +29,23 @@ type State =
   | { status: 'closed'; message: string }
   | { status: 'ok'; session: Session }
 
+const placeSchema = z.object({
+  kind: z.enum(['site', 'venue', 'console', 'unknown']),
+})
+
+/** What this host is: the public site, a dapur, or the console. */
+export function usePlace() {
+  const [kind, setKind] = useState<z.infer<typeof placeSchema>['kind'] | null>(
+    null,
+  )
+  useEffect(() => {
+    void api('/api/place', placeSchema).then((r) =>
+      setKind(r.ok ? r.data.kind : 'venue'),
+    )
+  }, [])
+  return kind
+}
+
 export function useSession() {
   const [state, setState] = useState<State>({ status: 'loading' })
   const [attempt, setAttempt] = useState(0)

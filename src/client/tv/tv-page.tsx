@@ -1,10 +1,11 @@
 import { AlarmClock, Ban, Pause, PencilLine, WifiOff } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import type {
-  BoardMessage,
-  BoardOrder,
-  OrderStatus,
-  RenderedMessage,
+import {
+  type BoardMessage,
+  type BoardOrder,
+  type OrderStatus,
+  RECEIPT_ITEMS_MAX,
+  type RenderedMessage,
 } from '../../shared/board'
 import { ticketLabel } from '../../shared/order'
 import { formatTime, type Translate, useI18n } from '../i18n'
@@ -399,7 +400,8 @@ function useRenderReceipts(
     }
     // Sent after paint: the effect runs once React has committed the cards.
     // Not connected: the next board after reconnecting runs this again.
-    if (!send({ type: 'rendered', items: items.slice(0, 200) })) return
+    if (!send({ type: 'rendered', items: items.slice(0, RECEIPT_ITEMS_MAX) }))
+      return
     lastSent.current = Date.now()
     for (const item of items) reported.current.set(item.id, item.version)
   }, [orders, send, retryTick])

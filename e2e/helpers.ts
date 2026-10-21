@@ -16,6 +16,10 @@ export const SUPER_ADMIN_PASSWORD =
 
 /** Waits for entrance motion to finish; endless spinners are ignored. */
 export async function settle(page: Page) {
+  // Data still loading would fade in after the check below.
+  await page.locator('[aria-label="Memuat…"]').first().waitFor({
+    state: 'detached',
+  })
   await page.waitForFunction(() =>
     document
       .getAnimations()

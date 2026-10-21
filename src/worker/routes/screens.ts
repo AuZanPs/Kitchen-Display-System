@@ -1,0 +1,100 @@
+import { Hono } from 'hono'
+import { tvActionSchema } from '../../shared/board'
+import { commandSchema } from '../../shared/commands'
+import { createOrderSchema } from '../../shared/order'
+import {
+  type AppEnv,
+  callerCredentials,
+  idParam,
+  invalidInput,
+  reply,
+  venueRoom,
+} from './common'
+
+/** What a paired screen uses: who it is, the live board, the menu and orders. */
+export const screens = new Hono<AppEnv>()
+
+screens.get('/api/session', async (c) =>
+  reply(c, await venueRoom(c).session(await callerCredentials(c))),
+)
+
+screens.get('/api/ws', async (c) => {
+  if (c.req.header('Upgrade') !== 'websocket') {
+    return c.text('Expected websocket', 426)
+  }
+  const who = await callerCredentials(c)
+  if (who.kind === 'none') return c.text('Unauthenticated', 401)
+  // The room trusts only headers the Worker sets itself.
+  const headers = new Headers(c.req.raw.headers)
+  for (const name of [...headers.keys()]) {
+    if (name.startsWith('x-kds-')) headers.delete(name)
+  }
+  if (who.kind === 'admin') {
+    headers.set('x-kds-admin', who.epoch)
+  } else {
+    headers.set('x-kds-device-id', who.deviceId)
+    headers.set('x-kds-device-secret', who.secret)
+  }
+  return venueRoom(c).fetch(new Request(c.req.raw, { headers }))
+})
+
+screens.get('/api/board', async (c) =>
+  reply(c, await venueRoom(c).getBoard(await callerCredentials(c))),
+)
+screens.get('/api/menu', async (c) =>
+  reply(c, await venueRoom(c).getMenu(await callerCredentials(c))),
+)
+screens.get('/api/tables', async (c) =>
+  reply(c, await venueRoom(c).getTables(await callerCredentials(c))),
+)
+
+screens.post(
+  '/api/orders',
+  invalidInput('json', createOrderSchema),
+  async (c) => {
+    const result = await venueRoom(c).createOrder(
+      await callerCredentials(c),
+      c.req.valid('json'),
+      Date.now(),
+    )
+    return reply(c, result)
+  },
+)
+
+screens.get('/api/orders/:id', invalidInput('param', idParam), async (c) =>
+  reply(
+    c,
+    await venueRoom(c).getOrder(
+      await callerCredentials(c),
+      c.req.valid('param').id,
+    ),
+  ),
+)
+
+screens.post(
+  '/api/orders/:id/commands',
+  invalidInput('param', idParam),
+  invalidInput('json', commandSchema),
+  async (c) => {
+    const result = await venueRoom(c).command(
+      await callerCredentials(c),
+      c.req.valid('param').id,
+      c.req.valid('json'),
+      Date.now(),
+    )
+    return reply(c, result)
+  },
+)
+
+screens.post(
+  '/api/tv/control',
+  invalidInput('json', tvActionSchema),
+  async (c) =>
+    reply(
+      c,
+      await venueRoom(c).controlTv(
+        await callerCredentials(c),
+        c.req.valid('json'),
+      ),
+    ),
+)

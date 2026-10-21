@@ -5,10 +5,13 @@ import {
   type AdminStaff,
   adminStaffListSchema,
   adminStaffSchema,
+  pinSchema,
+  STAFF_LIMITS,
   STAFF_ROLES,
 } from '../../shared/staff'
 import { useI18n } from '../i18n'
 import { api } from '../lib/api'
+import { failureText } from '../lib/commands'
 import { stagger } from '../lib/stagger'
 import { Monogram } from '../staff-sign-in'
 import { Button } from '../ui/button'
@@ -136,13 +139,16 @@ function StaffDialog({
   const [pinError, setPinError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   // A new person needs a PIN; an existing one keeps theirs when left empty.
-  const pinOk = /^\d{4,6}$/.test(pin) || (pin === '' && member?.hasPin === true)
+  const pinOk =
+    pinSchema.safeParse(pin).success || (pin === '' && member?.hasPin === true)
 
   async function submit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault()
     if (name.trim() === '') return setError(t('fieldRequired'))
-    if (name.length > 40) {
-      return setError(t('tooLong', { count: name.length, max: 40 }))
+    if (name.length > STAFF_LIMITS.name) {
+      return setError(
+        t('tooLong', { count: name.length, max: STAFF_LIMITS.name }),
+      )
     }
     if (!pinOk) return setPinError(t('pinNeeded'))
     setBusy(true)
@@ -163,11 +169,7 @@ function StaffDialog({
         })
     setBusy(false)
     if (!result.ok) {
-      setError(
-        result.status === 0
-          ? t('networkError')
-          : t('rejected', { message: result.message }),
-      )
+      setError(failureText(result, t))
       return
     }
     onSaved(result.data.staff.name)
@@ -197,7 +199,7 @@ function StaffDialog({
       >
         <TextField
           label={t('staffName')}
-          max={40}
+          max={STAFF_LIMITS.name}
           autoComplete="off"
           autoFocus={!member}
           value={name}
@@ -240,7 +242,9 @@ function StaffDialog({
           hint={member?.hasPin ? t('pinKeepHint') : t('pinHint')}
           value={pin}
           onChange={(e) => {
-            setPin(e.target.value.replace(/\D/g, '').slice(0, 6))
+            setPin(
+              e.target.value.replace(/\D/g, '').slice(0, STAFF_LIMITS.pinMax),
+            )
             setPinError(null)
           }}
           error={pinError}

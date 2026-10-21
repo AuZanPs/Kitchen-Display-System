@@ -1,15 +1,21 @@
+import { LogOut } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { LANGS, useI18n } from './i18n'
+import { Button } from './ui/button'
 
-export function LanguageToggle() {
+/** `onInk` swaps the colours for a charcoal ground. */
+export function LanguageToggle({ onInk = false }: { onInk?: boolean }) {
   const { lang, setLang, t } = useI18n()
+  const selected = onInk ? 'bg-surface text-ink' : 'bg-ink text-surface'
   return (
-    <fieldset className="flex rounded-full border border-line p-0.5">
+    <fieldset
+      className={`flex rounded-full border p-0.5 ${onInk ? 'border-on-ink-soft' : 'border-line'}`}
+    >
       <legend className="sr-only">{t('language')}</legend>
       {LANGS.map((code) => (
         <label
           key={code}
-          className={`grid h-11 min-w-12 cursor-pointer place-items-center rounded-full px-3 text-sm font-semibold uppercase transition-colors duration-150 has-focus-visible:outline-3 has-focus-visible:outline-current ${lang === code ? 'bg-ink text-surface' : ''}`}
+          className={`grid h-11 min-w-12 cursor-pointer place-items-center rounded-full px-3 text-sm font-semibold uppercase transition-colors duration-150 has-focus-visible:outline-3 has-focus-visible:outline-current ${lang === code ? selected : ''}`}
         >
           <input
             type="radio"
@@ -37,10 +43,10 @@ export function AppBar({
   children?: ReactNode
 }) {
   return (
-    <header className="sticky top-0 z-30 flex min-h-16 items-center gap-3 border-b border-line bg-surface/95 px-4 backdrop-blur sm:px-6">
+    <header className="sticky top-0 z-30 flex min-h-16 items-center gap-2 border-b border-line bg-surface/95 px-4 backdrop-blur sm:gap-3 sm:px-6">
       <BrandMark />
-      <div className="mr-auto grid leading-tight">
-        <h1 className="text-base font-semibold whitespace-nowrap sm:text-lg">
+      <div className="mr-auto grid min-w-0 leading-tight">
+        <h1 className="text-base font-semibold text-balance sm:text-lg">
           {title}
         </h1>
         {device && <span className="text-[13px] text-ink-soft">{device}</span>}
@@ -48,6 +54,21 @@ export function AppBar({
       {children}
       <LanguageToggle />
     </header>
+  )
+}
+
+/** Sign-out for a bar; phones keep only the icon. */
+export function SignOutButton({ onClick }: { onClick: () => void }) {
+  const { t } = useI18n()
+  return (
+    <Button
+      variant="text"
+      icon={<LogOut size={18} aria-hidden />}
+      aria-label={t('signOut')}
+      onClick={onClick}
+    >
+      <span className="hidden sm:inline">{t('signOut')}</span>
+    </Button>
   )
 }
 

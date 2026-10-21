@@ -1,5 +1,5 @@
 import type { BoardMessage, BoardOrder } from '../../shared/board'
-import { DEFAULT_SETTINGS } from '../../shared/board'
+import { ACTIVE_STATUSES, DEFAULT_SETTINGS } from '../../shared/board'
 
 const DISHES = [
   ['Nasi Goreng Kampung', ['Pedas sedang', 'Telur ceplok']],
@@ -9,7 +9,6 @@ const DISHES = [
   ['Kopi Susu Aren', ['Dingin', 'Sedikit gula']],
   ['Sate Ayam', []],
 ] as const
-const STATUSES = ['new', 'accepted', 'ready'] as const
 
 /** Dev-only `/tv?fixture=N`: N synthetic tickets to check paging and wrapping. */
 export function fixtureBoard(count: number, now: number): BoardMessage {
@@ -19,7 +18,7 @@ export function fixtureBoard(count: number, now: number): BoardMessage {
     return {
       id: `fixture-${i}`,
       ticketNo: i + 1,
-      status: STATUSES[i % 3] ?? 'new',
+      status: ACTIVE_STATUSES[i % 3] ?? 'new',
       version: 1,
       takeaway: i % 4 === 3,
       table: i % 4 === 3 ? null : `Meja ${(i % 15) + 1}`,

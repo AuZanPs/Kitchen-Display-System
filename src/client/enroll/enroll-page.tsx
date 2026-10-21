@@ -2,6 +2,7 @@ import { LoaderCircle, RefreshCw } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router'
 import { z } from 'zod'
+import { type Challenge, challengeSchema } from '../../shared/devices'
 import { LanguageToggle } from '../app-bar'
 import { formatTime, useI18n } from '../i18n'
 import { api } from '../lib/api'
@@ -15,14 +16,6 @@ import { stagger } from '../lib/stagger'
 import { Button } from '../ui/button'
 
 const POLL_MS = 2_000
-
-const challengeSchema = z.object({
-  challengeId: z.string(),
-  code: z.string().regex(/^\d{6}$/),
-  pollSecret: z.string(),
-  expiresAt: z.number(),
-})
-type Challenge = z.infer<typeof challengeSchema>
 
 const pollResultSchema = z.discriminatedUnion('status', [
   z.object({ status: z.literal('pending') }),
@@ -180,21 +173,20 @@ function Pairing() {
 
 /** Six digits as two groups of three tiles, readable from across the room. */
 function CodeTiles({ code }: { code: string }) {
-  const groups = [code.slice(0, 3), code.slice(3)]
+  const groups = [
+    { at: 0, digits: code.slice(0, 3) },
+    { at: 3, digits: code.slice(3) },
+  ]
   return (
     <p className="flex gap-3 sm:gap-6">
       <span className="sr-only">{code.split('').join(' ')}</span>
-      {groups.map((group) => (
-        <span
-          key={group + groups.indexOf(group)}
-          className="flex gap-1.5 sm:gap-2"
-          aria-hidden
-        >
-          {group.split('').map((digit, i) => (
+      {groups.map(({ at, digits }) => (
+        <span key={at} className="flex gap-1.5 sm:gap-2" aria-hidden>
+          {digits.split('').map((digit, i) => (
             <span
               // biome-ignore lint/suspicious/noArrayIndexKey: digits repeat and never reorder
               key={i}
-              style={stagger(groups.indexOf(group) * 3 + i)}
+              style={stagger(at + i)}
               className="rise grid h-[min(6rem,18vw)] w-[min(4rem,12.5vw)] place-items-center rounded-md bg-tonal text-[min(3.75rem,11vw)] font-extrabold tabular-nums sm:h-32 sm:w-22 sm:text-7xl"
             >
               {digit}

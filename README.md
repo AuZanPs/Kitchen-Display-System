@@ -1,6 +1,6 @@
-# KDS
+# Layar Dapur
 
-A kitchen display system for one restaurant. Waiters send orders from a tablet, the kitchen reads them on a TV and works them from a phone, and the owner runs everything from a browser. It runs on Cloudflare Workers with a single Durable Object and fits the free plan.
+A kitchen display system for restaurants. Waiters send orders from a tablet, the kitchen reads them on a TV and works them from a phone, and the owner runs everything from a browser. One deploy serves many kitchens ("dapur"), each on its own subdomain, plus a public site where owners sign in with an emailed link and a console for the super admin. It runs on Cloudflare Workers and Durable Objects; the sign-in email needs Workers Paid (Email Service).
 
 The interface is in Indonesian, with an English toggle.
 
@@ -8,6 +8,8 @@ The interface is in Indonesian, with an English toggle.
 
 | Path | Device | What it does |
 |---|---|---|
+| `/`, `/masuk`, `/akun` (bare domain) | any browser | Homepage with a live order demo; owner sign-in by email link; the owner's dapur and invited admins |
+| `/super` (`console.` host) | laptop | Create dapur, set owner email and admin password, rename, switch on or off |
 | `/enroll` | any new device | Shows a 6-digit code to pair the device |
 | `/waiter` | tablet | Table, menu, item options, notes and allergies, review, send; table service with add items, move table, cancel request, served |
 | `/kitchen` | phone | Accept (allergies must be confirmed), accept changes, confirm cancellations, mark ready, control the TV pages |
@@ -33,7 +35,7 @@ pnpm dev                         # http://localhost:5173
 pnpm dev:lan                     # same, reachable from tablets on the Wi-Fi
 ```
 
-Open `/admin`, sign in, then open the app on each tablet, phone or TV and approve its code under **Perangkat**. To test several devices on one computer, use one browser profile per device. Delete `.wrangler/state` for fresh demo data.
+Open `http://dapurku.localhost:5173/admin`, sign in, then open the app on each tablet, phone or TV and approve its code under **Perangkat**. To test several devices on one computer, use one browser profile per device. Delete `.wrangler/state` for fresh demo data.
 
 ```sh
 pnpm check                              # TypeScript, Biome, Vitest (in workerd)
@@ -56,16 +58,22 @@ pnpm exec wrangler secret put SUPER_ADMIN_PASSWORD   # the console for every dap
 
 Database migrations run inside the Durable Object on first use. Without both secrets the admin console stays locked.
 
-### Several dapur
+### Site, dapur and console
 
-One deploy serves every dapur. The bare domain (`BASE_HOST` in `wrangler.jsonc`) is the original dapur, each new one lives at `<address>.<BASE_HOST>` with its own data, devices and admin password, and the super admin works at `console.<BASE_HOST>`. In Cloudflare, add a proxied DNS record for `*` and a Worker route `*.<BASE_HOST>/*`. Locally the same works on `console.localhost:5173` and `<address>.localhost:5173`.
+One deploy serves everything. The bare domain (`BASE_HOST` in `wrangler.jsonc`) is the public site, where owners sign in with an emailed link and open their dapur. Each dapur lives at `<address>.<BASE_HOST>` with its own data, devices and admin password; the first one is `dapurku`. The super admin creates dapur and sets their owner email at `console.<BASE_HOST>`. In Cloudflare, add a proxied DNS record for `*`, a Worker route `*.<BASE_HOST>/*`, and onboard the domain in Email Service so sign-in emails can go out (Workers Paid). Locally the same works on `localhost:5173`, `console.localhost:5173` and `<address>.localhost:5173`; the sign-in page shows the link instead of emailing it.
 
 ## Layout
 
 - `src/shared` – Zod schemas and logic used by both sides (orders, commands, menu, board, staff, history)
-- `src/worker` – Hono routes, the `VenueRoom` Durable Object, Drizzle schema and migrations
+- `src/worker` – Hono routes, the `VenueRoom` (one per dapur) and `Directory` Durable Objects, Drizzle schema and migrations
 - `src/client` – React screens, i18n dictionaries, UI components
 - `tests` – Vitest integration tests against the real Worker and Durable Object
 - `e2e` – Playwright end-to-end tests
 
-Third-party licences are listed in `THIRD_PARTY_LICENSES.md`.
+## Licence
+
+© 2026 Auzan. All rights reserved.
+
+This code is public so it can be seen as part of my portfolio. You may read it, but you may not copy, modify, distribute or use it, in whole or in part, without my written permission.
+
+Third-party code, fonts and photos keep their own licences, listed in `THIRD_PARTY_LICENSES.md`.

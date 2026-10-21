@@ -1,15 +1,14 @@
 import { Download, List, Sheet } from 'lucide-react'
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { z } from 'zod'
 import type { BoardOrder } from '../../shared/board'
+import type { Device } from '../../shared/devices'
 import {
-  type History,
   type HistoryOrder,
   type HistoryStats,
-  historySchema,
-  MAX_EXPORT_DAYS,
+  isExportRange,
 } from '../../shared/history'
-import { jakartaDate, ticketLabel } from '../../shared/order'
+import { ticketLabel } from '../../shared/order'
 import { adminStaffListSchema } from '../../shared/staff'
 import {
   type DictKey,
@@ -25,15 +24,8 @@ import { Ticket } from '../ticket'
 import { Card } from '../ui/card'
 import { Dialog } from '../ui/dialog'
 import { TextField } from '../ui/text-field'
-import type { Device } from './shared'
-
-const STATUS_KEY: Record<BoardOrder['status'], DictKey> = {
-  new: 'laneNew',
-  accepted: 'lanePreparing',
-  ready: 'laneReady',
-  served: 'served',
-  cancelled: 'cancelled',
-}
+import { DayField, jakartaToday, useDayHistory } from './day-history'
+import { STATUS_KEY } from './shared'
 
 const EVENT_KEY: Record<string, DictKey> = {
   created: 'evCreated',
@@ -69,8 +61,6 @@ const eventsSchema = z.object({
 })
 type OrderEvent = z.infer<typeof eventsSchema>['events'][number]
 
-const jakartaToday = () => jakartaDate(Date.now())
-
 // The list or the spreadsheet-style table, remembered per browser.
 const VIEW_KEY = 'kds_history_view'
 const viewSchema = z.enum(['list', 'table'])
@@ -93,7 +83,7 @@ export function HistoryTab({
 }) {
   const { t } = useI18n()
   const [day, setDay] = useState(jakartaToday)
-  const [history, setHistory] = useState<History | null>(null)
+  const { history } = useDayHistory(day, notify)
   const [staffNames, setStaffNames] = useState(new Map<string, string>())
   const [open, setOpen] = useState<BoardOrder | null>(null)
   const [view, setViewState] = useState(storedView)
@@ -106,18 +96,6 @@ export function HistoryTab({
       // Private mode: the choice just lasts for this visit.
     }
   }
-
-  const load = useCallback(async () => {
-    const r = await api(`/api/manager/history?day=${day}`, historySchema)
-    if (r.ok) setHistory(r.data)
-    else notify(t('networkError'))
-  }, [day, notify, t])
-
-  useEffect(() => {
-    if (!day) return
-    setHistory(null)
-    void load()
-  }, [day, load])
 
   useEffect(() => {
     void api('/api/manager/staff', adminStaffListSchema).then((r) => {
@@ -135,16 +113,11 @@ export function HistoryTab({
           <h2 id="history" className="text-2xl font-medium">
             {t('historyTitle')}
           </h2>
-          <label className="flex items-center gap-3 text-sm font-medium">
-            <span className="max-sm:sr-only">{t('date')}</span>
-            <input
-              type="date"
-              value={day}
-              max={jakartaToday()}
-              onChange={(e) => setDay(e.target.value)}
-              className="h-12 rounded-sm border border-ink-soft bg-surface px-3 text-base outline-none focus:border-ink focus:shadow-[inset_0_0_0_1px_var(--color-ink)]"
-            />
-          </label>
+          <DayField
+            label={<span className="max-sm:sr-only">{t('date')}</span>}
+            value={day}
+            onChange={setDay}
+          />
         </div>
 
         <StatTiles stats={history?.stats ?? null} />
@@ -165,7 +138,11 @@ export function HistoryTab({
         )}
         {history && view === 'table' ? (
           history.orders.length > 0 && (
-            <OrderTable orders={history.orders} onOpen={setOpen} />
+            <OrderTable
+              orders={history.orders}
+              sales={history.stats.revenueIdr}
+              onOpen={setOpen}
+            />
           )
         ) : (
           <ul className="grid gap-2">
@@ -303,17 +280,17 @@ function ViewSwitch({
 /** The day as a spreadsheet: one row per order, times and totals in columns. */
 function OrderTable({
   orders,
+  sales,
   onOpen,
 }: {
   orders: HistoryOrder[]
+  /** The day's revenue as the server counts it. */
+  sales: number
   onOpen: (order: HistoryOrder) => void
 }) {
   const { t } = useI18n()
   // Names only exist with staff PINs on; an empty column is just noise.
   const named = orders.some((o) => o.createdByName)
-  const sales = orders
-    .filter((o) => o.status !== 'cancelled')
-    .reduce((sum, o) => sum + o.totalIdr, 0)
   const time = (at: number | null) => (at === null ? '–' : formatTime(at))
   const cell = 'border-b border-line px-3 py-2.5 whitespace-nowrap'
   // The ticket stays put while the rest scrolls sideways on narrow screens.
@@ -423,8 +400,7 @@ function ExportCard() {
   const { t } = useI18n()
   const [from, setFrom] = useState(jakartaToday)
   const [to, setTo] = useState(jakartaToday)
-  const days = (Date.parse(to) - Date.parse(from)) / 86_400_000
-  const valid = days >= 0 && days < MAX_EXPORT_DAYS
+  const valid = isExportRange(from, to)
   const link = (format: 'csv' | 'json') =>
     `/api/manager/export?from=${from}&to=${to}&format=${format}`
 
