@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { tvActionSchema, tvControlSchema } from '../../shared/board'
+import { tvActionSchema } from '../../shared/board'
 import { commandSchema } from '../../shared/commands'
 import { createOrderSchema } from '../../shared/order'
 import {
@@ -89,15 +89,12 @@ screens.post(
 screens.post(
   '/api/tv/control',
   invalidInput('json', tvActionSchema),
-  async (c) => {
-    const room = venueRoom(c)
-    const body = c.req.valid('json')
-    const tvControl = await room.getTvControl()
-    const next = tvControlSchema.parse(
-      body.action === 'page'
-        ? { ...tvControl, page: body.page }
-        : { ...tvControl, paused: body.action === 'pause' },
-    )
-    return reply(c, await room.controlTv(await callerCredentials(c), next))
-  },
+  async (c) =>
+    reply(
+      c,
+      await venueRoom(c).controlTv(
+        await callerCredentials(c),
+        c.req.valid('json'),
+      ),
+    ),
 )

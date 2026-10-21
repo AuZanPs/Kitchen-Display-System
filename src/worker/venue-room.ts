@@ -9,6 +9,7 @@ import {
   isFinished,
   renderedMessageSchema,
   type Settings,
+  type TvAction,
   type TvControl,
 } from '../shared/board'
 import type { Command, CommandResult } from '../shared/commands'
@@ -592,9 +593,10 @@ export class VenueRoom extends DurableObject<Env> {
     return orderHistory(this.db, orderId)
   }
 
+  /** The kitchen stops or restarts the TV's paging, or shows one page. */
   async controlTv(
     credentials: Credentials,
-    control: TvControl,
+    action: TvAction,
   ): Promise<Result<{ tvControl: TvControl; rev: number }>> {
     const actor = await this.authenticate(credentials)
     if (!actor) return unauthenticated()
@@ -603,13 +605,12 @@ export class VenueRoom extends DurableObject<Env> {
     }
     const signedOut = this.staffRequired(actor)
     if (signedOut) return signedOut
-    this.tvControl = control
+    this.tvControl =
+      action.action === 'page'
+        ? { ...this.tvControl, page: action.page }
+        : { ...this.tvControl, paused: action.action === 'pause' }
     const rev = this.write(() => bumpRev(this.db))
-    return ok({ tvControl: control, rev })
-  }
-
-  getTvControl(): TvControl {
-    return this.tvControl
+    return ok({ tvControl: this.tvControl, rev })
   }
 
   /** Opening on a new date restarts ticket numbers at A-001. */
