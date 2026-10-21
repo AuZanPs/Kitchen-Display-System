@@ -32,6 +32,7 @@ import { TextArea } from '../ui/text-field'
 import {
   type Draft,
   type DraftLine,
+  draftCount,
   draftTotal,
   toCreateOrder,
   toLines,
@@ -88,6 +89,8 @@ export function Composer({
         .includes(query.trim().toLocaleLowerCase('id')),
   )
   const where = target ? whereLabel(target, t) : whereText(draft, tables, t)
+  const showOrderNote = settings.orderNote && !target
+  const needsTable = !target && !draft.destination
 
   function editLine(line: DraftLine) {
     const item = menu?.find((m) => m.id === line.menuItemId)
@@ -226,8 +229,8 @@ export function Composer({
         where={where}
         onEdit={editLine}
         drafts={drafts}
-        showOrderNote={settings.orderNote && !target}
-        needsTable={!target && !draft.destination}
+        showOrderNote={showOrderNote}
+        needsTable={needsTable}
         onReview={() => setReviewOpen(true)}
         className="hidden min-[950px]:grid"
       />
@@ -246,7 +249,7 @@ export function Composer({
         onOpenChange={setSheetOpen}
         title={where}
         description={t('itemsSelected', {
-          count: draft.lines.reduce((n, l) => n + l.qty, 0),
+          count: draftCount(draft),
         })}
       >
         <Summary
@@ -258,8 +261,8 @@ export function Composer({
             editLine(line)
           }}
           drafts={drafts}
-          showOrderNote={settings.orderNote && !target}
-          needsTable={!target && !draft.destination}
+          showOrderNote={showOrderNote}
+          needsTable={needsTable}
           onReview={() => {
             setSheetOpen(false)
             setReviewOpen(true)
@@ -345,7 +348,7 @@ function Summary({
   const { t } = useI18n()
   const [confirmDiscard, setConfirmDiscard] = useState(false)
   const { edit } = drafts
-  const count = draft.lines.reduce((n, l) => n + l.qty, 0)
+  const count = draftCount(draft)
   const noteTooLong = draft.orderNote.trim().length > LIMITS.orderNote
 
   function setQty(key: string, qty: number) {
@@ -658,7 +661,7 @@ function CartBar({
 }) {
   const { t } = useI18n()
   if (draft.lines.length === 0) return null
-  const count = draft.lines.reduce((n, l) => n + l.qty, 0)
+  const count = draftCount(draft)
   return (
     <div className="on-ink rise fixed inset-x-4 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-20 flex items-center gap-2 rounded-full bg-ink p-1.5 text-surface min-[950px]:hidden">
       <button
