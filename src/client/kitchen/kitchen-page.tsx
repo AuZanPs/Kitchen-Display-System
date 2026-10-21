@@ -10,7 +10,7 @@ import { useState } from 'react'
 import { type BoardOrder, isFinished } from '../../shared/board'
 import { AppBar } from '../app-bar'
 import { formatMinutes, formatTime, useI18n } from '../i18n'
-import { boardLines, whereLabel } from '../lib/board'
+import { boardLines, minutesSince, whereLabel } from '../lib/board'
 import { failureText, sendCommand } from '../lib/commands'
 import { RequireRole, type Session } from '../lib/session'
 import { stagger } from '../lib/stagger'
@@ -134,9 +134,9 @@ function Kitchen({
                   </span>
                 </h2>
                 {section.orders.map((order, index) => {
-                  const minutes = Math.floor(
-                    Math.max(0, now + serverOffsetMs - order.createdAt) /
-                      60_000,
+                  const minutes = minutesSince(
+                    order.createdAt,
+                    now + serverOffsetMs,
                   )
                   return (
                     <div

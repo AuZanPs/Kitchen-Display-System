@@ -1,7 +1,7 @@
 import { Trash2 } from 'lucide-react'
 import { type SubmitEvent, useState } from 'react'
 import { z } from 'zod'
-import { formatTime, useI18n } from '../i18n'
+import { formatTime, type Translate, useI18n } from '../i18n'
 import { api } from '../lib/api'
 import { stagger } from '../lib/stagger'
 import { Button } from '../ui/button'
@@ -133,11 +133,7 @@ function PairCard({ onPaired }: { onPaired: (message: string) => void }) {
   )
 }
 
-function lastSeen(
-  device: Device,
-  now: number,
-  t: ReturnType<typeof useI18n>['t'],
-) {
+function lastSeen(device: Device, now: number, t: Translate) {
   if (device.online) return t('online')
   if (!device.lastSeenAt) return t('neverSeen')
   const at = device.lastSeenAt

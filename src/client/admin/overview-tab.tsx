@@ -1,13 +1,18 @@
 import { Ban, ExternalLink } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { z } from 'zod'
-import type { BoardMessage, BoardOrder } from '../../shared/board'
+import {
+  type BoardMessage,
+  type BoardOrder,
+  isFinished,
+} from '../../shared/board'
 import { type HistoryStats, historySchema } from '../../shared/history'
 import { LIMITS, ticketLabel } from '../../shared/order'
-import { type DictKey, formatDay, formatMinutes, useI18n } from '../i18n'
+import { formatDay, formatMinutes, useI18n } from '../i18n'
 import { api } from '../lib/api'
-import { whereLabel } from '../lib/board'
+import { minutesSince, whereLabel } from '../lib/board'
 import { failureText, sendCommand } from '../lib/commands'
+import { HOME_BY_ROLE } from '../lib/session'
 import { stagger } from '../lib/stagger'
 import { useNow } from '../lib/use-now'
 import { Button } from '../ui/button'
@@ -18,16 +23,11 @@ import { StatTiles } from './history-tab'
 import {
   type Device,
   PAIR_ROLES,
+  type PairRole,
   ROLE_ICON,
-  ROLE_PATH,
   roleName,
+  STATUS_KEY,
 } from './shared'
-
-const STATUS_KEY: Record<string, DictKey> = {
-  new: 'laneNew',
-  accepted: 'lanePreparing',
-  ready: 'laneReady',
-}
 
 export function OverviewTab({
   board,
@@ -101,7 +101,7 @@ function ScreenTile({
   onManage,
 }: {
   index: number
-  role: (typeof PAIR_ROLES)[number]
+  role: PairRole
   devices: Device[] | null
   onManage: () => void
 }) {
@@ -141,7 +141,7 @@ function ScreenTile({
           </Button>
         ) : (
           <a
-            href={ROLE_PATH[role]}
+            href={HOME_BY_ROLE[role]}
             target="_blank"
             rel="noopener"
             className="state inline-flex min-h-12 items-center gap-2 rounded-full border border-ink-soft px-5 text-[15px] font-semibold"
@@ -224,10 +224,7 @@ function ActiveOrders({
   const [target, setTarget] = useState<BoardOrder | null>(null)
   const [reason, setReason] = useState('')
   const [busy, setBusy] = useState(false)
-  const active = (board?.orders ?? []).filter(
-    (o) =>
-      o.status === 'new' || o.status === 'accepted' || o.status === 'ready',
-  )
+  const active = (board?.orders ?? []).filter((o) => !isFinished(o.status))
 
   async function cancel(order: BoardOrder) {
     setBusy(true)
@@ -259,9 +256,7 @@ function ActiveOrders({
       )}
       <ul className="grid gap-2">
         {active.map((order, index) => {
-          const minutes = Math.floor(
-            Math.max(0, now - order.createdAt) / 60_000,
-          )
+          const minutes = minutesSince(order.createdAt, now)
           const items = order.lines.map((l) => `${l.qty}× ${l.name}`).join(', ')
           return (
             <li
@@ -281,7 +276,7 @@ function ActiveOrders({
                 </span>
               </div>
               <span className="rounded-full bg-tonal px-3 py-1 text-sm">
-                {t(STATUS_KEY[order.status] ?? 'laneNew')}
+                {t(STATUS_KEY[order.status])}
               </span>
               <Button
                 variant="text"

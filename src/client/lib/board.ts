@@ -6,6 +6,11 @@ export function whereLabel(order: BoardOrder, t: Translate) {
   return order.takeaway ? t('takeaway') : (order.table ?? t('table'))
 }
 
+/** Whole minutes since `since`, never negative. */
+export function minutesSince(since: number, now: number) {
+  return Math.floor(Math.max(0, now - since) / 60_000)
+}
+
 export function boardLines(order: BoardOrder): TicketLine[] {
   return order.lines.map((line) => ({ key: line.id, ...line }))
 }

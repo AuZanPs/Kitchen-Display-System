@@ -1,8 +1,9 @@
 import { ChefHat, MonitorPlay, Tablet } from 'lucide-react'
 import { useState } from 'react'
 import { z } from 'zod'
+import type { OrderStatus } from '../../shared/board'
 import { ROLES } from '../../shared/order'
-import type { Translate } from '../i18n'
+import type { DictKey, Translate } from '../i18n'
 
 export const PAIR_ROLES = ['waiter', 'kitchen', 'tv'] as const
 export type PairRole = (typeof PAIR_ROLES)[number]
@@ -13,10 +14,12 @@ export const ROLE_ICON = {
   tv: MonitorPlay,
 } as const
 
-export const ROLE_PATH: Record<PairRole, string> = {
-  waiter: '/waiter',
-  kitchen: '/kitchen',
-  tv: '/tv',
+export const STATUS_KEY: Record<OrderStatus, DictKey> = {
+  new: 'laneNew',
+  accepted: 'lanePreparing',
+  ready: 'laneReady',
+  served: 'served',
+  cancelled: 'cancelled',
 }
 
 export const deviceSchema = z.object({

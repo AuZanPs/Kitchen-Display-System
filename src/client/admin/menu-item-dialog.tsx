@@ -8,6 +8,7 @@ import {
 } from '../../shared/menu'
 import { formatIdr, useI18n } from '../i18n'
 import { api } from '../lib/api'
+import { failureText } from '../lib/commands'
 import { uuid } from '../lib/uuid'
 import { Button, IconButton } from '../ui/button'
 import { Chip } from '../ui/chip'
@@ -166,11 +167,7 @@ export function MenuItemDialog({
     const result = await saveMenuItem(item?.id ?? null, input)
     setBusy(false)
     if (!result.ok) {
-      setError(
-        result.status === 0
-          ? t('networkError')
-          : t('rejected', { message: result.message }),
-      )
+      setError(failureText(result, t))
       return
     }
     onSaved(t(hidden ? 'hidden' : 'itemSaved', { name: input.name }))

@@ -25,15 +25,7 @@ import { Ticket } from '../ticket'
 import { Card } from '../ui/card'
 import { Dialog } from '../ui/dialog'
 import { TextField } from '../ui/text-field'
-import type { Device } from './shared'
-
-const STATUS_KEY: Record<BoardOrder['status'], DictKey> = {
-  new: 'laneNew',
-  accepted: 'lanePreparing',
-  ready: 'laneReady',
-  served: 'served',
-  cancelled: 'cancelled',
-}
+import { type Device, STATUS_KEY } from './shared'
 
 const EVENT_KEY: Record<string, DictKey> = {
   created: 'evCreated',

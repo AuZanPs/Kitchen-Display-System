@@ -19,7 +19,7 @@ import {
   LIMITS,
   ticketLabel,
 } from '../../shared/order'
-import { formatIdr, formatTime, useI18n } from '../i18n'
+import { formatIdr, formatTime, type Translate, useI18n } from '../i18n'
 import { api } from '../lib/api'
 import { whereLabel } from '../lib/board'
 import { failureText, sendCommand } from '../lib/commands'
@@ -313,11 +313,7 @@ export function Composer({
   )
 }
 
-function whereText(
-  draft: Draft,
-  tables: Table[] | null,
-  t: ReturnType<typeof useI18n>['t'],
-) {
+function whereText(draft: Draft, tables: Table[] | null, t: Translate) {
   const d = draft.destination
   if (!d) return t('chooseTable')
   if (d.type === 'takeaway') return t('takeaway')

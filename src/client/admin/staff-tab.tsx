@@ -9,6 +9,7 @@ import {
 } from '../../shared/staff'
 import { useI18n } from '../i18n'
 import { api } from '../lib/api'
+import { failureText } from '../lib/commands'
 import { stagger } from '../lib/stagger'
 import { Monogram } from '../staff-sign-in'
 import { Button } from '../ui/button'
@@ -163,11 +164,7 @@ function StaffDialog({
         })
     setBusy(false)
     if (!result.ok) {
-      setError(
-        result.status === 0
-          ? t('networkError')
-          : t('rejected', { message: result.message }),
-      )
+      setError(failureText(result, t))
       return
     }
     onSaved(result.data.staff.name)

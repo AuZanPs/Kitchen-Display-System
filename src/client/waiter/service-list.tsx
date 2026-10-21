@@ -15,7 +15,7 @@ import {
 import type { Table } from '../../shared/menu'
 import { LIMITS, ticketLabel } from '../../shared/order'
 import { type DictKey, formatMinutes, useI18n } from '../i18n'
-import { whereLabel } from '../lib/board'
+import { minutesSince, whereLabel } from '../lib/board'
 import { failureText, sendCommand } from '../lib/commands'
 import { stagger } from '../lib/stagger'
 import { Button } from '../ui/button'
@@ -141,9 +141,7 @@ export function ServiceList({
         {orders.map((order, index) => {
           const step = progress(order)
           const text = statusText(order, board?.tvCount ?? 0)
-          const minutes = Math.floor(
-            Math.max(0, serverNow - order.createdAt) / 60_000,
-          )
+          const minutes = minutesSince(order.createdAt, serverNow)
           const closed = isFinished(order.status)
           const editable = !closed && !order.cancelRequested
           return (
