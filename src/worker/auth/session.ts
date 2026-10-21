@@ -1,7 +1,7 @@
 import type { Context } from 'hono'
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie'
 import type { Credentials } from '../devices'
-import { hmacHex, safeEqual, sha256Hex } from './crypto'
+import { hmacHex, safeEqual, sameSecret, sha256Hex } from './crypto'
 
 export const ADMIN_COOKIE = 'kds_admin'
 export const DEVICE_COOKIE = 'kds_device'
@@ -48,11 +48,7 @@ export async function isSuperPassword(env: Env, candidate: string) {
   const configured = env.SUPER_ADMIN_PASSWORD
   if (!configured || configured.length < MIN_SUPER_PASSWORD_LENGTH) return false
   if (!sessionSecret(env)) return false
-  const [a, b] = await Promise.all([
-    sha256Hex(candidate),
-    sha256Hex(env.SUPER_ADMIN_PASSWORD),
-  ])
-  return safeEqual(a, b)
+  return sameSecret(candidate, configured)
 }
 
 /**

@@ -1,11 +1,12 @@
-import { and, asc, between, eq, inArray, sql } from 'drizzle-orm'
+import { and, asc, between, eq, inArray, lt, type SQL, sql } from 'drizzle-orm'
 import { FINISHED_STATUSES } from '../shared/board'
 import { EXPORT_COLUMNS, type ExportRow, type History } from '../shared/history'
 import { ticketLabel } from '../shared/order'
 import { toBoardOrders } from './board'
-import { type Db, schema } from './db'
+import { type Db, getMeta, jakartaDate, schema } from './db'
 
 const MINUTE_MS = 60 * 1000
+const DAY_MS = 24 * 60 * MINUTE_MS
 
 /** Every order of one service day, oldest first, with the day's totals. */
 export function dayHistory(db: Db, day: string): History {
@@ -66,18 +67,59 @@ export function deleteFinished(db: Db, day: string, orderId?: string) {
     inArray(schema.orders.status, FINISHED_STATUSES),
     orderId === undefined ? undefined : eq(schema.orders.id, orderId),
   )
-  const ids = db
-    .select({ id: schema.orders.id })
-    .from(schema.orders)
-    .where(target)
+  db.delete(schema.orderEvents)
+    .where(inArray(schema.orderEvents.orderId, orderIds(db, target)))
+    .run()
+  return deleteOrders(db, target)
+}
+
+/** Daily retention: old finished orders, old records and spent counters go. */
+export function cleanup(db: Db, now: number) {
+  const orderDays = Number(getMeta(db, 'retention_orders_days') ?? 90)
+  const auditDays = Number(getMeta(db, 'retention_audit_days') ?? 180)
+  const orderCutoff = now - orderDays * DAY_MS
+  const auditCutoff = now - auditDays * DAY_MS
+  // Active tickets are never deleted, however old.
+  deleteOrders(
+    db,
+    and(
+      inArray(schema.orders.status, FINISHED_STATUSES),
+      lt(schema.orders.createdAt, orderCutoff),
+    ),
+  )
+  db.delete(schema.operations)
+    .where(lt(schema.operations.createdAt, orderCutoff))
+    .run()
+  // Events follow the audit retention, not the order retention.
+  db.delete(schema.orderEvents)
+    .where(lt(schema.orderEvents.at, auditCutoff))
+    .run()
+  db.delete(schema.metrics)
+    .where(lt(schema.metrics.day, jakartaDate(auditCutoff)))
+    .run()
+  db.delete(schema.rateLimits)
+    .where(lt(schema.rateLimits.windowStart, now - DAY_MS))
+    .run()
+  db.delete(schema.enrollChallenges)
+    .where(lt(schema.enrollChallenges.expiresAt, now - DAY_MS))
+    .run()
+}
+
+function orderIds(db: Db, target: SQL | undefined) {
+  return db.select({ id: schema.orders.id }).from(schema.orders).where(target)
+}
+
+/**
+ * Deletes the orders `target` selects with their lines, pending changes and
+ * TV receipts, and returns how many orders went. Events are the caller's.
+ */
+function deleteOrders(db: Db, target: SQL | undefined) {
+  const ids = orderIds(db, target)
   db.delete(schema.orderLines)
     .where(inArray(schema.orderLines.orderId, ids))
     .run()
   db.delete(schema.orderChanges)
     .where(inArray(schema.orderChanges.orderId, ids))
-    .run()
-  db.delete(schema.orderEvents)
-    .where(inArray(schema.orderEvents.orderId, ids))
     .run()
   db.delete(schema.displayReceipts)
     .where(inArray(schema.displayReceipts.orderId, ids))

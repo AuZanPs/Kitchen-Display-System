@@ -1,12 +1,11 @@
 import { DurableObject } from 'cloudflare:workers'
-import { and, eq, inArray, lt } from 'drizzle-orm'
+import { eq, inArray } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/durable-sqlite'
 import { migrate } from 'drizzle-orm/durable-sqlite/migrator'
 import { z } from 'zod'
 import {
   ACTIVE_STATUSES,
   type BoardMessage,
-  FINISHED_STATUSES,
   isFinished,
   renderedMessageSchema,
   type Settings,
@@ -35,10 +34,12 @@ import type {
   StaffMember,
 } from '../shared/staff'
 import {
-  pbkdf2Hex,
+  hashSecret,
   randomCode,
   randomHex,
   safeEqual,
+  sameSecret,
+  secretMatches,
   sha256Hex,
 } from './auth/crypto'
 import { applyReceipts, buildBoard } from './board'
@@ -70,7 +71,7 @@ import {
   touchDevice,
   unauthenticated,
 } from './devices'
-import { dayHistory, deleteFinished, exportRows } from './history'
+import { cleanup, dayHistory, deleteFinished, exportRows } from './history'
 import {
   activeTables,
   adminMenu,
@@ -138,47 +139,6 @@ export function nextCleanupAt(now: number) {
   next.setUTCHours(21, 0, 0, 0)
   if (next.getTime() <= now) next.setTime(next.getTime() + DAY_MS)
   return next.getTime()
-}
-
-export function cleanup(db: Db, now: number) {
-  const orderDays = Number(getMeta(db, 'retention_orders_days') ?? 90)
-  const auditDays = Number(getMeta(db, 'retention_audit_days') ?? 180)
-  const orderCutoff = now - orderDays * DAY_MS
-  const auditCutoff = now - auditDays * DAY_MS
-  // Active tickets are never deleted, however old.
-  const old = and(
-    inArray(schema.orders.status, FINISHED_STATUSES),
-    lt(schema.orders.createdAt, orderCutoff),
-  )
-  const oldIds = db
-    .select({ id: schema.orders.id })
-    .from(schema.orders)
-    .where(old)
-  db.delete(schema.orderLines)
-    .where(inArray(schema.orderLines.orderId, oldIds))
-    .run()
-  db.delete(schema.orderChanges)
-    .where(inArray(schema.orderChanges.orderId, oldIds))
-    .run()
-  db.delete(schema.displayReceipts)
-    .where(inArray(schema.displayReceipts.orderId, oldIds))
-    .run()
-  db.delete(schema.orders).where(old).run()
-  db.delete(schema.operations)
-    .where(lt(schema.operations.createdAt, orderCutoff))
-    .run()
-  db.delete(schema.orderEvents)
-    .where(lt(schema.orderEvents.at, auditCutoff))
-    .run()
-  db.delete(schema.metrics)
-    .where(lt(schema.metrics.day, jakartaDate(auditCutoff)))
-    .run()
-  db.delete(schema.rateLimits)
-    .where(lt(schema.rateLimits.windowStart, now - DAY_MS))
-    .run()
-  db.delete(schema.enrollChallenges)
-    .where(lt(schema.enrollChallenges.expiresAt, now - DAY_MS))
-    .run()
 }
 
 export class VenueRoom extends DurableObject<Env> {
@@ -926,22 +886,18 @@ export class VenueRoom extends DurableObject<Env> {
 }
 
 async function hashAdminPassword(password: string) {
-  const salt = randomHex(16)
-  return `${salt}.${await pbkdf2Hex(password, salt)}`
+  const { salt, hash } = await hashSecret(password)
+  return `${salt}.${hash}`
 }
 
 async function adminPasswordMatches(stored: string, candidate: string) {
   const [salt, hash] = stored.split('.')
   if (!salt || !hash) return false
-  return safeEqual(hash, await pbkdf2Hex(candidate, salt))
+  return secretMatches(candidate, salt, hash)
 }
 
 /** The original dapur's password from the ADMIN_PASSWORD secret, until one is set. */
 async function envPasswordMatches(env: Env, candidate: string) {
   if (!env.ADMIN_PASSWORD) return false
-  const [a, b] = await Promise.all([
-    sha256Hex(candidate),
-    sha256Hex(env.ADMIN_PASSWORD),
-  ])
-  return safeEqual(a, b)
+  return sameSecret(candidate, env.ADMIN_PASSWORD)
 }

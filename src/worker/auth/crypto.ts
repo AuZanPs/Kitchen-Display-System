@@ -54,6 +54,26 @@ export async function pbkdf2Hex(secret: string, saltHex: string) {
   return toHex(bits)
 }
 
+/** A fresh salt and the PBKDF2 hash of `secret` with it. */
+export async function hashSecret(secret: string) {
+  const salt = randomHex(16)
+  return { salt, hash: await pbkdf2Hex(secret, salt) }
+}
+
+export async function secretMatches(
+  candidate: string,
+  salt: string,
+  hash: string,
+) {
+  return safeEqual(hash, await pbkdf2Hex(candidate, salt))
+}
+
+/** Constant-time check of two secrets of any length, by their digests. */
+export async function sameSecret(a: string, b: string) {
+  const [left, right] = await Promise.all([sha256Hex(a), sha256Hex(b)])
+  return safeEqual(left, right)
+}
+
 async function hmacKey(secret: string) {
   return crypto.subtle.importKey(
     'raw',

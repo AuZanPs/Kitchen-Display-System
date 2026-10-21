@@ -1,7 +1,7 @@
 import { and, eq, isNotNull, isNull } from 'drizzle-orm'
 import type { Role } from '../shared/order'
 import type { AdminStaff, StaffInput, StaffMember } from '../shared/staff'
-import { pbkdf2Hex, randomHex, safeEqual } from './auth/crypto'
+import { hashSecret, secretMatches } from './auth/crypto'
 import { type Db, schema } from './db'
 
 type StaffRow = typeof schema.staff.$inferSelect
@@ -78,13 +78,13 @@ export function adminStaff(db: Db): AdminStaff[] {
 
 /** Hashing is async, so it happens before the write transaction. */
 export async function hashPin(pin: string) {
-  const salt = randomHex(16)
-  return { pinSalt: salt, pinHash: await pbkdf2Hex(pin, salt) }
+  const { salt, hash } = await hashSecret(pin)
+  return { pinSalt: salt, pinHash: hash }
 }
 
 export async function pinMatches(row: StaffRow, pin: string) {
   if (!row.pinHash || !row.pinSalt) return false
-  return safeEqual(row.pinHash, await pbkdf2Hex(pin, row.pinSalt))
+  return secretMatches(pin, row.pinSalt, row.pinHash)
 }
 
 /** Creates (`id` null) or replaces a staff member; null when `id` is unknown. */
