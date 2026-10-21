@@ -180,21 +180,20 @@ function Pairing() {
 
 /** Six digits as two groups of three tiles, readable from across the room. */
 function CodeTiles({ code }: { code: string }) {
-  const groups = [code.slice(0, 3), code.slice(3)]
+  const groups = [
+    { at: 0, digits: code.slice(0, 3) },
+    { at: 3, digits: code.slice(3) },
+  ]
   return (
     <p className="flex gap-3 sm:gap-6">
       <span className="sr-only">{code.split('').join(' ')}</span>
-      {groups.map((group) => (
-        <span
-          key={group + groups.indexOf(group)}
-          className="flex gap-1.5 sm:gap-2"
-          aria-hidden
-        >
-          {group.split('').map((digit, i) => (
+      {groups.map(({ at, digits }) => (
+        <span key={at} className="flex gap-1.5 sm:gap-2" aria-hidden>
+          {digits.split('').map((digit, i) => (
             <span
               // biome-ignore lint/suspicious/noArrayIndexKey: digits repeat and never reorder
               key={i}
-              style={stagger(groups.indexOf(group) * 3 + i)}
+              style={stagger(at + i)}
               className="rise grid h-[min(6rem,18vw)] w-[min(4rem,12.5vw)] place-items-center rounded-md bg-tonal text-[min(3.75rem,11vw)] font-extrabold tabular-nums sm:h-32 sm:w-22 sm:text-7xl"
             >
               {digit}
