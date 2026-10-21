@@ -51,10 +51,7 @@ function Waiter({
   // A draft whose send was never confirmed reopens its review after a reload.
   const [reviewOpen, setReviewOpen] = useState(drafts.draft.attempted)
   const socket = useBoardSocket()
-  const now = useNow(1000)
   const snackbar = useSnackbar()
-  const disconnected =
-    now - (socket.lastMessageAt ?? socket.startedAt) > STALE_AFTER_MS
 
   // Reloads on retry and whenever the admin edits the menu or tables.
   const menuVersion = socket.board?.menuVersion
@@ -146,19 +143,10 @@ function Waiter({
             <StaffChip name={session.staff.name} onSignedOut={refresh} />
           )}
         </AppBar>
-        {disconnected && (
-          <p
-            role="alert"
-            className="flex items-center gap-2 bg-ink px-6 py-3 text-[15px] font-semibold text-surface"
-          >
-            <WifiOff size={18} aria-hidden />
-            {t('disconnected', {
-              time: socket.lastMessageAt
-                ? formatTime(socket.lastMessageAt)
-                : '--:--',
-            })}
-          </p>
-        )}
+        <StaleBanner
+          lastMessageAt={socket.lastMessageAt}
+          startedAt={socket.startedAt}
+        />
         {loadFailed && (
           <div
             role="alert"
@@ -194,7 +182,7 @@ function Waiter({
         ) : (
           <ServiceList
             board={socket.board}
-            serverNow={now + socket.serverOffsetMs}
+            serverOffsetMs={socket.serverOffsetMs}
             unsent={drafts.draft.attempted ? drafts.draft : null}
             onOpenUnsent={() => {
               setTargetId(null)
@@ -213,5 +201,29 @@ function Waiter({
       </div>
       {snackbar.node}
     </div>
+  )
+}
+
+/** Says since when the board stopped updating; ticks on its own, not the page. */
+function StaleBanner({
+  lastMessageAt,
+  startedAt,
+}: {
+  lastMessageAt: number | null
+  startedAt: number
+}) {
+  const { t } = useI18n()
+  const now = useNow(1000)
+  if (now - (lastMessageAt ?? startedAt) <= STALE_AFTER_MS) return null
+  return (
+    <p
+      role="alert"
+      className="flex items-center gap-2 bg-ink px-6 py-3 text-[15px] font-semibold text-surface"
+    >
+      <WifiOff size={18} aria-hidden />
+      {t('disconnected', {
+        time: lastMessageAt ? formatTime(lastMessageAt) : '--:--',
+      })}
+    </p>
   )
 }

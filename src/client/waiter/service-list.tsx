@@ -18,6 +18,7 @@ import { type DictKey, formatMinutes, useI18n } from '../i18n'
 import { minutesSince, whereLabel } from '../lib/board'
 import { failureText, sendCommand } from '../lib/commands'
 import { stagger } from '../lib/stagger'
+import { useNow } from '../lib/use-now'
 import { Button } from '../ui/button'
 import { Dialog } from '../ui/dialog'
 import { TextField } from '../ui/text-field'
@@ -46,7 +47,7 @@ function statusText(order: BoardOrder, tvCount: number): DictKey {
 export function ServiceList({
   board,
   tables,
-  serverNow,
+  serverOffsetMs,
   unsent,
   onOpenUnsent,
   onAddItems,
@@ -54,13 +55,15 @@ export function ServiceList({
 }: {
   board: BoardMessage | null
   tables: Table[] | null
-  serverNow: number
+  serverOffsetMs: number
   unsent: Draft | null
   onOpenUnsent: () => void
   onAddItems: (order: BoardOrder) => void
   notify: (text: string) => void
 }) {
   const { t } = useI18n()
+  // The clock ticks here, not on the page, so the order composer stays still.
+  const serverNow = useNow(1000) + serverOffsetMs
   const [busy, setBusy] = useState<string | null>(null)
   const [moving, setMoving] = useState<BoardOrder | null>(null)
   const [cancelling, setCancelling] = useState<BoardOrder | null>(null)
