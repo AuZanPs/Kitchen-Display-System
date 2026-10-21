@@ -377,7 +377,7 @@ export const en: Dict = {
   colBy: 'By',
   // Homepage
   homeHeadline1: 'From the table',
-  homeHeadline2: 'straight to the kitchen screen.',
+  homeHeadline2: 'to the kitchen TV.',
   homeSeeHow: 'See how it works',
   homeDemoLabel: 'Try it: send an order to the kitchen TV',
   homeDemoTap: 'Tap a dish to add it',

@@ -11,6 +11,8 @@ import { delay, line } from './shared'
 const DISHES = [
   { id: 'ayam', name: 'Ayam Bakar Madu', price: 56_000 },
   { id: 'nasi', name: 'Nasi Goreng Kampung', price: 42_000 },
+  { id: 'mie', name: 'Mie Goreng Jawa', price: 38_000 },
+  { id: 'sate', name: 'Sate Ayam', price: 45_000 },
   { id: 'teh', name: 'Es Teh Lemon', price: 18_000 },
 ] as const
 const TABLES = ['Meja 4', 'Meja 9', 'Meja 2', 'Meja 11']
@@ -18,56 +20,53 @@ const TABLES = ['Meja 4', 'Meja 9', 'Meja 2', 'Meja 11']
 export function Hero() {
   const { t } = useI18n()
   return (
-    <section className="on-ink grid bg-ink text-surface md:min-h-svh md:grid-cols-2">
-      <div className="order-2 flex flex-col justify-between gap-16 px-5 pt-10 pb-12 md:order-1 md:p-10">
-        <Wordmark className="hidden md:flex" />
-        <div className="grid max-w-[46ch] gap-5">
-          <h1 className="text-[clamp(26px,6.4vw,32px)] leading-[1.15] font-medium tracking-[-0.02em] md:text-[32px]">
-            <span className="mask-line">
-              <span>{t('homeHeadline1')}</span>
-            </span>
-            <span className="mask-line">
-              <span style={delay(1)}>{t('homeHeadline2')}</span>
-            </span>
-          </h1>
-          <p className="after-lines text-[17px] leading-relaxed text-on-ink-soft">
-            {t('siteLead')}
-          </p>
-          <a
-            href="#cara-kerja"
-            className="after-lines state inline-flex min-h-12 w-fit items-center rounded-full px-6 text-[15px] font-semibold text-ink transition-[background-color,scale] duration-150 active:scale-[0.97] [--bg:var(--color-surface)]"
+    <section className="on-ink bg-ink px-4 pb-16 text-surface md:px-10 md:pb-24">
+      <div className="flex min-h-18 items-center justify-between gap-2 md:min-h-24">
+        <Wordmark />
+        <div className="flex items-center gap-2 md:gap-4">
+          <Link
+            to="/masuk"
+            className="state inline-flex min-h-11 items-center gap-2 rounded-full px-3 text-[15px] font-semibold text-surface [--on:var(--color-surface)]"
           >
-            {t('homeSeeHow')}
-          </a>
+            <LogIn size={18} aria-hidden className="max-sm:hidden" />
+            {t('signInTitle')}
+          </Link>
+          <LanguageToggle onInk />
         </div>
       </div>
-      <div className="relative order-1 grid place-items-center bg-ink-raised px-4 pt-24 pb-10 md:order-2 md:px-10 md:pt-28">
-        {/* One row, so the wordmark and the controls never meet on a phone. */}
-        <div className="absolute inset-x-0 top-0 flex items-center justify-between gap-2 p-4 md:justify-end md:gap-4 md:px-10 md:pt-8">
-          <Wordmark className="md:hidden" />
-          <div className="flex items-center gap-2 md:gap-4">
-            <Link
-              to="/masuk"
-              className="state inline-flex min-h-11 items-center gap-2 rounded-full px-3 text-[15px] font-semibold text-surface [--on:var(--color-surface)]"
-            >
-              <LogIn size={18} aria-hidden className="max-sm:hidden" />
-              {t('signInTitle')}
-            </Link>
-            <LanguageToggle onInk />
-          </div>
-        </div>
+      {/* The one centred moment of the page: the promise, then the proof. */}
+      <div className="mx-auto grid max-w-[60rem] justify-items-center gap-6 pt-12 text-center md:pt-20">
+        <h1 className="text-[clamp(32px,7.4vw,96px)] leading-[0.98] font-semibold tracking-[-0.035em]">
+          <span className="mask-line">
+            <span>{t('homeHeadline1')}</span>
+          </span>
+          <span className="mask-line">
+            <span style={delay(1)}>{t('homeHeadline2')}</span>
+          </span>
+        </h1>
+        <p className="after-lines max-w-[44ch] text-[17px] leading-relaxed text-on-ink-soft md:text-[19px]">
+          {t('siteLead')}
+        </p>
+        <a
+          href="#cara-kerja"
+          className="after-lines state inline-flex min-h-12 items-center rounded-full px-7 text-[15px] font-semibold text-ink transition-[background-color,scale] duration-150 active:scale-[0.97] [--bg:var(--color-surface)]"
+        >
+          {t('homeSeeHow')}
+        </a>
+      </div>
+      <div className="after-lines mx-auto mt-14 max-w-[68rem] md:mt-20">
         <HeroDemo />
       </div>
     </section>
   )
 }
 
-function Wordmark({ className = '' }: { className?: string }) {
+function Wordmark() {
   const { t } = useI18n()
   return (
     <span
       translate="no"
-      className={`flex items-center gap-3 text-lg font-semibold ${className}`}
+      className="flex items-center gap-3 text-lg font-semibold"
     >
       {/* BrandMark inverted for the charcoal ground. */}
       <span
@@ -135,9 +134,10 @@ function HeroDemo() {
     <section
       data-ui
       aria-label={t('homeDemoLabel')}
-      className="w-full max-w-[460px] overflow-hidden rounded-md bg-surface text-ink"
+      className="grid overflow-hidden rounded-md text-left md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]"
     >
-      <div className="grid gap-3 p-4">
+      {/* The waiter's tablet. */}
+      <div className="grid content-start gap-3 bg-surface p-4 text-ink md:p-6">
         <div className="flex items-center justify-between gap-3">
           <span className="rounded-full bg-tonal px-3 py-1 text-[13px] font-semibold">
             {table}
@@ -184,20 +184,21 @@ function HeroDemo() {
           <span className="tabular-nums">{formatIdr(total)}</span>
         </button>
       </div>
-      <div className="grid gap-3 bg-ink p-4 text-surface">
-        <p className="flex items-center justify-between text-[15px] font-medium">
+      {/* The kitchen TV: what was just sent lands here. */}
+      <div className="grid content-start gap-4 bg-ink-raised p-4 text-surface md:p-6">
+        <p className="flex items-center justify-between text-[17px] font-medium">
           <span className="flex items-center gap-2">
-            <span aria-hidden className="size-2 rounded-full bg-tonal" />
+            <span aria-hidden className="size-2.5 rounded-full bg-tonal" />
             {t('laneNew')}
           </span>
-          <span className="grid size-7 place-items-center rounded-full bg-surface text-[13px] font-semibold text-ink tabular-nums">
+          <span className="grid size-8 place-items-center rounded-full bg-surface text-[14px] font-semibold text-ink tabular-nums">
             {tickets.length}
           </span>
         </p>
         {/* Phones keep the newest ticket only; wider screens the last two. */}
         <div
           aria-live="polite"
-          className="grid gap-3 max-md:[&>*:not(:last-child)]:hidden"
+          className="grid items-start gap-3 sm:grid-cols-2 max-sm:[&>*:not(:last-child)]:hidden"
         >
           {tickets.slice(-2).map((ticket) => (
             <Ticket
