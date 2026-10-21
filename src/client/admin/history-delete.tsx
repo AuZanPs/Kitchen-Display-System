@@ -1,6 +1,7 @@
 import { Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { z } from 'zod'
+import { isFinished } from '../../shared/board'
 import {
   type History,
   type HistoryOrder,
@@ -49,10 +50,7 @@ export function HistoryDeleteCard({
   }, [day, load])
 
   // Orders still in progress are cancelled from the overview first.
-  const done =
-    history?.orders.filter(
-      (o) => o.status === 'served' || o.status === 'cancelled',
-    ) ?? []
+  const done = history?.orders.filter((o) => isFinished(o.status)) ?? []
   const active = (history?.orders.length ?? 0) - done.length
 
   const deleted = (count: number) => {

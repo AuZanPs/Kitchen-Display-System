@@ -7,7 +7,11 @@ import {
   MonitorOff,
 } from 'lucide-react'
 import { useState } from 'react'
-import type { BoardMessage, BoardOrder } from '../../shared/board'
+import {
+  type BoardMessage,
+  type BoardOrder,
+  isFinished,
+} from '../../shared/board'
 import type { Table } from '../../shared/menu'
 import { LIMITS, ticketLabel } from '../../shared/order'
 import { type DictKey, formatMinutes, useI18n } from '../i18n'
@@ -140,8 +144,7 @@ export function ServiceList({
           const minutes = Math.floor(
             Math.max(0, serverNow - order.createdAt) / 60_000,
           )
-          const closed =
-            order.status === 'served' || order.status === 'cancelled'
+          const closed = isFinished(order.status)
           const editable = !closed && !order.cancelRequested
           return (
             <li

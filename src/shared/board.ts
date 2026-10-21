@@ -10,6 +10,12 @@ export const ORDER_STATUSES = [
 export type OrderStatus = (typeof ORDER_STATUSES)[number]
 
 export const ACTIVE_STATUSES = ['new', 'accepted', 'ready'] as const
+export const FINISHED_STATUSES = ['served', 'cancelled'] as const
+
+/** Served and cancelled orders are done; every other status is still active. */
+export function isFinished(status: OrderStatus) {
+  return status === 'served' || status === 'cancelled'
+}
 
 export const DESTINATIONS = ['table', 'takeaway'] as const
 

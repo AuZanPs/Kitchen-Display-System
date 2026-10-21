@@ -1,4 +1,5 @@
 import { and, asc, between, eq, inArray, sql } from 'drizzle-orm'
+import { FINISHED_STATUSES } from '../shared/board'
 import { EXPORT_COLUMNS, type ExportRow, type History } from '../shared/history'
 import { ticketLabel } from '../shared/order'
 import { toBoardOrders } from './board'
@@ -62,7 +63,7 @@ export function dayHistory(db: Db, day: string): History {
 export function deleteFinished(db: Db, day: string, orderId?: string) {
   const target = and(
     eq(schema.orders.serviceDay, day),
-    inArray(schema.orders.status, ['served', 'cancelled']),
+    inArray(schema.orders.status, FINISHED_STATUSES),
     orderId === undefined ? undefined : eq(schema.orders.id, orderId),
   )
   const ids = db

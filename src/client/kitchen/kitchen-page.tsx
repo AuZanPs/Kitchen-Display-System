@@ -7,7 +7,7 @@ import {
   WifiOff,
 } from 'lucide-react'
 import { useState } from 'react'
-import type { BoardOrder } from '../../shared/board'
+import { type BoardOrder, isFinished } from '../../shared/board'
 import { AppBar } from '../app-bar'
 import { formatMinutes, formatTime, useI18n } from '../i18n'
 import { boardLines, whereLabel } from '../lib/board'
@@ -78,12 +78,7 @@ function Kitchen({
   const sections = [
     {
       title: t('changesStrip'),
-      orders: orders.filter(
-        (o) =>
-          o.cancelRequested &&
-          o.status !== 'served' &&
-          o.status !== 'cancelled',
-      ),
+      orders: orders.filter((o) => o.cancelRequested && !isFinished(o.status)),
     },
     {
       title: t('laneNew'),

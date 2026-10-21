@@ -1,6 +1,6 @@
 import { ClipboardList, ConciergeBell, WifiOff } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { DEFAULT_SETTINGS } from '../../shared/board'
+import { DEFAULT_SETTINGS, isFinished } from '../../shared/board'
 import {
   type MenuItem,
   menuSchema,
@@ -73,11 +73,7 @@ function Waiter({
 
   const target =
     socket.board?.orders.find(
-      (o) =>
-        o.id === targetId &&
-        o.status !== 'served' &&
-        o.status !== 'cancelled' &&
-        !o.cancelRequested,
+      (o) => o.id === targetId && !isFinished(o.status) && !o.cancelRequested,
     ) ?? null
 
   const readyCount =

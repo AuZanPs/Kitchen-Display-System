@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { OrderStatus } from './board'
+import { isFinished, type OrderStatus } from './board'
 import {
   type ErrorCode,
   LIMITS,
@@ -101,8 +101,6 @@ const NOOP_TARGET: Partial<Record<CommandType, OrderStatus>> = {
   serve: 'served',
 }
 
-const ACTIVE: OrderStatus[] = ['new', 'accepted', 'ready']
-
 function reject(code: ErrorCode, message: string): Decision {
   return { kind: 'reject', code, message }
 }
@@ -184,7 +182,7 @@ export function decide(order: OrderState, command: Command): Decision {
       return { kind: 'apply', patch: { changePending: true } }
 
     case 'moveTable':
-      if (!ACTIVE.includes(order.status)) {
+      if (isFinished(order.status)) {
         return reject('invalid_transition', 'Pesanan sudah ditutup.')
       }
       // Ready food only needs the new table; there is nothing left to cook.
@@ -193,7 +191,7 @@ export function decide(order: OrderState, command: Command): Decision {
         : { kind: 'apply', patch: { changePending: true } }
 
     case 'requestCancel':
-      if (!ACTIVE.includes(order.status)) {
+      if (isFinished(order.status)) {
         return reject('invalid_transition', 'Pesanan sudah ditutup.')
       }
       if (order.cancelRequested) {
@@ -211,7 +209,7 @@ export function decide(order: OrderState, command: Command): Decision {
       }
 
     case 'managerCancel':
-      if (!ACTIVE.includes(order.status)) {
+      if (isFinished(order.status)) {
         return reject('invalid_transition', 'Pesanan sudah ditutup.')
       }
       return {
