@@ -1,5 +1,5 @@
 import { Ban, ExternalLink } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { z } from 'zod'
 import {
   type BoardMessage,
@@ -67,22 +67,32 @@ export function OverviewTab({
   )
 }
 
-/** Today's numbers; refetched when an order is added or changes state. */
+/** The newest moment of an order that today's numbers count. */
+function lastCounted(order: BoardOrder) {
+  return Math.max(
+    order.createdAt,
+    order.readyAt ?? 0,
+    order.servedAt ?? 0,
+    order.cancelledAt ?? 0,
+  )
+}
+
+/** Today's numbers; refetched when an order is sent, ready, served or cancelled. */
 function Today({ board }: { board: BoardMessage | null }) {
   const { t } = useI18n()
   const [stats, setStats] = useState<HistoryStats | null>(null)
-  // Render receipts move the board too; only order changes matter here.
-  const orders = useMemo(
-    () => board?.orders.map((o) => `${o.id}:${o.status}`).join() ?? '',
-    [board],
-  )
+  // Accepting an order, TV receipts and orders leaving the board move the
+  // board without changing the numbers, so only a newer moment refetches.
+  const latest = Math.max(0, ...(board?.orders.map(lastCounted) ?? []))
+  const fetchedUpTo = useRef(-1)
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: `orders` only triggers a refetch
   useEffect(() => {
+    if (latest <= fetchedUpTo.current) return
+    fetchedUpTo.current = latest
     void api('/api/manager/history', historySchema).then((r) => {
       if (r.ok) setStats(r.data.stats)
     })
-  }, [orders])
+  }, [latest])
 
   return (
     <section aria-labelledby="today" className="grid gap-4">
