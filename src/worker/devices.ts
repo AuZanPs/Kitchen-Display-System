@@ -2,7 +2,7 @@ import { and, desc, eq, gt, isNull } from 'drizzle-orm'
 import { z } from 'zod'
 import { safeEqual } from './auth/crypto'
 import { type Db, schema } from './db'
-import { type Failure, fail, type Result } from './orders'
+import { type Failure, fail, ok, type Result } from './orders'
 
 export const ENROLL_ROLES = ['waiter', 'kitchen', 'tv'] as const
 export const ENROLL_TTL_MS = 5 * 60 * 1000
@@ -152,11 +152,7 @@ export function approveChallenge(
     .set({ approvedRole: input.role, approvedLabel: input.label })
     .where(eq(schema.enrollChallenges.id, challenge.id))
     .run()
-  return {
-    ok: true,
-    status: 200,
-    body: { role: input.role, label: input.label },
-  }
+  return ok({ role: input.role, label: input.label })
 }
 
 export type PollResult =
@@ -194,7 +190,7 @@ export function pollChallenge(
     return unauthenticated()
   }
   if (!challenge.approvedRole) {
-    return { ok: true, status: 200, body: { status: 'pending' } }
+    return ok<PollResult>({ status: 'pending' })
   }
   db.update(schema.enrollChallenges)
     .set({ consumedAt: now })
@@ -210,16 +206,12 @@ export function pollChallenge(
       createdAt: now,
     })
     .run()
-  return {
-    ok: true,
-    status: 200,
-    body: {
-      status: 'approved',
-      role: challenge.approvedRole,
-      label,
-      token: `main.${device.id}.${device.secret}`,
-    },
-  }
+  return ok<PollResult>({
+    status: 'approved',
+    role: challenge.approvedRole,
+    label,
+    token: `main.${device.id}.${device.secret}`,
+  })
 }
 
 export function listDevices(db: Db) {

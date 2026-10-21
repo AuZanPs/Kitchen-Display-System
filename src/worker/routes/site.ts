@@ -1,6 +1,6 @@
-import { type Context, Hono } from 'hono'
+import { Hono } from 'hono'
 import { z } from 'zod'
-import { ownerEmailSchema, roomFor, SLUG_PATTERN } from '../../shared/venue'
+import { ownerEmailSchema, SLUG_PATTERN } from '../../shared/venue'
 import { randomHex, sha256Hex } from '../auth/crypto'
 import {
   canSignSessions,
@@ -11,12 +11,14 @@ import {
 } from '../auth/session'
 import { sendSignInLink } from '../email'
 import { logEvent } from '../log'
+import { fail } from '../orders'
 import {
   type AppEnv,
   directory,
   invalidInput,
   refuse,
   reply,
+  roomBySlug,
   slugParam,
   tokenSchema,
 } from './common'
@@ -24,10 +26,6 @@ import {
 // Site (bare domain): owners sign in with an emailed link and open their dapur.
 const LOGIN_TTL_MS = 15 * 60 * 1000
 const HANDOFF_TTL_MS = 60 * 1000
-
-function rateLimited(c: Context, message: string) {
-  return c.json({ error: { code: 'rate_limited', message } }, 429)
-}
 
 export const site = new Hono<AppEnv>()
 
@@ -39,7 +37,14 @@ site.post(
     const dir = directory(c.env)
     const window = 15 * 60 * 1000
     if (!(await dir.allowAttempt(`site-login:${await ipHash(c)}`, 5, window))) {
-      return rateLimited(c, 'Terlalu banyak permintaan. Tunggu 15 menit.')
+      return reply(
+        c,
+        fail(
+          429,
+          'rate_limited',
+          'Terlalu banyak permintaan. Tunggu 15 menit.',
+        ),
+      )
     }
     const token = randomHex(32)
     const link = `${new URL(c.req.url).origin}/masuk#token=${token}`
@@ -85,7 +90,10 @@ site.post(
     const dir = directory(c.env)
     const key = `site-verify:${await ipHash(c)}`
     if (!(await dir.allowAttempt(key, 10, 15 * 60 * 1000))) {
-      return rateLimited(c, 'Terlalu banyak percobaan. Tunggu 15 menit.')
+      return reply(
+        c,
+        fail(429, 'rate_limited', 'Terlalu banyak percobaan. Tunggu 15 menit.'),
+      )
     }
     if (!canSignSessions(c.env)) return refuse(c, 401, 'Belum disiapkan.')
     const email = await dir.takeToken(
@@ -174,20 +182,12 @@ site.post(
       return refuse(c, 403, 'Hanya pemilik yang bisa mengatur admin.')
     }
     if (result === 'self') {
-      return c.json(
-        { error: { code: 'invalid_input', message: 'Ini email pemilik.' } },
-        422,
-      )
+      return reply(c, fail(422, 'invalid_input', 'Ini email pemilik.'))
     }
     if (result === 'full') {
-      return c.json(
-        {
-          error: {
-            code: 'operation_conflict',
-            message: 'Paling banyak 3 admin lain.',
-          },
-        },
-        409,
+      return reply(
+        c,
+        fail(409, 'operation_conflict', 'Paling banyak 3 admin lain.'),
       )
     }
     return c.body(null, 204)
@@ -212,9 +212,7 @@ site.post(
       return refuse(c, 403, 'Hanya pemilik yang bisa mengatur admin.')
     }
     // Their admin sign-in on the dapur ends now; the owner opens it again from the site.
-    const signedOut = await c.env.VENUE_ROOM.getByName(
-      roomFor(slug),
-    ).signOutAdmins()
+    const signedOut = await roomBySlug(c.env, slug).signOutAdmins()
     if (!signedOut.ok) return reply(c, signedOut)
     return c.body(null, 204)
   },

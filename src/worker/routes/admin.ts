@@ -1,5 +1,4 @@
 import { Hono } from 'hono'
-import { z } from 'zod'
 import { settingsSchema } from '../../shared/board'
 import { sha256Hex } from '../auth/crypto'
 import {
@@ -13,6 +12,7 @@ import {
   adminCredentials,
   directory,
   invalidInput,
+  passwordBody,
   placeOf,
   refuse,
   reply,
@@ -27,7 +27,7 @@ export const admin = new Hono<AppEnv>()
 // Admin: each dapur has its own password, checked in its room; a signed 12-hour cookie.
 admin.post(
   '/api/admin/login',
-  invalidInput('json', z.object({ password: z.string().min(1).max(200) })),
+  invalidInput('json', passwordBody),
   async (c) => {
     if (!canSignSessions(c.env)) return refuse(c, 401, 'Admin belum disiapkan.')
     const result = await venueRoom(c).adminLogin(

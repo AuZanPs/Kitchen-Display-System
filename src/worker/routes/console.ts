@@ -3,7 +3,6 @@ import { z } from 'zod'
 import {
   adminPasswordSchema,
   ownerEmailSchema,
-  roomFor,
   venueCreateSchema,
   venueNameSchema,
 } from '../../shared/venue'
@@ -14,13 +13,16 @@ import {
   isSuperPassword,
   setSuperSession,
 } from '../auth/session'
+import { fail } from '../orders'
 import {
   type AppEnv,
   directory,
   invalidInput,
   notFound,
+  passwordBody,
   refuse,
   reply,
+  roomBySlug,
   slugParam,
 } from './common'
 
@@ -36,28 +38,23 @@ const requireSuper: MiddlewareHandler<AppEnv> = async (c, next) => {
 /** The room of a dapur the directory knows, or null. */
 async function knownRoom(env: Env, slug: string) {
   if (!(await directory(env).has(slug))) return null
-  return env.VENUE_ROOM.getByName(roomFor(slug))
+  return roomBySlug(env, slug)
 }
 
 export const superConsole = new Hono<AppEnv>()
 
 superConsole.post(
   '/api/super/login',
-  invalidInput('json', z.object({ password: z.string().min(1).max(200) })),
+  invalidInput('json', passwordBody),
   async (c) => {
     const key = `super-login:${await ipHash(c)}`
     // Counted before checking, so a correct guess after the limit still fails.
     // No console-wide cap: that would let anyone lock the owner out. Guesses
     // from many addresses are answered by the minimum password length instead.
     if (!(await directory(c.env).allowAttempt(key, 5, SUPER_LOGIN_WINDOW_MS))) {
-      return c.json(
-        {
-          error: {
-            code: 'rate_limited',
-            message: 'Terlalu banyak percobaan. Tunggu 15 menit.',
-          },
-        },
-        429,
+      return reply(
+        c,
+        fail(429, 'rate_limited', 'Terlalu banyak percobaan. Tunggu 15 menit.'),
       )
     }
     if (!(await isSuperPassword(c.env, c.req.valid('json').password))) {
@@ -87,19 +84,15 @@ superConsole.post(
     const { slug, name, adminPassword, ownerEmail } = c.req.valid('json')
     const dir = directory(c.env)
     if (!(await dir.add(slug, name, ownerEmail ?? null))) {
-      return c.json(
-        {
-          error: {
-            code: 'operation_conflict',
-            message: 'Alamat ini sudah dipakai dapur lain.',
-          },
-        },
-        409,
+      return reply(
+        c,
+        fail(409, 'operation_conflict', 'Alamat ini sudah dipakai dapur lain.'),
       )
     }
-    const result = await c.env.VENUE_ROOM.getByName(roomFor(slug), {
-      locationHint: 'apac-se',
-    }).provision({ name, adminPassword })
+    const result = await roomBySlug(c.env, slug).provision({
+      name,
+      adminPassword,
+    })
     if (!result.ok) {
       await dir.remove(slug)
       return reply(c, result)
@@ -146,13 +139,11 @@ superConsole.put(
   invalidInput('json', z.object({ ownerEmail: ownerEmailSchema.nullable() })),
   async (c) => {
     const { slug } = c.req.valid('param')
-    const dir = directory(c.env)
-    if (!(await dir.has(slug))) return notFound(c)
-    await dir.setOwner(slug, c.req.valid('json').ownerEmail)
+    const room = await knownRoom(c.env, slug)
+    if (!room) return notFound(c)
+    await directory(c.env).setOwner(slug, c.req.valid('json').ownerEmail)
     // A new owner means the old one's admin sessions end too.
-    const signedOut = await c.env.VENUE_ROOM.getByName(
-      roomFor(slug),
-    ).signOutAdmins()
+    const signedOut = await room.signOutAdmins()
     if (!signedOut.ok) return reply(c, signedOut)
     return c.body(null, 204)
   },

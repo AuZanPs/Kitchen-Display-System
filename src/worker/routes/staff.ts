@@ -1,24 +1,26 @@
 import { Hono } from 'hono'
 import { staffLoginSchema } from '../../shared/staff'
+import { clearStaffSession, setStaffSession } from '../auth/session'
 import {
-  clearStaffSession,
-  credentials,
-  setStaffSession,
-} from '../auth/session'
-import { type AppEnv, invalidInput, reply, roomOf, venueRoom } from './common'
+  type AppEnv,
+  callerCredentials,
+  invalidInput,
+  reply,
+  venueRoom,
+} from './common'
 
 export const staff = new Hono<AppEnv>()
 
 // Staff PINs: the room checks the PIN, the Worker signs the cookie.
 staff.get('/api/staff', async (c) =>
-  reply(c, await venueRoom(c).listStaff(await credentials(c, roomOf(c)))),
+  reply(c, await venueRoom(c).listStaff(await callerCredentials(c))),
 )
 staff.post(
   '/api/staff/login',
   invalidInput('json', staffLoginSchema),
   async (c) => {
     const result = await venueRoom(c).staffLogin(
-      await credentials(c, roomOf(c)),
+      await callerCredentials(c),
       c.req.valid('json'),
     )
     if (!result.ok) return reply(c, result)

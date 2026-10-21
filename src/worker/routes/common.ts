@@ -8,11 +8,14 @@ import {
   roomFor,
   SLUG_PATTERN,
 } from '../../shared/venue'
-import { adminEpoch } from '../auth/session'
+import { adminEpoch, credentials } from '../auth/session'
 import type { Credentials } from '../devices'
 import type { Result } from '../orders'
 
 export type AppEnv = { Bindings: Env }
+
+// Placement hint only applies when an object is first created.
+const PLACEMENT = { locationHint: 'apac-se' } as const
 
 /** This request's dapur room; the hostname decides it (see `placeFromHost`). */
 export function roomOf(c: Context<AppEnv>) {
@@ -22,12 +25,16 @@ export function roomOf(c: Context<AppEnv>) {
 }
 
 export function venueRoom(c: Context<AppEnv>) {
-  // Placement hint only applies when the object is first created.
-  return c.env.VENUE_ROOM.getByName(roomOf(c), { locationHint: 'apac-se' })
+  return c.env.VENUE_ROOM.getByName(roomOf(c), PLACEMENT)
+}
+
+/** The room of the dapur at `slug`, for routes that name a dapur themselves. */
+export function roomBySlug(env: Env, slug: string) {
+  return env.VENUE_ROOM.getByName(roomFor(slug), PLACEMENT)
 }
 
 export function directory(env: Env) {
-  return env.DIRECTORY.getByName('directory', { locationHint: 'apac-se' })
+  return env.DIRECTORY.getByName('directory', PLACEMENT)
 }
 
 export function placeOf(c: Context<AppEnv>): Place {
@@ -88,6 +95,11 @@ export const requireAdmin: MiddlewareHandler<AppEnv> = async (c, next) => {
   await next()
 }
 
+/** Device or admin credentials from the cookies; the room checks them. */
+export function callerCredentials(c: Context<AppEnv>): Promise<Credentials> {
+  return credentials(c, roomOf(c))
+}
+
 /** Admin credentials from the cookie; the room checks the epoch is current. */
 export async function adminCredentials(
   c: Context<AppEnv>,
@@ -96,6 +108,7 @@ export async function adminCredentials(
   return epoch === null ? { kind: 'none' } : { kind: 'admin', epoch }
 }
 
+export const passwordBody = z.object({ password: z.string().min(1).max(200) })
 export const idParam = z.object({ id: z.string().min(1).max(64) })
 export const slugParam = z.object({ slug: z.string().regex(SLUG_PATTERN) })
 export const tokenSchema = z.object({

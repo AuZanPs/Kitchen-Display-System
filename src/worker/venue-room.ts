@@ -4,7 +4,10 @@ import { drizzle } from 'drizzle-orm/durable-sqlite'
 import { migrate } from 'drizzle-orm/durable-sqlite/migrator'
 import { z } from 'zod'
 import {
+  ACTIVE_STATUSES,
   type BoardMessage,
+  FINISHED_STATUSES,
+  isFinished,
   renderedMessageSchema,
   type Settings,
   type TvControl,
@@ -81,6 +84,7 @@ import {
   createOrder,
   type Failure,
   fail,
+  ok,
   orderHistory,
   type Result,
   runCommand,
@@ -128,10 +132,6 @@ function socketCredentials(headers: Headers): Credentials {
     : { kind: 'none' }
 }
 
-function ok<T>(body: T): Result<T> {
-  return { ok: true, status: 200, body }
-}
-
 /** Cleanup runs daily at 04:00 Jakarta time (21:00 UTC), outside service. */
 export function nextCleanupAt(now: number) {
   const next = new Date(now)
@@ -147,7 +147,7 @@ export function cleanup(db: Db, now: number) {
   const auditCutoff = now - auditDays * DAY_MS
   // Active tickets are never deleted, however old.
   const old = and(
-    inArray(schema.orders.status, ['served', 'cancelled']),
+    inArray(schema.orders.status, FINISHED_STATUSES),
     lt(schema.orders.createdAt, orderCutoff),
   )
   const oldIds = db
@@ -229,11 +229,17 @@ export class VenueRoom extends DurableObject<Env> {
     }
   }
 
+  /** A dapur the super admin never created answers 404 to everyone. */
+  private missing(): Failure | null {
+    return this.provisioned
+      ? null
+      : fail(404, 'not_found', 'Dapur ini tidak ditemukan.')
+  }
+
   /** Why this dapur answers nobody right now, if it doesn't. */
   private closed(): Failure | null {
-    if (!this.provisioned) {
-      return fail(404, 'not_found', 'Dapur ini tidak ditemukan.')
-    }
+    const missing = this.missing()
+    if (missing) return missing
     if (getMeta(this.db, 'disabled') === '1') {
       return fail(403, 'forbidden', 'Dapur ini sedang dinonaktifkan.')
     }
@@ -261,8 +267,8 @@ export class VenueRoom extends DurableObject<Env> {
 
   /** Super admin: a new admin password signs nobody out but works at once. */
   async setAdminPassword(password: string): Promise<Result<null>> {
-    if (!this.provisioned)
-      return fail(404, 'not_found', 'Dapur ini tidak ditemukan.')
+    const missing = this.missing()
+    if (missing) return missing
     const hashed = await hashAdminPassword(password)
     this.ctx.storage.transactionSync(() => {
       setMeta(this.db, 'admin_password', hashed)
@@ -273,8 +279,8 @@ export class VenueRoom extends DurableObject<Env> {
 
   /** Super admin: a disabled dapur refuses every screen until switched back on. */
   async setDisabled(disabled: boolean): Promise<Result<null>> {
-    if (!this.provisioned)
-      return fail(404, 'not_found', 'Dapur ini tidak ditemukan.')
+    const missing = this.missing()
+    if (missing) return missing
     setMeta(this.db, 'disabled', disabled ? '1' : '0')
     if (disabled) {
       this.newAdminEpoch()
@@ -321,16 +327,16 @@ export class VenueRoom extends DurableObject<Env> {
 
   /** Super admin: the name shown on this dapur's admin page. */
   async rename(name: string): Promise<Result<null>> {
-    if (!this.provisioned)
-      return fail(404, 'not_found', 'Dapur ini tidak ditemukan.')
+    const missing = this.missing()
+    if (missing) return missing
     setMeta(this.db, 'venue_name', name)
     return ok(null)
   }
 
   /** Super admin changed the owner: whoever was signed in as admin starts over. */
   async signOutAdmins(): Promise<Result<null>> {
-    if (!this.provisioned)
-      return fail(404, 'not_found', 'Dapur ini tidak ditemukan.')
+    const missing = this.missing()
+    if (missing) return missing
     this.newAdminEpoch()
     return ok(null)
   }
@@ -412,15 +418,12 @@ export class VenueRoom extends DurableObject<Env> {
 
   async webSocketClose(ws: WebSocket) {
     const attachment = attachmentSchema.safeParse(ws.deserializeAttachment())
-    if (attachment.success) {
-      const { deviceId } = attachment.data
-      this.ctx.storage.transactionSync(() =>
-        touchDevice(this.db, deviceId, Date.now()),
-      )
-    }
-    if (attachment.success && attachment.data.role === 'tv') {
-      this.write(() => bumpRev(this.db))
-    }
+    if (!attachment.success) return
+    const { deviceId, role } = attachment.data
+    this.ctx.storage.transactionSync(() =>
+      touchDevice(this.db, deviceId, Date.now()),
+    )
+    if (role === 'tv') this.write(() => bumpRev(this.db))
   }
 
   async session(
@@ -520,7 +523,7 @@ export class VenueRoom extends DurableObject<Env> {
       if (!order || order.day !== input.day) {
         return fail(404, 'not_found', 'Pesanan tidak ditemukan.')
       }
-      if (order.status !== 'served' && order.status !== 'cancelled') {
+      if (!isFinished(order.status)) {
         return fail(
           409,
           'invalid_transition',
@@ -563,7 +566,7 @@ export class VenueRoom extends DurableObject<Env> {
       saveStaff(this.db, id, input, pin, Date.now()),
     )
     if (!staff) return fail(404, 'not_found', 'Staf tidak ditemukan.')
-    return { ok: true, status: id === null ? 201 : 200, body: { staff } }
+    return ok({ staff }, id === null ? 201 : 200)
   }
 
   async getBoard(credentials: Credentials): Promise<Result<BoardMessage>> {
@@ -642,7 +645,7 @@ export class VenueRoom extends DurableObject<Env> {
     if (signedOut) return signedOut
     this.tvControl = control
     const rev = this.write(() => bumpRev(this.db))
-    return { ok: true, status: 200, body: { tvControl: control, rev } }
+    return ok({ tvControl: control, rev })
   }
 
   getTvControl(): TvControl {
@@ -660,11 +663,7 @@ export class VenueRoom extends DurableObject<Env> {
     return this.write(() => {
       const today = rollServiceDay(this.db, Date.now())
       setMeta(this.db, 'service_open', '1')
-      return {
-        ok: true,
-        status: 200,
-        body: { serviceDay: today, rev: bumpRev(this.db) },
-      }
+      return ok({ serviceDay: today, rev: bumpRev(this.db) })
     })
   }
 
@@ -680,7 +679,7 @@ export class VenueRoom extends DurableObject<Env> {
       const active = this.db
         .select({ id: schema.orders.id })
         .from(schema.orders)
-        .where(inArray(schema.orders.status, ['new', 'accepted', 'ready']))
+        .where(inArray(schema.orders.status, ACTIVE_STATUSES))
         .limit(1)
         .all()
       if (active.length && !force) {
@@ -691,14 +690,10 @@ export class VenueRoom extends DurableObject<Env> {
         )
       }
       setMeta(this.db, 'service_open', '0')
-      return {
-        ok: true,
-        status: 200,
-        body: {
-          serviceDay: getMeta(this.db, 'service_day') ?? '',
-          rev: bumpRev(this.db),
-        },
-      }
+      return ok({
+        serviceDay: getMeta(this.db, 'service_day') ?? '',
+        rev: bumpRev(this.db),
+      })
     })
   }
 
@@ -727,7 +722,7 @@ export class VenueRoom extends DurableObject<Env> {
     if (credentials.kind !== 'admin') return unauthenticated()
     const item = this.write(() => saveMenuItem(this.db, id, input, Date.now()))
     if (!item) return fail(404, 'not_found', 'Menu tidak ditemukan.')
-    return { ok: true, status: id === null ? 201 : 200, body: { item } }
+    return ok({ item }, id === null ? 201 : 200)
   }
 
   adminTables(credentials: Credentials): Result<{ tables: AdminTable[] }> {
@@ -744,7 +739,7 @@ export class VenueRoom extends DurableObject<Env> {
     if (credentials.kind !== 'admin') return unauthenticated()
     const table = this.write(() => saveTable(this.db, id, input))
     if (!table) return fail(404, 'not_found', 'Meja tidak ditemukan.')
-    return { ok: true, status: id === null ? 201 : 200, body: { table } }
+    return ok({ table }, id === null ? 201 : 200)
   }
 
   /** Counts one attempt against `key`; false once the limit is reached. */

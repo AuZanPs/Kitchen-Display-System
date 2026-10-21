@@ -3,13 +3,12 @@ import { z } from 'zod'
 import { tvControlSchema } from '../../shared/board'
 import { commandSchema } from '../../shared/commands'
 import { createOrderSchema } from '../../shared/order'
-import { credentials } from '../auth/session'
 import {
   type AppEnv,
+  callerCredentials,
   idParam,
   invalidInput,
   reply,
-  roomOf,
   venueRoom,
 } from './common'
 
@@ -17,14 +16,14 @@ import {
 export const screens = new Hono<AppEnv>()
 
 screens.get('/api/session', async (c) =>
-  reply(c, await venueRoom(c).session(await credentials(c, roomOf(c)))),
+  reply(c, await venueRoom(c).session(await callerCredentials(c))),
 )
 
 screens.get('/api/ws', async (c) => {
   if (c.req.header('Upgrade') !== 'websocket') {
     return c.text('Expected websocket', 426)
   }
-  const who = await credentials(c, roomOf(c))
+  const who = await callerCredentials(c)
   if (who.kind === 'none') return c.text('Unauthenticated', 401)
   // The room trusts only headers the Worker sets itself.
   const headers = new Headers(c.req.raw.headers)
@@ -41,13 +40,13 @@ screens.get('/api/ws', async (c) => {
 })
 
 screens.get('/api/board', async (c) =>
-  reply(c, await venueRoom(c).getBoard(await credentials(c, roomOf(c)))),
+  reply(c, await venueRoom(c).getBoard(await callerCredentials(c))),
 )
 screens.get('/api/menu', async (c) =>
-  reply(c, await venueRoom(c).getMenu(await credentials(c, roomOf(c)))),
+  reply(c, await venueRoom(c).getMenu(await callerCredentials(c))),
 )
 screens.get('/api/tables', async (c) =>
-  reply(c, await venueRoom(c).getTables(await credentials(c, roomOf(c)))),
+  reply(c, await venueRoom(c).getTables(await callerCredentials(c))),
 )
 
 screens.post(
@@ -55,7 +54,7 @@ screens.post(
   invalidInput('json', createOrderSchema),
   async (c) => {
     const result = await venueRoom(c).createOrder(
-      await credentials(c, roomOf(c)),
+      await callerCredentials(c),
       c.req.valid('json'),
       Date.now(),
     )
@@ -67,7 +66,7 @@ screens.get('/api/orders/:id', invalidInput('param', idParam), async (c) =>
   reply(
     c,
     await venueRoom(c).getOrder(
-      await credentials(c, roomOf(c)),
+      await callerCredentials(c),
       c.req.valid('param').id,
     ),
   ),
@@ -79,7 +78,7 @@ screens.post(
   invalidInput('json', commandSchema),
   async (c) => {
     const result = await venueRoom(c).command(
-      await credentials(c, roomOf(c)),
+      await callerCredentials(c),
       c.req.valid('param').id,
       c.req.valid('json'),
       Date.now(),
@@ -107,6 +106,6 @@ screens.post(
         ? { ...tvControl, page: body.page }
         : { ...tvControl, paused: body.action === 'pause' },
     )
-    return reply(c, await room.controlTv(await credentials(c, roomOf(c)), next))
+    return reply(c, await room.controlTv(await callerCredentials(c), next))
   },
 )
