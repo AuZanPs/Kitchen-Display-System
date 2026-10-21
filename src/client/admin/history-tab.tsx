@@ -137,7 +137,11 @@ export function HistoryTab({
         )}
         {history && view === 'table' ? (
           history.orders.length > 0 && (
-            <OrderTable orders={history.orders} onOpen={setOpen} />
+            <OrderTable
+              orders={history.orders}
+              sales={history.stats.revenueIdr}
+              onOpen={setOpen}
+            />
           )
         ) : (
           <ul className="grid gap-2">
@@ -275,17 +279,17 @@ function ViewSwitch({
 /** The day as a spreadsheet: one row per order, times and totals in columns. */
 function OrderTable({
   orders,
+  sales,
   onOpen,
 }: {
   orders: HistoryOrder[]
+  /** The day's revenue as the server counts it. */
+  sales: number
   onOpen: (order: HistoryOrder) => void
 }) {
   const { t } = useI18n()
   // Names only exist with staff PINs on; an empty column is just noise.
   const named = orders.some((o) => o.createdByName)
-  const sales = orders
-    .filter((o) => o.status !== 'cancelled')
-    .reduce((sum, o) => sum + o.totalIdr, 0)
   const time = (at: number | null) => (at === null ? '–' : formatTime(at))
   const cell = 'border-b border-line px-3 py-2.5 whitespace-nowrap'
   // The ticket stays put while the rest scrolls sideways on narrow screens.
