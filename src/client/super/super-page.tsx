@@ -1,7 +1,6 @@
 import {
   ExternalLink,
   KeyRound,
-  LogOut,
   Mail,
   Pencil,
   Plus,
@@ -17,11 +16,11 @@ import {
   type Venue,
   venueListSchema,
 } from '../../shared/venue'
-import { AppBar, BrandMark, LanguageToggle } from '../app-bar'
+import { AppBar, SignOutButton } from '../app-bar'
 import { formatDay, useI18n } from '../i18n'
 import { api } from '../lib/api'
-import { CenterNote } from '../lib/session'
 import { stagger } from '../lib/stagger'
+import { PasswordSignIn } from '../password-sign-in'
 import { Monogram } from '../staff-sign-in'
 import { Button, IconButton } from '../ui/button'
 import { Dialog } from '../ui/dialog'
@@ -57,60 +56,15 @@ export function SuperPage() {
 
 function Login({ onSignedIn }: { onSignedIn: () => void }) {
   const { t } = useI18n()
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
-
-  async function submit(event: SubmitEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setBusy(true)
-    const result = await api('/api/super/login', z.null(), {
-      body: { password },
-    })
-    setBusy(false)
-    if (result.ok) return onSignedIn()
-    setError(result.status === 0 ? t('networkError') : result.message)
-  }
-
   return (
-    <CenterNote>
-      <div className="fixed top-4 right-4">
-        <LanguageToggle />
-      </div>
-      <form
-        onSubmit={submit}
-        className="grid w-[min(24rem,calc(100vw-3rem))] gap-6 text-left"
-      >
-        <div className="grid gap-5">
-          <span
-            translate="no"
-            className="flex items-center gap-3 text-lg font-semibold"
-          >
-            <BrandMark />
-            {t('appName')}
-          </span>
-          <h1 className="text-4xl font-semibold tracking-tight">
-            {t('superTitle')}
-          </h1>
-        </div>
-        <TextField
-          label={t('password')}
-          type="password"
-          autoComplete="current-password"
-          value={password}
-          onChange={(e) => {
-            setPassword(e.target.value)
-            setError(null)
-          }}
-          error={error}
-          required
-          autoFocus
-        />
-        <Button type="submit" size="lg" disabled={busy || password === ''}>
-          {t('signIn')}
-        </Button>
-      </form>
-    </CenterNote>
+    <PasswordSignIn
+      title={t('superTitle')}
+      endpoint="/api/super/login"
+      errorText={(result) =>
+        result.status === 0 ? t('networkError') : result.message
+      }
+      onSignedIn={onSignedIn}
+    />
   )
 }
 
@@ -157,14 +111,7 @@ function Venues({ onSignedOut }: { onSignedOut: () => void }) {
   return (
     <div className="min-h-dvh bg-surface pb-16">
       <AppBar title={t('appName')} device={t('superTitle')}>
-        <Button
-          variant="text"
-          icon={<LogOut size={18} aria-hidden />}
-          aria-label={t('signOut')}
-          onClick={() => void signOut()}
-        >
-          <span className="hidden sm:inline">{t('signOut')}</span>
-        </Button>
+        <SignOutButton onClick={() => void signOut()} />
       </AppBar>
 
       <main className="rise mx-auto grid max-w-3xl gap-6 px-4 pt-8 sm:px-6">

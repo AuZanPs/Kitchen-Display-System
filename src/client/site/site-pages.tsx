@@ -1,4 +1,4 @@
-import { ExternalLink, LogOut, X } from 'lucide-react'
+import { ExternalLink, X } from 'lucide-react'
 import {
   type SubmitEvent,
   useCallback,
@@ -9,7 +9,7 @@ import {
 import { Link, useNavigate } from 'react-router'
 import { z } from 'zod'
 import { accountSchema, ownerEmailSchema } from '../../shared/venue'
-import { BrandMark, LanguageToggle } from '../app-bar'
+import { BrandMark, LanguageToggle, SignOutButton } from '../app-bar'
 import { useI18n } from '../i18n'
 import { api } from '../lib/api'
 import { CenterNote } from '../lib/session'
@@ -206,14 +206,7 @@ export function AccountPage() {
   return (
     <div className="min-h-dvh bg-surface pb-16">
       <SiteBar>
-        <Button
-          variant="text"
-          icon={<LogOut size={18} aria-hidden />}
-          aria-label={t('signOut')}
-          onClick={() => void signOut()}
-        >
-          <span className="hidden sm:inline">{t('signOut')}</span>
-        </Button>
+        <SignOutButton onClick={() => void signOut()} />
       </SiteBar>
       <main className="rise mx-auto grid max-w-5xl gap-6 px-4 pt-6 sm:px-6">
         <div className="grid gap-1">

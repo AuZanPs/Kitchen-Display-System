@@ -1,14 +1,12 @@
 import {
   History,
   LayoutDashboard,
-  LogOut,
   MonitorSmartphone,
   SlidersHorizontal,
   UsersRound,
   UtensilsCrossed,
 } from 'lucide-react'
 import {
-  type SubmitEvent,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -17,14 +15,12 @@ import {
 } from 'react'
 import { useSearchParams } from 'react-router'
 import { z } from 'zod'
-import { AppBar, BrandMark, LanguageToggle } from '../app-bar'
+import { AppBar, SignOutButton } from '../app-bar'
 import { useI18n } from '../i18n'
 import { api } from '../lib/api'
-import { CenterNote } from '../lib/session'
 import { useBoardSocket } from '../lib/use-board-socket'
-import { Button } from '../ui/button'
+import { PasswordSignIn } from '../password-sign-in'
 import { useSnackbar } from '../ui/snackbar'
-import { TextField } from '../ui/text-field'
 import { DevicesTab } from './devices-tab'
 import { HistoryTab } from './history-tab'
 import { MenuTab } from './menu-tab'
@@ -73,69 +69,22 @@ export function AdminPage() {
 
 function Login({ onSignedIn }: { onSignedIn: () => void }) {
   const { t } = useI18n()
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
-
-  async function submit(event: SubmitEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setBusy(true)
-    const result = await api('/api/admin/login', z.null(), {
-      body: { password },
-    })
-    setBusy(false)
-    if (result.ok) return onSignedIn()
-    setError(
-      result.status === 429
-        ? t('tooManyAttempts')
-        : result.status === 0
-          ? t('networkError')
-          : // A switched-off or unknown dapur says so itself.
-            result.status === 403 || result.status === 404
-            ? result.message
-            : t('wrongPassword'),
-    )
-  }
-
   return (
-    <CenterNote>
-      <div className="fixed top-4 right-4">
-        <LanguageToggle />
-      </div>
-      <form
-        onSubmit={submit}
-        className="grid w-[min(24rem,calc(100vw-3rem))] gap-6 text-left"
-      >
-        <div className="grid gap-5">
-          <span
-            translate="no"
-            className="flex items-center gap-3 text-lg font-semibold"
-          >
-            <BrandMark />
-            {t('appName')}
-          </span>
-          <h1 className="text-4xl font-semibold tracking-tight">
-            {t('adminTitle')}
-          </h1>
-        </div>
-        <TextField
-          label={t('password')}
-          type="password"
-          autoComplete="current-password"
-          value={password}
-          onChange={(e) => {
-            setPassword(e.target.value)
-            setError(null)
-          }}
-          error={error}
-          required
-          autoFocus
-        />
-        <Button type="submit" size="lg" disabled={busy || password === ''}>
-          {t('signIn')}
-        </Button>
-      </form>
-    </CenterNote>
+    <PasswordSignIn
+      title={t('adminTitle')}
+      endpoint="/api/admin/login"
+      errorText={(result) =>
+        result.status === 429
+          ? t('tooManyAttempts')
+          : result.status === 0
+            ? t('networkError')
+            : // A switched-off or unknown dapur says so itself.
+              result.status === 403 || result.status === 404
+              ? result.message
+              : t('wrongPassword')
+      }
+      onSignedIn={onSignedIn}
+    />
   )
 }
 
@@ -206,14 +155,7 @@ function Console({
   return (
     <div className="min-h-dvh bg-surface pb-16">
       <AppBar title={t('adminTitle')} device={venueName ?? undefined}>
-        <Button
-          variant="text"
-          icon={<LogOut size={18} aria-hidden />}
-          aria-label={t('signOut')}
-          onClick={() => void signOut()}
-        >
-          <span className="hidden sm:inline">{t('signOut')}</span>
-        </Button>
+        <SignOutButton onClick={() => void signOut()} />
       </AppBar>
 
       {/* Tabs: icon and label, one indicator under the active tab. */}

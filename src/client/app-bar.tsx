@@ -1,5 +1,7 @@
+import { LogOut } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { LANGS, useI18n } from './i18n'
+import { Button } from './ui/button'
 
 /** `onInk` swaps the colours for a charcoal ground. */
 export function LanguageToggle({ onInk = false }: { onInk?: boolean }) {
@@ -52,6 +54,21 @@ export function AppBar({
       {children}
       <LanguageToggle />
     </header>
+  )
+}
+
+/** Sign-out for a bar; phones keep only the icon. */
+export function SignOutButton({ onClick }: { onClick: () => void }) {
+  const { t } = useI18n()
+  return (
+    <Button
+      variant="text"
+      icon={<LogOut size={18} aria-hidden />}
+      aria-label={t('signOut')}
+      onClick={onClick}
+    >
+      <span className="hidden sm:inline">{t('signOut')}</span>
+    </Button>
   )
 }
 
