@@ -236,6 +236,45 @@ describe('super admin', () => {
     expect(old.status).toBe(401)
   })
 
+  it('refuses a retired admin cookie on every admin route', async () => {
+    const origin = await createVenue('pensiun')
+    const cookie = cookieOf(await adminLogin(origin, 'pensiun-password'))
+    const routes = [
+      '/api/manager/menu',
+      '/api/manager/tables',
+      '/api/manager/staff',
+      '/api/manager/history',
+      '/api/manager/export?from=2026-10-01&to=2026-10-02',
+      '/api/devices',
+    ]
+    const statuses = async () =>
+      Promise.all(
+        routes.map(
+          async (path) =>
+            (await call(origin, path, { headers: { cookie } })).status,
+        ),
+      )
+    expect(await statuses()).toEqual(routes.map(() => 200))
+
+    await call(CONSOLE, '/api/super/venues/pensiun/password', {
+      method: 'PUT',
+      headers: { cookie: await superCookie() },
+      body: { adminPassword: 'pensiun-password-2' },
+    })
+    // The cookie is still signed, but its epoch is no longer the dapur's.
+    expect(await statuses()).toEqual(routes.map(() => 401))
+    const settings = await call(origin, '/api/admin/settings', {
+      headers: { cookie },
+      body: {
+        lineNotes: true,
+        orderNote: true,
+        allergy: false,
+        staffPins: false,
+      },
+    })
+    expect(settings.status).toBe(401)
+  })
+
   it('closes open admin pages when the password changes', async () => {
     const origin = await createVenue('soket')
     const admin = cookieOf(await adminLogin(origin, 'soket-password'))
@@ -271,6 +310,10 @@ describe('super admin', () => {
       headers: { cookie: admin },
     })
     expect(session.status).toBe(403)
+    const menu = await call(origin, '/api/manager/menu', {
+      headers: { cookie: admin },
+    })
+    expect(menu.status).toBe(403)
     const start = await call(origin, '/api/devices/enroll/start', {
       method: 'POST',
       headers: freshIp(),
