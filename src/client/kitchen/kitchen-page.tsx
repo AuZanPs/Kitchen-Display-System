@@ -22,7 +22,6 @@ import { AllergyBlock, Ticket } from '../ticket'
 import { Button } from '../ui/button'
 import { Dialog } from '../ui/dialog'
 import { useSnackbar } from '../ui/snackbar'
-import { TvControl } from './tv-control'
 
 export function KitchenPage() {
   return (
@@ -99,7 +98,6 @@ function Kitchen({
   return (
     <div className="min-h-dvh bg-surface pb-10">
       <AppBar title={t('kitchenTitle')} device={device}>
-        <TvControl control={board?.tvControl} notify={snackbar.show} />
         {session.staff && (
           <StaffChip name={session.staff.name} onSignedOut={refresh} />
         )}

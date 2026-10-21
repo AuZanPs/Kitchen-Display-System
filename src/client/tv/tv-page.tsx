@@ -1,4 +1,4 @@
-import { AlarmClock, Ban, Pause, PencilLine, WifiOff } from 'lucide-react'
+import { AlarmClock, Ban, PencilLine, WifiOff } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
   type BoardMessage,
@@ -16,14 +16,14 @@ import { useNow } from '../lib/use-now'
 import { useWakeLock } from '../lib/use-wake-lock'
 import { Ticket } from '../ticket'
 import { fixtureBoard } from './fixture'
-import { paginate, type Slice } from './paging'
 
 const REMINDER_AFTER_MS = 12 * 60 * 1000
 const RECEIPT_EVERY_MS = 1_000
-const PAGE_EVERY_MS = 8_000
-// Must match gap-6 between cards and gap-3 between ticket lines.
-const CARD_GAP = 24
-const LINE_GAP = 12
+// ponytail: below this the text is too small to read from the line; a fuller
+// lane than that gets cut off at the bottom instead.
+const MIN_ZOOM = 0.25
+// Narrowest a ticket gets before it shrinks: a lane on a 1920 px TV holds one.
+const COLUMN_PX = 400
 
 const LANES = [
   { status: 'new', label: 'laneNew' },
@@ -93,7 +93,6 @@ function BoardView({
   disconnected: boolean
 }) {
   const { t } = useI18n()
-  const tick = usePageTick(board?.tvControl)
   const attention = (board?.orders ?? []).filter(
     (o) => (o.changePending || o.cancelRequested) && o.status !== 'cancelled',
   )
@@ -147,8 +146,6 @@ function BoardView({
               key={lane.status}
               label={t(lane.label)}
               orders={board.orders.filter((o) => o.status === lane.status)}
-              tick={tick}
-              paused={board.tvControl.paused}
               serverNow={now + serverOffsetMs}
               t={t}
             />
@@ -163,48 +160,25 @@ function BoardView({
   )
 }
 
-/** Advances every 8 s unless paused; the kitchen can jump to a page. */
-function usePageTick(control: BoardMessage['tvControl'] | undefined) {
-  const [tick, setTick] = useState(0)
-  const page = control?.page
-  const paused = control?.paused ?? false
-  // Pausing or picking a page shows the kitchen's page, not the local one.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: `paused` only re-syncs the page
-  useEffect(() => {
-    if (page !== undefined) setTick(page)
-  }, [page, paused])
-  useEffect(() => {
-    if (paused) return
-    const timer = setInterval(() => setTick((n) => n + 1), PAGE_EVERY_MS)
-    return () => clearInterval(timer)
-  }, [paused])
-  return tick
-}
-
 /**
- * One lane. Every ticket is also drawn in an invisible layer at full length;
- * those measurements decide which whole tickets (or parts of a tall one) fit
- * on each page, so nothing is ever cut off.
+ * One lane. Every ticket stays on screen: when they outgrow the lane, the
+ * lane shrinks them and flows them into more columns until all of them fit.
  */
 function Lane({
   label,
   orders,
-  tick,
-  paused,
   serverNow,
   t,
 }: {
   label: string
   orders: BoardOrder[]
-  tick: number
-  paused: boolean
   serverNow: number
   t: Translate
 }) {
   const boxRef = useRef<HTMLDivElement>(null)
-  const measureRef = useRef<HTMLDivElement>(null)
+  const flowRef = useRef<HTMLDivElement>(null)
   const [height, setHeight] = useState(0)
-  const [pages, setPages] = useState<Slice[][] | null>(null)
+  const [zoom, setZoom] = useState(1)
 
   useLayoutEffect(() => {
     const box = boxRef.current
@@ -214,32 +188,25 @@ function Lane({
     return () => observer.disconnect()
   }, [])
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: new orders change what the hidden layer drew
+  // Tries ever smaller sizes before paint; shrinking makes room for more
+  // columns. The first size where nothing spills over wins.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: new orders change what has to fit
   useLayoutEffect(() => {
-    const root = measureRef.current
-    if (!root || height === 0) return
-    const sizes = [...root.children].map((card) => ({
-      height: card.getBoundingClientRect().height,
-      lines: [...card.querySelectorAll('ol > li')].map(
-        (li) => li.getBoundingClientRect().height,
-      ),
-    }))
-    const next = paginate(sizes, height, CARD_GAP, LINE_GAP)
-    setPages((current) =>
-      JSON.stringify(current) === JSON.stringify(next) ? current : next,
-    )
+    const flow = flowRef.current
+    if (!flow || height === 0) return
+    for (let step = 0; ; step += 1) {
+      const next = Math.round((1 - step * 0.05) * 100) / 100
+      flow.style.zoom = String(next)
+      flow.style.height = `${height / next}px`
+      const fits =
+        flow.scrollWidth <= flow.clientWidth + 1 &&
+        flow.scrollHeight <= flow.clientHeight + 1
+      if (fits || next <= MIN_ZOOM) {
+        setZoom(next)
+        return
+      }
+    }
   }, [orders, height])
-
-  const total = pages?.length ?? 1
-  const pageIndex = tick % total
-  const page: Slice[] =
-    pages?.[pageIndex] ??
-    orders.map((order, index) => ({
-      index,
-      from: 0,
-      to: order.lines.length,
-      part: 0,
-    }))
 
   return (
     <section
@@ -249,65 +216,36 @@ function Lane({
       <h2 className="flex items-center gap-3 text-[30px]">
         <span className="size-3 rounded-full bg-tonal" aria-hidden />
         <span className="mr-auto">{label}</span>
-        {total > 1 && (
-          <span className="flex items-center gap-2 text-[22px] text-surface-soft tabular-nums">
-            {paused && <Pause size={22} aria-hidden />}
-            {t('page', { n: pageIndex + 1, total })}
-          </span>
-        )}
         <span className="grid size-11 place-items-center rounded-full bg-surface text-[22px] font-semibold text-ink tabular-nums">
           {orders.length}
         </span>
       </h2>
-      <div ref={boxRef} className="relative min-h-0 flex-1 overflow-hidden">
-        <div key={pageIndex} className="grid content-start gap-6">
-          {page.map((slice) => {
-            const order = orders[slice.index]
-            if (!order) return null
-            const lines = boardLines(order)
-            return (
-              <Ticket
-                key={`${order.id}:${slice.part}`}
-                className="ticket-enter"
-                size="tv"
-                ticketNo={order.ticketNo}
-                where={whereLabel(order, t)}
-                takeaway={order.takeaway}
-                lines={lines.slice(slice.from, slice.to)}
-                allLines={lines}
-                continued={slice.part > 0}
-                // The order note closes the ticket, so it goes on the last part.
-                orderNote={slice.to === lines.length ? order.orderNote : null}
-                tonalHeader={order.status === 'ready'}
-                aside={
-                  slice.part > 0 ? null : (
-                    <Age
-                      createdAt={order.createdAt}
-                      now={serverNow}
-                      onTonal={order.status === 'ready'}
-                      t={t}
-                    />
-                  )
-                }
-              />
-            )
-          })}
-        </div>
+      <div ref={boxRef} className="min-h-0 flex-1 overflow-hidden">
         <div
-          ref={measureRef}
-          aria-hidden
-          className="pointer-events-none invisible absolute inset-x-0 top-0 grid content-start gap-6"
+          ref={flowRef}
+          className="gap-6 [column-fill:auto]"
+          style={{ zoom, height: height / zoom, columnWidth: COLUMN_PX }}
         >
           {orders.map((order) => (
             <Ticket
               key={order.id}
+              // A ticket too tall for one column carries on in the next.
+              className="ticket-enter mb-6 break-inside-avoid [box-decoration-break:clone]"
               size="tv"
               ticketNo={order.ticketNo}
               where={whereLabel(order, t)}
               takeaway={order.takeaway}
               lines={boardLines(order)}
               orderNote={order.orderNote}
-              aside={<Age createdAt={order.createdAt} now={serverNow} t={t} />}
+              tonalHeader={order.status === 'ready'}
+              aside={
+                <Age
+                  createdAt={order.createdAt}
+                  now={serverNow}
+                  onTonal={order.status === 'ready'}
+                  t={t}
+                />
+              }
             />
           ))}
         </div>

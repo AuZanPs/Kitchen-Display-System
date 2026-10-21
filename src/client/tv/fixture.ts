@@ -10,10 +10,10 @@ const DISHES = [
   ['Sate Ayam', []],
 ] as const
 
-/** Dev-only `/tv?fixture=N`: N synthetic tickets to check paging and wrapping. */
+/** Dev-only `/tv?fixture=N`: N synthetic tickets to check fitting and wrapping. */
 export function fixtureBoard(count: number, now: number): BoardMessage {
   const orders: BoardOrder[] = Array.from({ length: count }, (_, i) => {
-    // Every fifth ticket is long enough to need splitting across pages.
+    // Every fifth ticket is long enough to need a second column.
     const lineCount = i % 5 === 4 ? 16 : (i % 3) + 1
     return {
       id: `fixture-${i}`,

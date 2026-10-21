@@ -59,8 +59,6 @@ export function Ticket({
   tonalHeader = false,
   aside,
   banner,
-  continued = false,
-  allLines = lines,
   className = '',
 }: {
   ticketNo: number | null
@@ -75,15 +73,11 @@ export function Ticket({
   aside?: ReactNode
   /** First thing under the header, e.g. change flags; spaced like the lines. */
   banner?: ReactNode
-  /** A later part of a ticket split across TV pages. */
-  continued?: boolean
-  /** Every line of the ticket, so each part repeats all of its allergies. */
-  allLines?: TicketLine[]
   className?: string
 }) {
   const { t } = useI18n()
   const s = TYPE[size]
-  const allergies = allLines.filter((line) => line.allergy)
+  const allergies = lines.filter((line) => line.allergy)
   return (
     <article
       className={`overflow-hidden rounded-md bg-surface break-words text-ink ${className}`}
@@ -101,7 +95,6 @@ export function Ticket({
           </span>
           <span className={`${s.no} tabular-nums text-ink-soft`}>
             {ticketNo === null ? t('draft') : ticketLabel(ticketNo)}
-            {continued && ` ${t('continued')}`}
           </span>
         </div>
         {aside}
@@ -118,7 +111,7 @@ export function Ticket({
               key: line.key,
               // With one line the item is obvious; with more, name it.
               text:
-                allLines.length > 1
+                lines.length > 1
                   ? `${line.name}: ${line.allergy}`
                   : (line.allergy ?? ''),
             }))}

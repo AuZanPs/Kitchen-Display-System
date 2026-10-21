@@ -40,8 +40,6 @@ export const en: Dict = {
   addItems: 'Add items',
   disconnected: 'Disconnected - last data {time}',
   staleData: 'Data may be out of date',
-  page: 'Page {n} of {total}',
-  continued: '(continued)',
 
   enrollTitle: 'Pair this device',
   enrollSteps:
@@ -271,13 +269,6 @@ export const en: Dict = {
   changePending: 'Changed',
   cancelRequested: 'Cancel requested',
 
-  tvControlTitle: 'TV screen',
-  tvRotate: 'Turn pages automatically',
-  tvRotateHint: 'Every 8 seconds, when orders fill more than one screen.',
-  tvPage: 'Page {n}',
-  prevPage: 'Previous page',
-  nextPage: 'Next page',
-  tvPageHint: 'Turn off automatic pages to pick one.',
   live: 'Live',
   minutesOver: 'Over {min} minutes',
   waitingBoard: 'Waiting for data…',

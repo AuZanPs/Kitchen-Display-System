@@ -40,8 +40,6 @@ export const id = {
   addItems: 'Tambah item',
   disconnected: 'Terputus - data terakhir {time}',
   staleData: 'Data mungkin tidak terbaru',
-  page: 'Halaman {n} dari {total}',
-  continued: '(lanjutan)',
 
   // Pairing
   enrollTitle: 'Pasang perangkat ini',
@@ -276,13 +274,6 @@ export const id = {
   changePending: 'Ada perubahan',
   cancelRequested: 'Minta batal',
 
-  tvControlTitle: 'Layar TV',
-  tvRotate: 'Ganti halaman otomatis',
-  tvRotateHint: 'Tiap 8 detik, saat pesanan lebih dari satu layar.',
-  tvPage: 'Halaman {n}',
-  prevPage: 'Halaman sebelumnya',
-  nextPage: 'Halaman berikutnya',
-  tvPageHint: 'Matikan ganti otomatis untuk memilih halaman.',
   // TV
   live: 'Live',
   minutesOver: 'Lewat {min} menit',
