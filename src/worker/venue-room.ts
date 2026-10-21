@@ -261,6 +261,20 @@ export class VenueRoom extends DurableObject<Env> {
     return getMeta(this.db, 'admin_epoch') ?? '0'
   }
 
+  /**
+   * Gate for admin-only calls. The Worker checks only the cookie's signature,
+   * so the room refuses a closed dapur and an epoch a password change or
+   * switch-off has retired.
+   */
+  private adminRefused(credentials: Credentials): Failure | null {
+    const closed = this.closed()
+    if (closed) return closed
+    const current =
+      credentials.kind === 'admin' &&
+      safeEqual(credentials.epoch, this.adminEpoch())
+    return current ? null : unauthenticated()
+  }
+
   /** Admin sign-in for this dapur; the original dapur falls back to the secret. */
   async adminLogin(
     ipHash: string,
@@ -312,9 +326,8 @@ export class VenueRoom extends DurableObject<Env> {
   async adminSession(
     credentials: Credentials,
   ): Promise<Result<{ venueName: string | null }>> {
-    const closed = this.closed()
-    if (closed) return closed
-    if (!(await this.authenticate(credentials))) return unauthenticated()
+    const refused = this.adminRefused(credentials)
+    if (refused) return refused
     return ok({ venueName: getMeta(this.db, 'venue_name') ?? null })
   }
 
@@ -464,7 +477,8 @@ export class VenueRoom extends DurableObject<Env> {
 
   /** One service day for the admin; today (Jakarta) when no day is given. */
   history(credentials: Credentials, day: string | undefined): Result<History> {
-    if (credentials.kind !== 'admin') return unauthenticated()
+    const refused = this.adminRefused(credentials)
+    if (refused) return refused
     return ok(dayHistory(this.db, day ?? jakartaDate(Date.now())))
   }
 
@@ -473,7 +487,8 @@ export class VenueRoom extends DurableObject<Env> {
     credentials: Credentials,
     input: DeleteHistory,
   ): Result<{ deleted: number; rev: number }> {
-    if (credentials.kind !== 'admin') return unauthenticated()
+    const refused = this.adminRefused(credentials)
+    if (refused) return refused
     if (input.orderId !== undefined) {
       const order = this.db
         .select({ day: schema.orders.serviceDay, status: schema.orders.status })
@@ -505,12 +520,14 @@ export class VenueRoom extends DurableObject<Env> {
     from: string,
     to: string,
   ): Result<{ rows: ExportRow[] }> {
-    if (credentials.kind !== 'admin') return unauthenticated()
+    const refused = this.adminRefused(credentials)
+    if (refused) return refused
     return ok({ rows: exportRows(this.db, from, to) })
   }
 
   adminStaff(credentials: Credentials): Result<{ staff: AdminStaff[] }> {
-    if (credentials.kind !== 'admin') return unauthenticated()
+    const refused = this.adminRefused(credentials)
+    if (refused) return refused
     return ok({ staff: adminStaff(this.db) })
   }
 
@@ -520,7 +537,8 @@ export class VenueRoom extends DurableObject<Env> {
     id: string | null,
     input: StaffInput,
   ): Promise<Result<{ staff: AdminStaff }>> {
-    if (credentials.kind !== 'admin') return unauthenticated()
+    const refused = this.adminRefused(credentials)
+    if (refused) return refused
     const pin = input.pin ? await hashPin(input.pin) : null
     const staff = this.ctx.storage.transactionSync(() =>
       saveStaff(this.db, id, input, pin, Date.now()),
@@ -661,7 +679,8 @@ export class VenueRoom extends DurableObject<Env> {
     credentials: Credentials,
     settings: Settings,
   ): Result<{ settings: Settings; rev: number }> {
-    if (credentials.kind !== 'admin') return unauthenticated()
+    const refused = this.adminRefused(credentials)
+    if (refused) return refused
     return this.write(() => {
       setSettings(this.db, settings)
       return ok({ settings, rev: bumpRev(this.db) })
@@ -669,7 +688,8 @@ export class VenueRoom extends DurableObject<Env> {
   }
 
   adminMenu(credentials: Credentials): Result<{ items: AdminMenuItem[] }> {
-    if (credentials.kind !== 'admin') return unauthenticated()
+    const refused = this.adminRefused(credentials)
+    if (refused) return refused
     return ok({ items: adminMenu(this.db) })
   }
 
@@ -679,14 +699,16 @@ export class VenueRoom extends DurableObject<Env> {
     id: string | null,
     input: MenuItemInput,
   ): Result<{ item: AdminMenuItem }> {
-    if (credentials.kind !== 'admin') return unauthenticated()
+    const refused = this.adminRefused(credentials)
+    if (refused) return refused
     const item = this.write(() => saveMenuItem(this.db, id, input, Date.now()))
     if (!item) return fail(404, 'not_found', 'Menu tidak ditemukan.')
     return ok({ item }, id === null ? 201 : 200)
   }
 
   adminTables(credentials: Credentials): Result<{ tables: AdminTable[] }> {
-    if (credentials.kind !== 'admin') return unauthenticated()
+    const refused = this.adminRefused(credentials)
+    if (refused) return refused
     return ok({ tables: adminTables(this.db) })
   }
 
@@ -696,7 +718,8 @@ export class VenueRoom extends DurableObject<Env> {
     id: string | null,
     input: TableInput,
   ): Result<{ table: AdminTable }> {
-    if (credentials.kind !== 'admin') return unauthenticated()
+    const refused = this.adminRefused(credentials)
+    if (refused) return refused
     const table = this.write(() => saveTable(this.db, id, input))
     if (!table) return fail(404, 'not_found', 'Meja tidak ditemukan.')
     return ok({ table }, id === null ? 201 : 200)
@@ -740,7 +763,8 @@ export class VenueRoom extends DurableObject<Env> {
   }
 
   async approveEnrollment(credentials: Credentials, input: Approve) {
-    if (credentials.kind !== 'admin') return unauthenticated()
+    const refused = this.adminRefused(credentials)
+    if (refused) return refused
     const codeHash = await sha256Hex(input.code)
     return this.ctx.storage.transactionSync(() =>
       approveChallenge(this.db, codeHash, input, Date.now()),
@@ -768,7 +792,8 @@ export class VenueRoom extends DurableObject<Env> {
   }
 
   listDevices(credentials: Credentials) {
-    if (credentials.kind !== 'admin') return unauthenticated()
+    const refused = this.adminRefused(credentials)
+    if (refused) return refused
     // Online = holds an open socket right now; no extra storage needed.
     const devices = listDevices(this.db).map((device) => ({
       ...device,
@@ -784,7 +809,8 @@ export class VenueRoom extends DurableObject<Env> {
     credentials: Credentials,
     deviceId: string,
   ): Result<{ revoked: boolean }> {
-    if (credentials.kind !== 'admin') return unauthenticated()
+    const refused = this.adminRefused(credentials)
+    if (refused) return refused
     const revoked = this.ctx.storage.transactionSync(() =>
       revokeDevice(this.db, deviceId, Date.now()),
     )
