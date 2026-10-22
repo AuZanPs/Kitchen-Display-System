@@ -227,6 +227,20 @@
   animation-delay: 420ms;
 }
 
+/* A soft ring leaves the homepage demo's send button a few times, then rests. */
+@keyframes nudge {
+  from {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-ink) 28%, transparent);
+  }
+  70%,
+  to {
+    box-shadow: 0 0 0 14px transparent;
+  }
+}
+.nudge {
+  animation: nudge 2.2s var(--ease-out) 6;
+}
+
 /* Parts of a section rise in once they scroll into view; --d staggers them. */
 [data-reveal] {
   transition:

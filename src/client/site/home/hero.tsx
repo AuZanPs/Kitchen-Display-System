@@ -1,4 +1,4 @@
-import { LogIn, Plus } from 'lucide-react'
+import { ArrowRight, LogIn, Plus } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router'
 import { LanguageToggle } from '../../app-bar'
@@ -20,7 +20,7 @@ const TABLES = ['Meja 4', 'Meja 9', 'Meja 2', 'Meja 11']
 export function Hero() {
   const { t } = useI18n()
   return (
-    <section className="on-ink bg-ink px-4 pb-16 text-surface md:px-10 md:pb-24">
+    <section className="on-ink flex min-h-svh flex-col bg-ink px-4 text-surface md:px-10">
       <div className="flex min-h-18 items-center justify-between gap-2 md:min-h-24">
         <Wordmark />
         <div className="flex items-center gap-2 md:gap-4">
@@ -54,7 +54,8 @@ export function Hero() {
           {t('homeSeeHow')}
         </a>
       </div>
-      <div className="after-lines mx-auto mt-14 max-w-[68rem] md:mt-20">
+      {/* Sits flush on the bottom edge, as if the section cuts it off. */}
+      <div className="after-lines mx-auto mt-auto w-full max-w-[68rem] pt-14 md:pt-20">
         <HeroDemo />
       </div>
     </section>
@@ -115,10 +116,12 @@ function HeroDemo() {
     (sum, dish) => sum + dish.price * (draft[dish.id] ?? 0),
     0,
   )
+  const count = picked.reduce((sum, dish) => sum + (draft[dish.id] ?? 0), 0)
+  const [sent, setSent] = useState(false)
 
   function send() {
-    if (picked.length === 0) return
-    const sent: DemoTicket = {
+    if (count === 0) return
+    const ticket: DemoTicket = {
       no: next,
       where: table,
       sentAt: Date.now(),
@@ -126,18 +129,19 @@ function HeroDemo() {
         line(dish.id, draft[dish.id] ?? 1, dish.name),
       ),
     }
-    setTickets((list) => [...list, sent])
+    setTickets((list) => [...list, ticket])
     setDraft({})
+    setSent(true)
   }
 
   return (
     <section
       data-ui
       aria-label={t('homeDemoLabel')}
-      className="grid overflow-hidden rounded-md text-left md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]"
+      className="grid overflow-hidden rounded-t-md text-left md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]"
     >
       {/* The waiter's tablet. */}
-      <div className="grid content-start gap-3 bg-surface p-4 text-ink md:p-6">
+      <div className="grid content-start gap-3 bg-surface p-4 pb-8 text-ink md:p-6 md:pb-8">
         <div className="flex items-center justify-between gap-3">
           <span className="rounded-full bg-tonal px-3 py-1 text-[13px] font-semibold">
             {table}
@@ -154,7 +158,7 @@ function HeroDemo() {
                   onClick={() =>
                     setDraft((d) => ({ ...d, [dish.id]: Math.min(9, qty + 1) }))
                   }
-                  className="state flex min-h-12 w-full items-center justify-between gap-3 rounded-sm px-3 text-left transition-[background-color,scale] duration-150 active:scale-[0.98] [--bg:var(--color-wash)]"
+                  className="state flex min-h-12 w-full items-center justify-between gap-3 rounded-sm px-4 text-left transition-[background-color,scale] duration-150 active:scale-[0.98] [--bg:var(--color-wash)]"
                 >
                   <span className="text-[15px] font-medium">{dish.name}</span>
                   <span className="flex items-center gap-2 text-[13px] text-ink-soft tabular-nums">
@@ -174,18 +178,18 @@ function HeroDemo() {
             )
           })}
         </ul>
+        {/* The page's one call to act: it breathes until the first order goes out. */}
         <button
           type="button"
           onClick={send}
-          disabled={picked.length === 0}
-          className="state flex min-h-12 items-center justify-between rounded-full px-5 text-[15px] font-semibold text-surface transition-[background-color,scale] duration-150 active:scale-[0.97] [--bg:var(--color-ink)] [--on:var(--color-surface)] disabled:text-ink-soft disabled:[--bg:var(--color-line)]"
+          disabled={count === 0}
+          className={`group state mt-2 flex min-h-16 items-center justify-between gap-4 rounded-full py-2 pr-2 pl-6 text-left text-surface transition-[background-color,scale] duration-150 active:scale-[0.97] [--bg:var(--color-ink)] [--on:var(--color-surface)] disabled:text-ink-soft disabled:[--bg:var(--color-line)] ${count > 0 && !sent ? 'nudge' : ''}`}
         >
-          <span>{t('send')}</span>
-          <span className="tabular-nums">{formatIdr(total)}</span>
+          <SendFace count={count} total={total} />
         </button>
       </div>
       {/* The kitchen TV: what was just sent lands here. */}
-      <div className="grid content-start gap-4 bg-ink-raised p-4 text-surface md:p-6">
+      <div className="grid content-start gap-4 bg-ink-raised p-4 pb-8 text-surface md:p-6 md:pb-8">
         <p className="flex items-center justify-between text-[17px] font-medium">
           <span className="flex items-center gap-2">
             <span aria-hidden className="size-2.5 rounded-full bg-tonal" />
@@ -219,7 +223,38 @@ function HeroDemo() {
   )
 }
 
-function Age({ since, now }: { since: number; now: number }) {
+/** The send button's face; the how-it-works tablet shows the same one. */
+export function SendFace({ count, total }: { count: number; total: number }) {
+  const { t } = useI18n()
+  return (
+    <>
+      <span className="grid">
+        <span className="text-[16px] font-semibold">{t('send')}</span>
+        {count > 0 && (
+          <span className="text-[13px] text-on-ink-soft">
+            {t('items', { count })}
+          </span>
+        )}
+      </span>
+      <span className="flex items-center gap-4">
+        {count > 0 && (
+          <span className="text-[16px] font-semibold tabular-nums">
+            {formatIdr(total)}
+          </span>
+        )}
+        <span
+          aria-hidden
+          className="grid size-12 place-items-center rounded-full bg-surface text-ink transition-[translate,background-color] duration-200 ease-[var(--ease-out)] group-hover:translate-x-0.5 group-disabled:bg-surface/60 group-disabled:text-ink-soft group-disabled:translate-x-0"
+        >
+          <ArrowRight size={20} />
+        </span>
+      </span>
+    </>
+  )
+}
+
+/** How long a ticket has waited, as m:ss. */
+export function Age({ since, now }: { since: number; now: number }) {
   const seconds = Math.max(0, Math.floor((now - since) / 1000))
   const text = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
   return (
