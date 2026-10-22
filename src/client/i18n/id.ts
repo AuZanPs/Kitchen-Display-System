@@ -386,6 +386,10 @@ export const id = {
   homeSeeHow: 'Lihat cara kerjanya',
   homeDemoLabel: 'Coba: kirim pesanan ke TV dapur',
   homeDemoTap: 'Ketuk menu untuk menambah',
+  homePhotoKitchen: 'Juru masak bekerja di dapur restoran yang sibuk',
+  homePhotoWarung: 'Pelanggan memesan di kios makanan di Jakarta',
+  homePhotoCafe: 'Barista menyiapkan minuman di balik meja kedai kopi',
+  homePhotoRestaurant: 'Juru masak menyiapkan pesanan di dapur rumah makan',
   homeHowTitle: 'Satu pesanan, tiga layar',
   homeHow1: 'Pelayan mencatat di tablet.',
   homeHow1Note:

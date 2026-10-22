@@ -381,6 +381,10 @@ export const en: Dict = {
   homeSeeHow: 'See how it works',
   homeDemoLabel: 'Try it: send an order to the kitchen TV',
   homeDemoTap: 'Tap a dish to add it',
+  homePhotoKitchen: 'Cooks at work in a busy restaurant kitchen',
+  homePhotoWarung: 'Customers ordering at a food stall in Jakarta',
+  homePhotoCafe: 'A barista making drinks behind a coffee shop counter',
+  homePhotoRestaurant: 'A cook preparing an order in a restaurant kitchen',
   homeHowTitle: 'One order, three screens',
   homeHow1: 'The waiter takes it on a tablet.',
   homeHow1Note:

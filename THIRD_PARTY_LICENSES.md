@@ -55,3 +55,15 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
+## Photos on the homepage
+
+All are free to use under the Unsplash License (https://unsplash.com/license), which needs no credit. They are cropped and resized; the screens on the device photos are covered by the product's own interface.
+
+- `public/site/device-tablet.webp`: Kelly Sikkema, https://unsplash.com/photos/_Lm1_R2-Uo4
+- `public/site/device-tv.webp`: Eye Speak, https://unsplash.com/photos/aIVayOQj5_M
+- `public/site/device-phone.webp`: Vojtech Bruzek, https://unsplash.com/photos/J82GxqnwKSs
+- `public/site/kitchen.webp`: Julien (domsson), Kyoto, https://unsplash.com/photos/_WXXnhng12Q
+- `public/site/warung.webp`: Reyhan Aviseno, Jakarta, https://unsplash.com/photos/1QllpSrmcPM
+- `public/site/kedai.webp`: Syauqy Ayyash, https://unsplash.com/photos/BBZ1O-D3gYc
+- `public/site/rumah-makan.webp`: Raymond Okoro, London, https://unsplash.com/photos/meUtORrsp7U

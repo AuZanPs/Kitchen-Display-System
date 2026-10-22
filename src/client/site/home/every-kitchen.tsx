@@ -1,6 +1,13 @@
 import { useI18n } from '../../i18n'
 import { delay } from './shared'
 
+// One shot per kind of place the headline names, in its order.
+const PHOTOS = [
+  { src: '/site/warung.webp', alt: 'homePhotoWarung' },
+  { src: '/site/kedai.webp', alt: 'homePhotoCafe' },
+  { src: '/site/rumah-makan.webp', alt: 'homePhotoRestaurant' },
+] as const
+
 /** Many dapur: what the platform holds for each. */
 export function EveryKitchen() {
   const { t } = useI18n()
@@ -23,6 +30,21 @@ export function EveryKitchen() {
       >
         {t('homeEveryBody')}
       </p>
+      <div className="mt-6 grid gap-3 sm:grid-cols-3">
+        {PHOTOS.map((photo, index) => (
+          <img
+            key={photo.src}
+            data-reveal
+            style={delay(index)}
+            src={photo.src}
+            width={800}
+            height={1000}
+            alt={t(photo.alt)}
+            loading="lazy"
+            className="aspect-[4/5] w-full rounded-sm object-cover"
+          />
+        ))}
+      </div>
     </section>
   )
 }
