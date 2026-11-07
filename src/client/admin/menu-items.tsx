@@ -5,6 +5,7 @@ import {
   Eye,
   EyeOff,
   FileSpreadsheet,
+  LayoutTemplate,
   ListChecks,
   LoaderCircle,
   Pencil,
@@ -104,6 +105,14 @@ export function MenuItems({
     }))
     .filter((c) => c.rows.length > 0)
   const soldOut = shown.filter((i) => !i.available)
+  // Items the owner added have random ids; the menu a new dapur starts with does not.
+  const sampleOnly =
+    shown.length > 0 && shown.every((i) => !/^[0-9a-f-]{36}$/.test(i.id))
+
+  function startImport() {
+    setImportKey((k) => k + 1)
+    setImporting(true)
+  }
 
   async function update(item: AdminMenuItem, patch: Partial<AdminMenuItem>) {
     const next = { ...item, ...patch }
@@ -207,10 +216,7 @@ export function MenuItems({
           <Button
             variant="outlined"
             icon={<FileSpreadsheet size={18} aria-hidden />}
-            onClick={() => {
-              setImportKey((k) => k + 1)
-              setImporting(true)
-            }}
+            onClick={startImport}
           >
             {t('importAction')}
           </Button>
@@ -233,18 +239,16 @@ export function MenuItems({
           aria-label={t('loading')}
         />
       )}
-      {items && shown.length === 0 && (
-        <div className="grid justify-items-start gap-3 rounded-md bg-wash p-5">
-          <p className="text-ink-soft">{t('emptyMenu')}</p>
+      {items && (shown.length === 0 || sampleOnly) && (
+        <div className="rise grid justify-items-start gap-3 rounded-md bg-tonal p-5">
+          <p className="text-[15px]">
+            {t(sampleOnly ? 'sampleMenuNote' : 'emptyMenu')}
+          </p>
           <Button
-            variant="tonal"
-            icon={<FileSpreadsheet size={18} aria-hidden />}
-            onClick={() => {
-              setImportKey((k) => k + 1)
-              setImporting(true)
-            }}
+            icon={<LayoutTemplate size={18} aria-hidden />}
+            onClick={startImport}
           >
-            {t('importAction')}
+            {t('useTemplate')}
           </Button>
         </div>
       )}

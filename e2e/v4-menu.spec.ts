@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { expectAccessible, settle, signInAdmin } from './helpers.ts'
+import { expectAccessible, pair, settle, signInAdmin } from './helpers.ts'
 
 // Imports a menu from an Excel file, then uses search, bulk sold out, the
 // one-tap reset, duplicate and delete on it.
@@ -8,11 +8,18 @@ test('the admin imports a menu file and manages it', async ({ browser }) => {
   const admin = await signInAdmin(browser)
   await admin.getByRole('button', { name: 'Menu', exact: true }).click()
 
+  // The dialog opens on the ready templates.
   await admin
     .getByRole('button', { name: 'Impor', exact: true })
     .first()
     .click()
   const dialog = admin.getByRole('dialog', { name: 'Impor menu' })
+  await dialog.getByRole('button', { name: /Kedai kopi/ }).click()
+  await expect(dialog.getByText('14 menu dalam 4 kategori.')).toBeVisible()
+  await settle(admin)
+  await expectAccessible(admin, 'menu template')
+  await admin.screenshot({ path: 'test-results/menu-template.png' })
+  await dialog.getByRole('button', { name: 'Dari file Excel' }).click()
   await dialog
     .locator('input[type=file]')
     .setInputFiles('e2e/fixtures/menu.xlsx')
@@ -21,7 +28,7 @@ test('the admin imports a menu file and manages it', async ({ browser }) => {
   await settle(admin)
   await expectAccessible(admin, 'menu import')
   await admin.screenshot({ path: 'test-results/menu-import.png' })
-  await dialog.getByRole('switch').check()
+  await expect(dialog.getByRole('switch')).toBeChecked()
   await dialog.getByRole('button', { name: 'Tambah 5 menu' }).click()
   await expect(admin.getByText('5 menu ditambahkan')).toBeVisible()
 
@@ -79,6 +86,7 @@ test('the admin imports a menu file and manages it', async ({ browser }) => {
     .getByRole('button', { name: 'Impor', exact: true })
     .first()
     .click()
+  await dialog.getByRole('button', { name: 'Dari file Excel' }).click()
   await dialog.locator('input[type=file]').setInputFiles({
     name: 'menu-panjang.csv',
     mimeType: 'text/csv',
@@ -106,4 +114,38 @@ test('the admin imports a menu file and manages it', async ({ browser }) => {
       fullPage: true,
     })
   }
+
+  // With allergy questions off, an item without options adds on a tap and
+  // the card takes one back without opening the order.
+  const saved = await admin.evaluate(async () => {
+    const res = await fetch('/api/admin/settings', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        allergy: false,
+        lineNotes: true,
+        orderNote: true,
+        staffPins: false,
+      }),
+    })
+    return res.status
+  })
+  expect(saved).toBe(200)
+  await admin.getByRole('button', { name: 'Perangkat', exact: true }).click()
+  const tablet = await pair(browser, admin, 'Tablet pelayan', 'Tablet cepat', {
+    width: 820,
+    height: 1180,
+  })
+  await tablet.getByRole('button', { name: /^Es Rp/ }).click()
+  await tablet.getByRole('button', { name: 'Es, 1 di pesanan' }).click()
+  await expect(
+    tablet.getByRole('button', { name: 'Es, 2 di pesanan' }),
+  ).toBeVisible()
+  await tablet.getByRole('button', { name: 'Kurangi satu Es' }).first().click()
+  await expect(
+    tablet.getByRole('button', { name: 'Es, 1 di pesanan' }),
+  ).toBeVisible()
+  await settle(tablet)
+  await expectAccessible(tablet, 'quick add')
+  await tablet.screenshot({ path: 'test-results/waiter-quick-add.png' })
 })

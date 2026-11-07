@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { parseCsv, rowsToMenu } from '../src/shared/menu-import'
+import {
+  menuImportSchema,
+  parseCsv,
+  rowsToMenu,
+} from '../src/shared/menu-import'
+import { MENU_TEMPLATES, templateItems } from '../src/shared/menu-templates'
 import { adminHeaders, createOrder, getBoard, line, request } from './helpers'
 
 // The first rows of a real menu file: a title, a note, then the header.
@@ -171,5 +176,18 @@ describe('menu import, bulk changes and delete', () => {
     const left = (await adminItems()).map((i) => i.id)
     expect(left).toContain(ordered.id)
     expect(left).not.toContain(fresh.id)
+  })
+})
+
+describe('menu templates', () => {
+  it('are valid imports with no repeated item', () => {
+    for (const template of MENU_TEMPLATES) {
+      const items = templateItems(template, 1)
+      expect(
+        menuImportSchema.safeParse({ items, hideCurrent: true }).success,
+      ).toBe(true)
+      const keys = items.map((i) => `${i.category}/${i.name}`)
+      expect(new Set(keys).size, template.id).toBe(keys.length)
+    }
   })
 })
