@@ -21,6 +21,8 @@ export const VENUE_LIMITS = {
   passwordMin: 8,
   /** Admins an owner may invite to one dapur, besides themselves. */
   invitedAdmins: 3,
+  /** Dapur an owner may create from the site; the console can add more. */
+  ownedVenues: 3,
 } as const
 
 /** The first dapur; its data lives in the room the pilot started with. */
@@ -54,6 +56,11 @@ export const venueCreateSchema = z.object({
   name: venueNameSchema,
   adminPassword: adminPasswordSchema,
   ownerEmail: ownerEmailSchema.optional(),
+})
+
+/** What an owner sends from the account page to create a dapur. */
+export const ownedVenueCreateSchema = venueCreateSchema.omit({
+  ownerEmail: true,
 })
 
 export const accountVenueSchema = z.object({

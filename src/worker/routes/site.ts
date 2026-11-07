@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
 import {
+  ownedVenueCreateSchema,
   ownerEmailSchema,
   SLUG_PATTERN,
   VENUE_LIMITS,
@@ -30,6 +31,8 @@ import {
 // Site (bare domain): owners sign in with an emailed link and open their dapur.
 const LOGIN_TTL_MS = 15 * 60 * 1000
 const HANDOFF_TTL_MS = 60 * 1000
+const DAY_MS = 24 * 60 * 60 * 1000
+const SIGNUPS_PER_DAY = 100
 
 export const site = new Hono<AppEnv>()
 
@@ -53,9 +56,10 @@ site.post(
     const token = randomHex(32)
     const link = `${new URL(c.req.url).origin}/masuk#token=${token}`
     /**
-     * Everything that depends on whether the email owns a dapur happens here.
-     * Only real owners count against the inbox cap; past it new mail is skipped,
-     * while links already sent keep working, so nobody can lock the owner out.
+     * Any email may sign in; that is how a new owner signs up. Past the inbox
+     * cap new mail is skipped while links already sent keep working, so nobody
+     * can lock an owner out. Emails without a dapur also share a daily cap, so
+     * sign-up spam cannot use up the month's email allowance.
      */
     const issueAndSend = async () => {
       const issued = await dir.issueToken(
@@ -67,9 +71,17 @@ site.post(
       )
       if (!issued) return false
       if (c.env.ENVIRONMENT === 'development') return true
-      if (await dir.allowAttempt(`site-login-email:${email}`, 5, window)) {
-        await sendSignInLink(c.env, email, link)
+      if (!(await dir.allowAttempt(`site-login-email:${email}`, 5, window))) {
+        return true
       }
+      if (
+        !(await dir.knownEmail(email)) &&
+        !(await dir.allowAttempt('site-signup-day', SIGNUPS_PER_DAY, DAY_MS))
+      ) {
+        logEvent('info', 'sign_up_cap_reached', {})
+        return true
+      }
+      await sendSignInLink(c.env, email, link)
       return true
     }
     // Development has no mailbox: the page shows the link instead.
@@ -162,6 +174,59 @@ site.post(
     url.search = ''
     url.hash = `handoff=${token}`
     return c.json({ url: url.toString() })
+  },
+)
+
+/** A signed-in owner creates a dapur of their own, then opens its admin. */
+site.post(
+  '/api/site/venues',
+  invalidInput('json', ownedVenueCreateSchema),
+  async (c) => {
+    const session = await ownerSession(c)
+    if (!session) return refuse(c, 401, 'Masuk dulu.')
+    const dir = directory(c.env)
+    const hour = 60 * 60 * 1000
+    if (!(await dir.allowAttempt(`site-create:${await ipHash(c)}`, 5, hour))) {
+      return reply(
+        c,
+        fail(429, 'rate_limited', 'Terlalu banyak percobaan. Tunggu satu jam.'),
+      )
+    }
+    const { slug, name, adminPassword } = c.req.valid('json')
+    const added = await dir.addOwned(
+      slug,
+      name,
+      session.email,
+      session.issuedAt,
+      VENUE_LIMITS.ownedVenues,
+    )
+    if (added === 'signed_out') return refuse(c, 401, 'Masuk dulu.')
+    if (added === 'full') {
+      return reply(
+        c,
+        fail(
+          409,
+          'operation_conflict',
+          `Satu akun bisa membuat ${VENUE_LIMITS.ownedVenues} dapur. Hubungi kami untuk lebih.`,
+        ),
+      )
+    }
+    if (added === 'taken') {
+      return reply(
+        c,
+        fail(409, 'operation_conflict', 'Alamat ini sudah dipakai dapur lain.'),
+      )
+    }
+    const result = await roomBySlug(c.env, slug).provision({
+      name,
+      adminPassword,
+    })
+    if (!result.ok) {
+      await dir.remove(slug)
+      return reply(c, result)
+    }
+    logEvent('info', 'venue_created_by_owner', { slug })
+    return c.json({ slug, name }, 201)
   },
 )
 

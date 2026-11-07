@@ -526,13 +526,48 @@ describe('owner sign-in on the site', () => {
     expect(res.status).toBe(403)
   })
 
-  it('answers the same for an email that owns nothing', async () => {
-    const start = await call(SITE, '/api/site/login/start', {
-      body: { email: 'siapa@contoh.id' },
-      headers: freshIp(),
+  it('signs up a new email, which then creates up to three dapur', async () => {
+    const { verify } = await signIn('baru-daftar@contoh.id')
+    expect(verify.status).toBe(204)
+    const owner = cookieOf(verify)
+    expect(await venuesOf(owner)).toEqual([])
+
+    const create = (slug: string, cookie = owner) =>
+      call(SITE, '/api/site/venues', {
+        headers: { cookie, ...freshIp() },
+        body: { slug, name: `Warung ${slug}`, adminPassword: 'rahasia-dapur' },
+      })
+    expect((await create('daftar-satu', '')).status, 'needs a sign-in').toBe(
+      401,
+    )
+    expect((await create('www')).status, 'reserved address').toBe(422)
+    expect((await create('daftar-satu')).status).toBe(201)
+    expect((await create('daftar-satu')).status, 'address taken').toBe(409)
+    expect((await create('daftar-dua')).status).toBe(201)
+    expect((await create('daftar-tiga')).status).toBe(201)
+    expect((await create('daftar-empat')).status, 'three per account').toBe(409)
+    expect(await venuesOf(owner)).toMatchObject([
+      { slug: 'daftar-satu', role: 'owner' },
+      { slug: 'daftar-dua', role: 'owner' },
+      { slug: 'daftar-tiga', role: 'owner' },
+    ])
+
+    // The new dapur is ready: its admin password works on its own address.
+    expect(
+      (await adminLogin(`https://daftar-satu.${BASE}`, 'rahasia-dapur')).status,
+    ).toBe(204)
+    const pass = await call(SITE, '/api/site/handoff', {
+      headers: { cookie: owner },
+      body: { slug: 'daftar-dua' },
     })
-    expect(start.status).toBe(200)
-    expect(await start.json()).toEqual({})
+    expect(pass.status).toBe(200)
+
+    // Signing out everywhere also ends the right to create.
+    await call(SITE, '/api/site/logout-everywhere', {
+      headers: { cookie: owner },
+      body: {},
+    })
+    expect((await create('daftar-lima')).status).toBe(401)
   })
 
   it('keeps site routes on the bare domain only', async () => {
@@ -657,11 +692,8 @@ describe('owner sign-in on the site', () => {
       headers: { cookie: await superCookie() },
       body: { ownerEmail: 'baru-alih@contoh.id' },
     })
-    const start = await call(SITE, '/api/site/login/start', {
-      body: { email: 'teman-lama@contoh.id' },
-      headers: freshIp(),
-    })
-    expect(await start.json(), 'no dapur left, so no link').toEqual({})
+    const left = cookieOf((await signIn('teman-lama@contoh.id')).verify)
+    expect(await venuesOf(left), 'no dapur left').toEqual([])
     const late = await call(origin, '/api/admin/handoff', {
       body: { token: pass },
     })
@@ -675,11 +707,8 @@ describe('owner sign-in on the site', () => {
       headers: { cookie: await superCookie() },
       body: { ownerEmail: 'lama-alih@contoh.id' },
     })
-    const back = await call(SITE, '/api/site/login/start', {
-      body: { email: 'teman-lama@contoh.id' },
-      headers: freshIp(),
-    })
-    expect(await back.json(), 'still no link').toEqual({})
+    const back = cookieOf((await signIn('teman-lama@contoh.id')).verify)
+    expect(await venuesOf(back), 'still none').toEqual([])
   })
 
   it('keeps extra admins to three and never the owner', async () => {

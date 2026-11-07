@@ -1,5 +1,6 @@
-import { ExternalLink, X } from 'lucide-react'
+import { ExternalLink, Plus, X } from 'lucide-react'
 import {
+  type ReactNode,
   type SubmitEvent,
   useCallback,
   useEffect,
@@ -10,6 +11,7 @@ import { Link, useNavigate } from 'react-router'
 import { z } from 'zod'
 import {
   accountSchema,
+  isVenueSlug,
   ownerEmailSchema,
   VENUE_LIMITS,
 } from '../../shared/venue'
@@ -23,7 +25,7 @@ import { Button, IconButton } from '../ui/button'
 import { useSnackbar } from '../ui/snackbar'
 import { TextField } from '../ui/text-field'
 
-function SiteBar({ children }: { children?: React.ReactNode }) {
+export function SiteBar({ children }: { children?: ReactNode }) {
   const { t } = useI18n()
   return (
     <header className="mx-auto flex w-full max-w-5xl items-center gap-2 px-4 py-4 sm:gap-3 sm:px-6">
@@ -33,7 +35,16 @@ function SiteBar({ children }: { children?: React.ReactNode }) {
         className="mr-auto flex items-center gap-3 text-lg font-semibold whitespace-nowrap"
       >
         <BrandMark />
-        {t('appName')}
+        {/* Room for the sign-out button on the smallest phones. */}
+        <span className={children ? 'max-[399px]:sr-only' : undefined}>
+          {t('appName')}
+        </span>
+      </Link>
+      <Link
+        to="/harga"
+        className="state inline-flex min-h-11 items-center rounded-full px-3 text-[15px] font-semibold max-[359px]:hidden"
+      >
+        {t('pricingTitle')}
       </Link>
       {children}
       <LanguageToggle />
@@ -226,9 +237,18 @@ export function AccountPage() {
             {error}
           </p>
         )}
-        {account && account.venues.length === 0 && (
-          <p className="text-ink-soft">{t('noVenuesYet')}</p>
-        )}
+        {account &&
+          account.venues.filter((v) => v.role === 'owner').length <
+            VENUE_LIMITS.ownedVenues && (
+            <CreateVenue
+              first={account.venues.length === 0}
+              onCreated={(slug, name) => {
+                snackbar.show(t('siteVenueCreated', { name }))
+                void load()
+                void open(slug)
+              }}
+            />
+          )}
         <ul className="grid max-w-3xl gap-3">
           {account?.venues.map((venue, index) => (
             <li
@@ -382,5 +402,153 @@ function InvitedAdmins({
         </form>
       )}
     </div>
+  )
+}
+
+/** "Warung Bu Siti" becomes "warung-bu-siti". */
+function slugFrom(name: string) {
+  return name
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+/, '')
+    .slice(0, 30)
+    .replace(/-+$/, '')
+}
+
+const createdSchema = z.object({ slug: z.string(), name: z.string() })
+
+/** An owner creates a dapur: name, address and an admin password for staff devices. */
+function CreateVenue({
+  first,
+  onCreated,
+}: {
+  first: boolean
+  onCreated: (slug: string, name: string) => void
+}) {
+  const { t } = useI18n()
+  const [open, setOpen] = useState(first)
+  const [name, setName] = useState('')
+  const [slug, setSlug] = useState('')
+  const [slugTouched, setSlugTouched] = useState(false)
+  const [password, setPassword] = useState('')
+  const [tried, setTried] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const host = window.location.host.replace(/^www\./, '')
+  const address = slugTouched ? slug : slugFrom(name)
+
+  const nameError = tried && name.trim() === '' ? t('fieldRequired') : null
+  const slugError = tried && !isVenueSlug(address) ? t('slugInvalid') : null
+  const passwordError =
+    tried && password.length < VENUE_LIMITS.passwordMin
+      ? t('passwordTooShort')
+      : null
+
+  async function submit(event: SubmitEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setTried(true)
+    setError(null)
+    if (
+      name.trim() === '' ||
+      name.length > VENUE_LIMITS.name ||
+      !isVenueSlug(address) ||
+      password.length < VENUE_LIMITS.passwordMin
+    ) {
+      return
+    }
+    setBusy(true)
+    const result = await api('/api/site/venues', createdSchema, {
+      body: { name: name.trim(), slug: address, adminPassword: password },
+    })
+    setBusy(false)
+    if (!result.ok) return setError(result.message)
+    onCreated(result.data.slug, result.data.name)
+  }
+
+  if (!open) {
+    return (
+      <Button
+        variant="tonal"
+        className="w-fit"
+        icon={<Plus size={18} aria-hidden />}
+        onClick={() => setOpen(true)}
+      >
+        {t('siteCreateVenue')}
+      </Button>
+    )
+  }
+
+  return (
+    <form
+      onSubmit={submit}
+      noValidate
+      className="rise grid max-w-3xl gap-4 rounded-md border border-line p-5 sm:p-6"
+    >
+      <div className="grid gap-1">
+        <h2 className="text-xl font-medium">
+          {first ? t('createFirstVenue') : t('siteCreateVenue')}
+        </h2>
+        <p className="text-[15px] text-ink-soft">{t('createVenueLead')}</p>
+      </div>
+      <div className="grid gap-x-4 sm:grid-cols-2">
+        <TextField
+          label={t('venueName')}
+          max={VENUE_LIMITS.name}
+          autoComplete="organization"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          error={nameError}
+          autoFocus={first}
+        />
+        <TextField
+          label={t('venueAddress')}
+          hint={
+            <span className="wrap-anywhere">
+              {address === '' ? t('venueAddressHint') : `${address}.${host}`}
+            </span>
+          }
+          autoComplete="off"
+          autoCapitalize="none"
+          spellCheck={false}
+          value={address}
+          onChange={(e) => {
+            setSlugTouched(true)
+            setSlug(
+              e.target.value
+                .toLowerCase()
+                .replace(/[^a-z0-9-]/g, '')
+                .slice(0, 30),
+            )
+          }}
+          error={slugError}
+        />
+      </div>
+      <TextField
+        label={t('venueAdminPassword')}
+        hint={t('siteAdminPasswordHint')}
+        type="password"
+        autoComplete="new-password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        error={passwordError}
+      />
+      {error && (
+        <p role="alert" className="font-medium">
+          {error}
+        </p>
+      )}
+      <div className="flex flex-wrap gap-2">
+        <Button type="submit" disabled={busy}>
+          {busy ? t('creatingVenue') : t('createVenueAction')}
+        </Button>
+        {!first && (
+          <Button variant="text" onClick={() => setOpen(false)}>
+            {t('cancel')}
+          </Button>
+        )}
+      </div>
+    </form>
   )
 }

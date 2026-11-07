@@ -286,6 +286,32 @@ export class Directory extends DurableObject<Env> {
     )
   }
 
+  /** True when the email can open at least one dapur. */
+  knownEmail(email: string): boolean {
+    return this.venuesOf(email).length > 0
+  }
+
+  /** A signed-in owner adds a dapur of their own, up to `limit` of them. */
+  addOwned(
+    slug: string,
+    name: string,
+    email: string,
+    issuedAt: number,
+    limit: number,
+  ): 'ok' | 'signed_out' | 'full' | 'taken' {
+    return this.ctx.storage.transactionSync(() => {
+      if (!this.sessionValid(email, issuedAt)) return 'signed_out'
+      const owned = this.sql
+        .exec<{ n: number }>(
+          'SELECT COUNT(*) AS n FROM venues WHERE owner_email = ?',
+          email,
+        )
+        .one().n
+      if (owned >= limit) return 'full'
+      return this.add(slug, name, email) ? 'ok' : 'taken'
+    })
+  }
+
   /** False when the address is already taken. */
   add(slug: string, name: string, ownerEmail: string | null): boolean {
     if (this.has(slug)) return false
@@ -350,8 +376,8 @@ export class Directory extends DurableObject<Env> {
   }
 
   /**
-   * Stores a one-time token (only its hash). A sign-in token needs an owner
-   * with at least one dapur; a handoff token needs a dapur they own or were invited to.
+   * Stores a one-time token (only its hash). Any email may sign in, which is
+   * how a new owner signs up; a handoff token needs a dapur they own or were invited to.
    */
   issueToken(
     kind: TokenKind,
@@ -368,11 +394,7 @@ export class Directory extends DurableObject<Env> {
     ) {
       return false
     }
-    const allowed =
-      kind === 'login'
-        ? this.venuesOf(email).length > 0
-        : this.canOpen(email, slug)
-    if (!allowed) return false
+    if (kind === 'handoff' && !this.canOpen(email, slug)) return false
     this.sql.exec(
       'INSERT INTO tokens (hash, kind, email, slug, expires_at) VALUES (?, ?, ?, ?, ?)',
       hash,
