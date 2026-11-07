@@ -4,10 +4,12 @@ import {
   type AdminTable,
   type MenuItem,
   type MenuItemInput,
+  type MenuPatch,
   modifierGroupsSchema,
   type Table,
   type TableInput,
 } from '../shared/menu'
+import type { MenuImport } from '../shared/menu-import'
 import { bumpRev, type Db, getMeta, schema, setMeta } from './db'
 
 type MenuRow = typeof schema.menuItems.$inferSelect
@@ -96,6 +98,91 @@ export function saveMenuItem(
   }
   menuChanged(db)
   return { id: itemId, ...input }
+}
+
+/**
+ * Adds many items in one go. Rows whose name and category already exist are
+ * skipped, so importing the same file twice adds nothing.
+ */
+export function importMenu(db: Db, input: MenuImport, now: number) {
+  const key = (name: string, category: string) =>
+    `${category.toLowerCase()}\n${name.toLowerCase()}`
+  const existing = db
+    .select({
+      id: schema.menuItems.id,
+      name: schema.menuItems.name,
+      category: schema.menuItems.category,
+      hidden: schema.menuItems.hidden,
+    })
+    .from(schema.menuItems)
+    .all()
+  const seen = new Set(existing.map((r) => key(r.name, r.category)))
+  let hidden = 0
+  if (input.hideCurrent) {
+    for (const row of existing.filter((r) => !r.hidden)) {
+      db.update(schema.menuItems)
+        .set({ hidden: true, updatedAt: now })
+        .where(eq(schema.menuItems.id, row.id))
+        .run()
+      hidden++
+    }
+  }
+  let added = 0
+  for (const { modifierGroups, ...fields } of input.items) {
+    const k = key(fields.name, fields.category)
+    if (seen.has(k)) continue
+    seen.add(k)
+    db.insert(schema.menuItems)
+      .values({
+        id: crypto.randomUUID(),
+        ...fields,
+        modifierGroupsJson: JSON.stringify(modifierGroups),
+        updatedAt: now,
+      })
+      .run()
+    added++
+  }
+  if (added > 0 || hidden > 0) menuChanged(db)
+  return { added, skipped: input.items.length - added, hidden }
+}
+
+/** Changes many items at once: sold out, hidden, order or category. */
+export function patchMenu(db: Db, changes: MenuPatch['changes'], now: number) {
+  let updated = 0
+  for (const { id, ...set } of changes) {
+    const rows = db
+      .update(schema.menuItems)
+      .set({ ...set, updatedAt: now })
+      .where(eq(schema.menuItems.id, id))
+      .returning({ id: schema.menuItems.id })
+      .all()
+    updated += rows.length
+  }
+  if (updated > 0) menuChanged(db)
+  return updated
+}
+
+/**
+ * Removes an item nobody ever ordered. An ordered item stays (old tickets and
+ * history point at it) and can only be hidden.
+ */
+export function deleteMenuItem(db: Db, id: string) {
+  const found = db
+    .select({ id: schema.menuItems.id })
+    .from(schema.menuItems)
+    .where(eq(schema.menuItems.id, id))
+    .get()
+  if (!found) return 'missing'
+  const ordered = db
+    .select({ id: schema.orderLines.id })
+    .from(schema.orderLines)
+    .where(eq(schema.orderLines.menuItemId, id))
+    .limit(1)
+    .get()
+  if (ordered) return 'ordered'
+  db.delete(schema.menuItems).where(eq(schema.menuItems.id, id)).run()
+  menuChanged(db)
+  return 'deleted'
 }
 
 /** The tables tablets can pick: inactive ones left out. */

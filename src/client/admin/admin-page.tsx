@@ -181,7 +181,7 @@ function Console({
       >
         <div
           ref={tabsRef}
-          className="relative mx-auto flex max-w-5xl overflow-x-auto px-2 [scrollbar-width:none] sm:px-6"
+          className="relative mx-auto flex max-w-5xl overflow-x-auto overscroll-x-contain px-2 [scrollbar-width:none] max-sm:[mask-image:linear-gradient(to_right,black_calc(100%-20px),transparent)] sm:px-6"
         >
           {tabs.map((item) => {
             const active = tab === item.id

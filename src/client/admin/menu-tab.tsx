@@ -1,4 +1,4 @@
-import { Eye, LoaderCircle, Plus } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import {
   type SubmitEvent,
   useCallback,
@@ -16,7 +16,7 @@ import {
   MENU_LIMITS,
   type TableInput,
 } from '../../shared/menu'
-import { formatIdr, useI18n } from '../i18n'
+import { useI18n } from '../i18n'
 import { api } from '../lib/api'
 import { failureText } from '../lib/commands'
 import { stagger } from '../lib/stagger'
@@ -25,7 +25,7 @@ import { Card } from '../ui/card'
 import { Dialog } from '../ui/dialog'
 import { Switch } from '../ui/switch'
 import { TextField } from '../ui/text-field'
-import { MenuItemDialog, saveMenuItem, toInput } from './menu-item-dialog'
+import { MenuItems } from './menu-items'
 import { useEditing } from './shared'
 
 const nextSort = (rows: { sort: number }[]) =>
@@ -75,170 +75,6 @@ export function MenuTab({
       />
       <Tables tables={tables} reload={load} notify={notify} />
     </div>
-  )
-}
-
-function MenuItems({
-  items,
-  setItems,
-  reload,
-  notify,
-}: {
-  items: AdminMenuItem[] | null
-  setItems: (
-    update: (list: AdminMenuItem[] | null) => AdminMenuItem[] | null,
-  ) => void
-  reload: () => Promise<void>
-  notify: (text: string) => void
-}) {
-  const { t } = useI18n()
-  const editing = useEditing<AdminMenuItem>()
-  const shown = items?.filter((i) => !i.hidden) ?? []
-  const hidden = items?.filter((i) => i.hidden) ?? []
-  const categories = [...new Set(items?.map((i) => i.category))]
-  const byCategory = categories
-    .map((category) => ({
-      category,
-      rows: shown.filter((i) => i.category === category),
-    }))
-    .filter((c) => c.rows.length > 0)
-
-  async function update(item: AdminMenuItem, patch: Partial<AdminMenuItem>) {
-    const next = { ...item, ...patch }
-    setItems((list) => list?.map((i) => (i.id === item.id ? next : i)) ?? null)
-    const result = await saveMenuItem(item.id, toInput(next))
-    if (!result.ok) {
-      notify(t('networkError'))
-      await reload()
-      return false
-    }
-    return true
-  }
-
-  let index = 0
-  return (
-    <section
-      aria-labelledby="menu-items"
-      className="grid content-start gap-6 lg:pt-5"
-    >
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 id="menu-items" className="text-2xl font-medium">
-          {t('menuTitle')}
-        </h2>
-        <Button
-          icon={<Plus size={18} aria-hidden />}
-          onClick={() => editing.start(null)}
-        >
-          {t('addItem')}
-        </Button>
-      </div>
-
-      {items === null && (
-        <LoaderCircle
-          className="animate-spin text-ink-soft"
-          size={28}
-          aria-label={t('loading')}
-        />
-      )}
-      {items && shown.length === 0 && (
-        <p className="text-ink-soft">{t('emptyMenu')}</p>
-      )}
-
-      {byCategory.map(({ category, rows }) => (
-        <div key={category} className="grid gap-2">
-          <h3 className="px-1 text-sm font-medium text-ink-soft">{category}</h3>
-          <ul className="grid gap-2">
-            {rows.map((item) => (
-              <li
-                key={item.id}
-                style={stagger(index++)}
-                className="rise flex min-h-16 items-center gap-3 rounded-md bg-wash pr-4"
-              >
-                <button
-                  type="button"
-                  onClick={() => editing.start(item)}
-                  className="state grid min-h-16 min-w-0 flex-1 content-center rounded-md px-4 py-2 text-left"
-                >
-                  <span
-                    className={`font-medium break-words ${item.available ? '' : 'text-ink-soft line-through decoration-1'}`}
-                  >
-                    {item.name}
-                  </span>
-                  <span className="flex flex-wrap gap-x-3 text-sm text-ink-soft tabular-nums">
-                    <span>{formatIdr(item.priceIdr)}</span>
-                    {item.modifierGroups.length > 0 && (
-                      <span>
-                        {t('groupCount', {
-                          count: item.modifierGroups.length,
-                        })}
-                      </span>
-                    )}
-                    {!item.available && (
-                      <span className="font-semibold text-ink">
-                        {t('soldOut')}
-                      </span>
-                    )}
-                  </span>
-                </button>
-                <Switch
-                  label={t('available')}
-                  hideLabel
-                  checked={item.available}
-                  onChange={(available) => void update(item, { available })}
-                />
-              </li>
-            ))}
-          </ul>
-        </div>
-      ))}
-
-      {hidden.length > 0 && (
-        <details className="group grid gap-2">
-          <summary className="state flex min-h-12 cursor-pointer list-none items-center rounded-full px-4 text-[15px] font-medium [&::-webkit-details-marker]:hidden">
-            {t('hiddenItems', { count: hidden.length })}
-          </summary>
-          <ul className="mt-2 grid gap-2">
-            {hidden.map((item, i) => (
-              <li
-                key={item.id}
-                style={stagger(i)}
-                className="rise flex min-h-16 items-center gap-3 rounded-md border border-dashed border-ink-soft px-4 py-2"
-              >
-                <span className="mr-auto grid min-w-0">
-                  <span className="font-medium break-words">{item.name}</span>
-                  <span className="text-sm text-ink-soft">{item.category}</span>
-                </span>
-                <Button
-                  variant="text"
-                  icon={<Eye size={18} aria-hidden />}
-                  onClick={async () => {
-                    if (await update(item, { hidden: false })) {
-                      notify(t('shown', { name: item.name }))
-                    }
-                  }}
-                >
-                  {t('unhide')}
-                </Button>
-              </li>
-            ))}
-          </ul>
-        </details>
-      )}
-
-      <MenuItemDialog
-        key={editing.key}
-        open={editing.open}
-        item={editing.target}
-        categories={categories}
-        nextSort={nextSort(items ?? [])}
-        onClose={editing.close}
-        onSaved={(message) => {
-          editing.close()
-          notify(message)
-          void reload()
-        }}
-      />
-    </section>
   )
 }
 

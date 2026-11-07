@@ -5,7 +5,12 @@ import {
   exportQuerySchema,
   historyQuerySchema,
 } from '../../shared/history'
-import { menuItemInputSchema, tableInputSchema } from '../../shared/menu'
+import {
+  menuItemInputSchema,
+  menuPatchSchema,
+  tableInputSchema,
+} from '../../shared/menu'
+import { menuImportSchema } from '../../shared/menu-import'
 import { staffInputSchema } from '../../shared/staff'
 import { toCsv } from '../history'
 import {
@@ -36,6 +41,46 @@ manager.post(
         await adminCredentials(c),
         null,
         c.req.valid('json'),
+      ),
+    ),
+)
+// Registered before `/menu/:id` so `import` is never read as an id.
+manager.post(
+  '/api/manager/menu/import',
+  requireAdmin,
+  invalidInput('json', menuImportSchema),
+  async (c) =>
+    reply(
+      c,
+      await venueRoom(c).importMenu(
+        await adminCredentials(c),
+        c.req.valid('json'),
+      ),
+    ),
+)
+manager.patch(
+  '/api/manager/menu',
+  requireAdmin,
+  invalidInput('json', menuPatchSchema),
+  async (c) =>
+    reply(
+      c,
+      await venueRoom(c).patchMenu(
+        await adminCredentials(c),
+        c.req.valid('json').changes,
+      ),
+    ),
+)
+manager.delete(
+  '/api/manager/menu/:id',
+  requireAdmin,
+  invalidInput('param', idParam),
+  async (c) =>
+    reply(
+      c,
+      await venueRoom(c).deleteMenuItem(
+        await adminCredentials(c),
+        c.req.valid('param').id,
       ),
     ),
 )

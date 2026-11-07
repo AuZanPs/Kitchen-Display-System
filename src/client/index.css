@@ -56,7 +56,7 @@
   background-color: color-mix(in srgb, var(--on) var(--layer, 0%), var(--bg));
   transition: background-color 150ms var(--ease-standard);
   /* Touch screens fire hover on tap; only real pointers get the hover layer. */
-  @media (hover: hover) {
+  @media (hover: hover) and (pointer: fine) {
     &:hover:not(:disabled) {
       --layer: 8%;
     }
@@ -76,7 +76,18 @@
     font-family: var(--font-sans);
     font-feature-settings: "tnum";
     -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
     touch-action: manipulation;
+  }
+
+  /* A long press on a control must not select its label; content stays selectable. */
+  button,
+  summary,
+  [role="button"],
+  [role="tab"] {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
   }
 
   :focus-visible {

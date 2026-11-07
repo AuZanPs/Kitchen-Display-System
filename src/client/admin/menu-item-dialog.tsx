@@ -1,4 +1,4 @@
-import { EyeOff, Plus, Trash2, X } from 'lucide-react'
+import { Copy, EyeOff, Plus, Trash2, X } from 'lucide-react'
 import { type SubmitEvent, useState } from 'react'
 import { z } from 'zod'
 import {
@@ -64,32 +64,43 @@ export function toInput({ id: _, ...input }: AdminMenuItem): MenuItemInput {
   return input
 }
 
+const deleteResult = z.null()
+
 export function MenuItemDialog({
   open,
   item,
+  copyOf = null,
   categories,
   nextSort,
   onClose,
+  onDuplicate,
   onSaved,
 }: {
   open: boolean
   item: AdminMenuItem | null
+  /** A new item that starts as a copy of this one. */
+  copyOf?: AdminMenuItem | null
   categories: string[]
   nextSort: number
   onClose: () => void
+  onDuplicate?: (item: AdminMenuItem) => void
   onSaved: (message: string) => void
 }) {
   const { t } = useI18n()
-  const [name, setName] = useState(item?.name ?? '')
-  const [price, setPrice] = useState(item ? String(item.priceIdr) : '')
+  const start = item ?? copyOf
+  const [name, setName] = useState(
+    item?.name ?? (copyOf ? t('copyName', { name: copyOf.name }) : ''),
+  )
+  const [price, setPrice] = useState(start ? String(start.priceIdr) : '')
   const [category, setCategory] = useState(
-    item?.category ?? categories[0] ?? '',
+    start?.category ?? categories[0] ?? '',
   )
   const [sort, setSort] = useState(String(item?.sort ?? nextSort))
-  const [available, setAvailable] = useState(item?.available ?? true)
+  const [available, setAvailable] = useState(start?.available ?? true)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const [groups, setGroups] = useState<GroupDraft[]>(
     () =>
-      item?.modifierGroups.map((g) => ({
+      start?.modifierGroups.map((g) => ({
         ...g,
         options: g.options.map((o) => ({
           id: o.id,
@@ -170,6 +181,21 @@ export function MenuItemDialog({
     onSaved(t(hidden ? 'hidden' : 'itemSaved', { name: input.name }))
   }
 
+  async function remove() {
+    if (!item) return
+    setBusy(true)
+    const result = await api(`/api/manager/menu/${item.id}`, deleteResult, {
+      method: 'DELETE',
+    })
+    setBusy(false)
+    setConfirmDelete(false)
+    if (!result.ok) {
+      setError(failureText(result, t))
+      return
+    }
+    onSaved(t('deleted', { name: item.name }))
+  }
+
   function submit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault()
     void save(item?.hidden ?? false)
@@ -179,29 +205,73 @@ export function MenuItemDialog({
     <Dialog
       open={open}
       onOpenChange={(next) => !next && onClose()}
-      title={item ? t('editItem') : t('addItem')}
+      title={item ? t('editItem') : copyOf ? t('copyItem') : t('addItem')}
       wide
       footer={
-        <>
-          {item && !item.hidden && (
-            <Button
-              variant="text"
-              className="mr-auto"
-              icon={<EyeOff size={18} aria-hidden />}
-              aria-label={t('hide')}
-              disabled={busy}
-              onClick={() => void save(true)}
-            >
-              <span className="hidden sm:inline">{t('hide')}</span>
+        confirmDelete && item ? (
+          <>
+            <p className="mr-auto self-center text-[15px] font-medium">
+              {t('deleteConfirm', { name: item.name })}
+            </p>
+            <Button variant="text" onClick={() => setConfirmDelete(false)}>
+              {t('cancel')}
             </Button>
-          )}
-          <Button variant="text" onClick={onClose}>
-            {t('cancel')}
-          </Button>
-          <Button type="submit" form="menu-item-form" disabled={busy}>
-            {t('save')}
-          </Button>
-        </>
+            <Button
+              disabled={busy}
+              icon={<Trash2 size={18} aria-hidden />}
+              onClick={() => void remove()}
+            >
+              {t('delete')}
+            </Button>
+          </>
+        ) : (
+          <>
+            <div className="mr-auto flex">
+              {item && (
+                <Button
+                  variant="text"
+                  icon={<Trash2 size={18} aria-hidden />}
+                  aria-label={t('delete')}
+                  disabled={busy}
+                  onClick={() => {
+                    setError(null)
+                    setConfirmDelete(true)
+                  }}
+                >
+                  <span className="hidden sm:inline">{t('delete')}</span>
+                </Button>
+              )}
+              {item && onDuplicate && (
+                <Button
+                  variant="text"
+                  icon={<Copy size={18} aria-hidden />}
+                  aria-label={t('duplicate')}
+                  disabled={busy}
+                  onClick={() => onDuplicate(item)}
+                >
+                  <span className="hidden sm:inline">{t('duplicate')}</span>
+                </Button>
+              )}
+              {item && !item.hidden && (
+                <Button
+                  variant="text"
+                  icon={<EyeOff size={18} aria-hidden />}
+                  aria-label={t('hide')}
+                  disabled={busy}
+                  onClick={() => void save(true)}
+                >
+                  <span className="hidden sm:inline">{t('hide')}</span>
+                </Button>
+              )}
+            </div>
+            <Button variant="text" onClick={onClose}>
+              {t('cancel')}
+            </Button>
+            <Button type="submit" form="menu-item-form" disabled={busy}>
+              {t('save')}
+            </Button>
+          </>
+        )
       }
     >
       <form

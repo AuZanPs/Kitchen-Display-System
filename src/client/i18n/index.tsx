@@ -55,10 +55,21 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     return {
       lang,
       setLang,
+      // "{count|item|items}" picks a word by the number; "{count}" inserts it.
       t: (key, vars) =>
-        dict[key].replace(/\{(\w+)\}/g, (match, name: string) =>
-          vars && name in vars ? String(vars[name]) : match,
-        ),
+        dict[key]
+          .replace(
+            /\{(\w+)\|([^|}]*)\|([^}]*)\}/g,
+            (match, name: string, one: string, other: string) =>
+              vars && name in vars
+                ? Number(vars[name]) === 1
+                  ? one
+                  : other
+                : match,
+          )
+          .replace(/\{(\w+)\}/g, (match, name: string) =>
+            vars && name in vars ? String(vars[name]) : match,
+          ),
     }
   }, [lang, setLang])
 

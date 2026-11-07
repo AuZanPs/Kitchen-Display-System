@@ -73,6 +73,23 @@ export const adminMenuItemSchema = menuItemInputSchema.extend({
 })
 export const adminMenuSchema = z.object({ items: z.array(adminMenuItemSchema) })
 
+/** Many items changed at once by the admin list (bulk actions, categories). */
+export const menuPatchSchema = z.object({
+  changes: z
+    .array(
+      z.object({
+        id: z.string().min(1).max(40),
+        available: z.boolean().optional(),
+        hidden: z.boolean().optional(),
+        sort: z.number().int().min(0).max(100_000).optional(),
+        category: z.string().trim().min(1).max(MENU_LIMITS.category).optional(),
+      }),
+    )
+    .min(1)
+    .max(300),
+})
+export type MenuPatch = z.infer<typeof menuPatchSchema>
+
 export const tableInputSchema = z.object({
   label: z.string().trim().min(1).max(MENU_LIMITS.tableLabel),
   sort: z.number().int().min(0).max(100_000),

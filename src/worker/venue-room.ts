@@ -20,9 +20,11 @@ import type {
   AdminTable,
   MenuItem,
   MenuItemInput,
+  MenuPatch,
   Table,
   TableInput,
 } from '../shared/menu'
+import type { MenuImport } from '../shared/menu-import'
 import {
   type CreateOrder,
   type CreateOrderResult,
@@ -76,6 +78,9 @@ import {
   activeTables,
   adminMenu,
   adminTables,
+  deleteMenuItem,
+  importMenu,
+  patchMenu,
   saveMenuItem,
   saveTable,
   visibleMenu,
@@ -704,6 +709,42 @@ export class VenueRoom extends DurableObject<Env> {
     const item = this.write(() => saveMenuItem(this.db, id, input, Date.now()))
     if (!item) return fail(404, 'not_found', 'Menu tidak ditemukan.')
     return ok({ item }, id === null ? 201 : 200)
+  }
+
+  importMenu(
+    credentials: Credentials,
+    input: MenuImport,
+  ): Result<{ added: number; skipped: number; hidden: number }> {
+    const refused = this.adminRefused(credentials)
+    if (refused) return refused
+    return ok(this.write(() => importMenu(this.db, input, Date.now())))
+  }
+
+  patchMenu(
+    credentials: Credentials,
+    changes: MenuPatch['changes'],
+  ): Result<{ updated: number }> {
+    const refused = this.adminRefused(credentials)
+    if (refused) return refused
+    const updated = this.write(() => patchMenu(this.db, changes, Date.now()))
+    return ok({ updated })
+  }
+
+  deleteMenuItem(credentials: Credentials, id: string): Result<null> {
+    const refused = this.adminRefused(credentials)
+    if (refused) return refused
+    const result = this.write(() => deleteMenuItem(this.db, id))
+    if (result === 'missing') {
+      return fail(404, 'not_found', 'Menu tidak ditemukan.')
+    }
+    if (result === 'ordered') {
+      return fail(
+        409,
+        'operation_conflict',
+        'Menu ini sudah pernah dipesan, jadi hanya bisa disembunyikan.',
+      )
+    }
+    return ok(null)
   }
 
   adminTables(credentials: Credentials): Result<{ tables: AdminTable[] }> {
