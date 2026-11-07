@@ -1,4 +1,4 @@
-import { Ban, ExternalLink } from 'lucide-react'
+import { Ban, Check, ExternalLink } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { z } from 'zod'
 import {
@@ -9,7 +9,7 @@ import {
 import { type Device, PAIR_ROLES, type PairRole } from '../../shared/devices'
 import { type HistoryStats, historySchema } from '../../shared/history'
 import { LIMITS, ticketLabel } from '../../shared/order'
-import { formatDay, formatMinutes, useI18n } from '../i18n'
+import { type DictKey, formatDay, formatMinutes, useI18n } from '../i18n'
 import { api } from '../lib/api'
 import { minutesSince, whereLabel } from '../lib/board'
 import { failureText, sendCommand } from '../lib/commands'
@@ -23,20 +23,26 @@ import { TextField } from '../ui/text-field'
 import { StatTiles } from './history-tab'
 import { ROLE_ICON, roleName, STATUS_KEY } from './shared'
 
+const ONBOARD_DISMISSED_KEY = 'kds_onboard_dismissed'
+const ONBOARD_STEPS_KEY = 'kds_onboard_steps'
+
 export function OverviewTab({
   board,
   devices,
   notify,
   onManageDevices,
+  onOpenTab,
 }: {
   board: BoardMessage | null
   devices: Device[] | null
   notify: (text: string) => void
   onManageDevices: () => void
+  onOpenTab: (tab: 'menu' | 'staff' | 'devices') => void
 }) {
   const { t } = useI18n()
   return (
     <div className="grid gap-8">
+      <OnboardingCard board={board} devices={devices} onOpenTab={onOpenTab} />
       <Today board={board} />
       <section aria-labelledby="screens" className="grid gap-4">
         <h2 id="screens" className="text-2xl font-medium">
@@ -58,6 +64,170 @@ export function OverviewTab({
       <ServiceDay board={board} notify={notify} />
       <ActiveOrders board={board} notify={notify} />
     </div>
+  )
+}
+
+function OnboardingCard({
+  board,
+  devices,
+  onOpenTab,
+}: {
+  board: BoardMessage | null
+  devices: Device[] | null
+  onOpenTab: (tab: 'menu' | 'staff' | 'devices') => void
+}) {
+  const { t } = useI18n()
+  const [dismissed, setDismissed] = useState(() => {
+    try {
+      return localStorage.getItem(ONBOARD_DISMISSED_KEY) === '1'
+    } catch {
+      return false
+    }
+  })
+  const [visited, setVisited] = useState<{ menu?: boolean; staff?: boolean }>(
+    () => {
+      try {
+        const raw = localStorage.getItem(ONBOARD_STEPS_KEY)
+        return raw
+          ? (JSON.parse(raw) as { menu?: boolean; staff?: boolean })
+          : {}
+      } catch {
+        return {}
+      }
+    },
+  )
+
+  if (dismissed) return null
+
+  const activeDevices = devices?.filter((d) => d.revokedAt === null).length ?? 0
+  const menuDone = Boolean((board?.menuVersion ?? 1) > 1 || visited.menu)
+  const staffDone = Boolean(board?.settings.staffPins || visited.staff)
+  const devicesDone = activeDevices > 0
+
+  const steps: {
+    id: 'menu' | 'staff' | 'devices'
+    done: boolean
+    title: DictKey
+    body: DictKey
+    action: DictKey
+  }[] = [
+    {
+      id: 'menu',
+      done: menuDone,
+      title: 'onboardStep1Title',
+      body: 'onboardStep1Body',
+      action: 'onboardStep1Action',
+    },
+    {
+      id: 'staff',
+      done: staffDone,
+      title: 'onboardStep2Title',
+      body: 'onboardStep2Body',
+      action: 'onboardStep2Action',
+    },
+    {
+      id: 'devices',
+      done: devicesDone,
+      title: 'onboardStep3Title',
+      body: 'onboardStep3Body',
+      action: 'onboardStep3Action',
+    },
+  ]
+
+  const doneCount = steps.filter((s) => s.done).length
+
+  function openStep(tab: 'menu' | 'staff' | 'devices') {
+    if (tab === 'menu' || tab === 'staff') {
+      const next = { ...visited, [tab]: true }
+      setVisited(next)
+      try {
+        localStorage.setItem(ONBOARD_STEPS_KEY, JSON.stringify(next))
+      } catch {
+        // Storage unavailable
+      }
+    }
+    onOpenTab(tab)
+  }
+
+  function dismiss() {
+    setDismissed(true)
+    try {
+      localStorage.setItem(ONBOARD_DISMISSED_KEY, '1')
+    } catch {
+      // Storage unavailable
+    }
+  }
+
+  return (
+    <section
+      aria-labelledby="onboard-title"
+      className="rise grid gap-5 rounded-lg bg-wash p-5 sm:p-6"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="grid gap-1.5">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="rounded-full bg-tonal px-3 py-1 text-xs font-semibold tabular-nums">
+              {t('onboardBadge', { done: doneCount, total: steps.length })}
+            </span>
+            <div aria-hidden className="flex w-20 items-center gap-1">
+              {steps.map((s) => (
+                <span
+                  key={s.id}
+                  className={`h-1.5 flex-1 rounded-full transition-colors ${
+                    s.done ? 'bg-ink' : 'bg-tonal'
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
+          <h2 id="onboard-title" className="text-xl font-medium sm:text-2xl">
+            {t('onboardTitle')}
+          </h2>
+          <p className="text-sm text-ink-soft">{t('onboardLead')}</p>
+        </div>
+        <Button variant="text" onClick={dismiss}>
+          {t('onboardDismiss')}
+        </Button>
+      </div>
+
+      <ol className="grid gap-3 sm:grid-cols-3">
+        {steps.map((step, index) => (
+          <li
+            key={step.id}
+            style={stagger(index)}
+            className="rise grid content-between gap-4 rounded-md bg-surface p-4"
+          >
+            <div className="grid gap-2.5">
+              <div className="flex items-center gap-2.5">
+                <span
+                  aria-hidden
+                  className={`grid size-7 shrink-0 place-items-center rounded-full text-xs font-semibold tabular-nums ${
+                    step.done ? 'bg-ink text-surface' : 'bg-tonal text-ink'
+                  }`}
+                >
+                  {step.done ? (
+                    <Check size={15} strokeWidth={2.75} />
+                  ) : (
+                    index + 1
+                  )}
+                </span>
+                <span className="text-[15px] font-medium">{t(step.title)}</span>
+              </div>
+              <p className="text-[13px] leading-relaxed text-ink-soft">
+                {t(step.body)}
+              </p>
+            </div>
+            <Button
+              variant={step.done ? 'outlined' : 'tonal'}
+              className="w-fit"
+              onClick={() => openStep(step.id)}
+            >
+              {t(step.action)}
+            </Button>
+          </li>
+        ))}
+      </ol>
+    </section>
   )
 }
 

@@ -222,6 +222,7 @@ function Console({
             devices={devices}
             notify={snackbar.show}
             onManageDevices={() => setParams({ tab: 'devices' })}
+            onOpenTab={(nextTab) => setParams({ tab: nextTab })}
           />
         )}
         {tab === 'menu' && (

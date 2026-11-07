@@ -614,4 +614,22 @@ export const en: Dict = {
   howCtaTitle: 'Ready to run your kitchen on Layar Dapur?',
   howCtaBody:
     'Start on the Free plan in two minutes — up to 3 kitchens and unlimited screens, with no credit card required.',
+  stepCreateVenue: 'Create kitchen',
+  stepSetupMenu: 'Set up menu',
+  stepPairScreens: 'Pair screens',
+  onboardBadge: 'Setup guide · {done} of {total}',
+  onboardTitle: 'Get your kitchen ready',
+  onboardLead: 'Three quick steps to start taking orders.',
+  onboardDismiss: 'Dismiss',
+  onboardStep1Title: 'Set up your menu',
+  onboardStep1Body:
+    'Pick a starter template, edit dishes, or import an Excel file.',
+  onboardStep1Action: 'Set up menu',
+  onboardStep2Title: 'Add staff & PINs',
+  onboardStep2Body: 'Add waiter and kitchen names, or turn on staff PINs.',
+  onboardStep2Action: 'Manage staff',
+  onboardStep3Title: 'Pair your screens',
+  onboardStep3Body:
+    'Open your kitchen address on a TV, tablet or phone and enter the 6-digit code.',
+  onboardStep3Action: 'Pair a screen',
 }

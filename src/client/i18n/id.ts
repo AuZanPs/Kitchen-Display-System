@@ -623,6 +623,24 @@ export const id = {
   howCtaTitle: 'Siap menjalankan dapurmu dengan Layar Dapur?',
   howCtaBody:
     'Mulai di paket Gratis dalam dua menit — sampai 3 dapur dan layar tanpa batas, tanpa kartu kredit.',
+  stepCreateVenue: 'Buat dapur',
+  stepSetupMenu: 'Atur menu',
+  stepPairScreens: 'Pasang layar',
+  onboardBadge: 'Panduan awal · {done} dari {total}',
+  onboardTitle: 'Siapkan dapurmu',
+  onboardLead: 'Tiga langkah singkat untuk mulai menerima pesanan.',
+  onboardDismiss: 'Tutup panduan',
+  onboardStep1Title: 'Atur menu dapur',
+  onboardStep1Body:
+    'Pilih template siap pakai, ubah menu, atau impor file Excel.',
+  onboardStep1Action: 'Atur menu',
+  onboardStep2Title: 'Tambah staf & PIN',
+  onboardStep2Body: 'Tambah nama pelayan dan dapur, atau aktifkan PIN staf.',
+  onboardStep2Action: 'Atur staf',
+  onboardStep3Title: 'Pasang layar dapur',
+  onboardStep3Body:
+    'Buka alamat dapurmu di TV, tablet atau HP lalu masukkan kode 6 angka.',
+  onboardStep3Action: 'Pasang layar',
 } as const
 
 export type Dict = Record<keyof typeof id, string>

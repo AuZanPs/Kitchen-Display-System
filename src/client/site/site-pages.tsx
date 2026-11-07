@@ -650,8 +650,30 @@ function CreateVenue({
     <form
       onSubmit={submit}
       noValidate
-      className="rise grid max-w-3xl gap-4 rounded-md border border-line p-5 sm:p-6"
+      className="rise grid max-w-3xl gap-4 rounded-lg bg-wash p-5 sm:p-6"
     >
+      {first && (
+        <ol className="flex flex-wrap items-center gap-2 border-b border-line pb-4 text-[13px] font-medium">
+          <li className="flex items-center gap-2 rounded-full bg-surface px-3 py-1.5 font-semibold text-ink">
+            <span className="grid size-5 place-items-center rounded-full bg-ink text-[11px] font-semibold text-surface tabular-nums">
+              1
+            </span>
+            {t('stepCreateVenue')}
+          </li>
+          <li className="flex items-center gap-2 rounded-full px-3 py-1.5 text-ink-soft">
+            <span className="grid size-5 place-items-center rounded-full bg-tonal text-[11px] font-semibold text-ink tabular-nums">
+              2
+            </span>
+            {t('stepSetupMenu')}
+          </li>
+          <li className="flex items-center gap-2 rounded-full px-3 py-1.5 text-ink-soft">
+            <span className="grid size-5 place-items-center rounded-full bg-tonal text-[11px] font-semibold text-ink tabular-nums">
+              3
+            </span>
+            {t('stepPairScreens')}
+          </li>
+        </ol>
+      )}
       <div className="grid gap-1">
         <h2 className="text-xl font-medium">
           {first ? t('createFirstVenue') : t('siteCreateVenue')}

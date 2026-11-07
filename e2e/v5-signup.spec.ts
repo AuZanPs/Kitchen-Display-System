@@ -103,6 +103,14 @@ test('a new owner signs up and creates their own kitchen', async ({
   await expect(page).toHaveURL(
     new RegExp(`^http://${slug}\\.localhost:${port}/admin`),
   )
+  await expect(
+    page.getByRole('heading', { name: 'Get your kitchen ready' }),
+  ).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Screens' })).toBeVisible()
   await settle(page)
+  await expectAccessible(page, 'admin onboarding 1280')
+  await page.screenshot({
+    path: 'test-results/admin-onboard-1280.png',
+    fullPage: true,
+  })
 })
