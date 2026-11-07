@@ -15,14 +15,17 @@ const TITLES: Record<string, DictKey> = {
   '/sign-in': 'signInTitle',
   '/account': 'accountTitle',
   '/pricing': 'pricingTitle',
+  '/how-it-works': 'homeHowShort',
   '/masuk': 'signInTitle',
   '/akun': 'accountTitle',
   '/harga': 'pricingTitle',
+  '/cara-kerja': 'homeHowShort',
 }
 
 const DESCRIPTIONS: Record<string, DictKey> = {
   '/': 'siteLead',
   '/pricing': 'pricingLead',
+  '/how-it-works': 'howPageLead',
   '/sign-in': 'signInLead',
 }
 

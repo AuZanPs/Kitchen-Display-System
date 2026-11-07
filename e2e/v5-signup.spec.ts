@@ -23,7 +23,25 @@ test('a new owner signs up and creates their own kitchen', async ({
   const slug = `kedai-${Date.now().toString(36)}`
   const page = await (await browser.newContext()).newPage()
 
-  // Legacy Indonesian route redirects cleanly to the English SEO route.
+  // Legacy Indonesian routes redirect cleanly to the English SEO routes.
+  await page.goto(`${site}/cara-kerja`)
+  await expect(page).toHaveURL(/\/how-it-works$/)
+  await expect(
+    page.getByRole('heading', {
+      name: 'From the table to the kitchen TV in under a second.',
+    }),
+  ).toBeVisible()
+  for (const width of WIDTHS) {
+    await page.setViewportSize({ width, height: 900 })
+    await settle(page)
+    await expectAccessible(page, `how-it-works ${width}`)
+    await noSidewaysScroll(page)
+    await page.screenshot({
+      path: `test-results/how-it-works-${width}.png`,
+      fullPage: true,
+    })
+  }
+
   await page.goto(`${site}/harga`)
   await expect(page).toHaveURL(/\/pricing$/)
   await expect(page.getByRole('heading', { name: 'Pricing' })).toBeVisible()
@@ -46,6 +64,16 @@ test('a new owner signs up and creates their own kitchen', async ({
 
   await page.getByRole('link', { name: 'Start free' }).click()
   await expect(page).toHaveURL(/\/sign-in$/)
+  await expect(
+    page.getByRole('button', { name: 'Continue with Google' }),
+  ).toBeVisible()
+  await expect(page.getByText('Security check passed')).toBeVisible()
+  await settle(page)
+  await expectAccessible(page, 'sign-in 1280')
+  await page.screenshot({
+    path: 'test-results/sign-in-1280.png',
+    fullPage: true,
+  })
   await page.getByLabel('Email').fill(`${slug}@contoh.id`)
   await page.getByRole('button', { name: 'Send link' }).click()
   await page.getByRole('link', { name: /Open sign-in link/ }).click()

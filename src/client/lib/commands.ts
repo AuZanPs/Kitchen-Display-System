@@ -16,6 +16,10 @@ const ERROR_ID: Record<string, string> = {
     'Terlalu banyak percobaan. Tunggu sebentar.',
   'This link has already been used or has expired.':
     'Tautan ini sudah dipakai atau sudah kedaluwarsa.',
+  'Complete the security check first.':
+    'Selesaikan pemeriksaan keamanan terlebih dahulu.',
+  'Security check failed. Please try again.':
+    'Pemeriksaan keamanan gagal. Silakan coba lagi.',
   'Not configured yet.': 'Belum dikonfigurasi.',
   'Admin is not configured yet.': 'Admin belum dikonfigurasi.',
   'Sign in first.': 'Masuk terlebih dulu.',

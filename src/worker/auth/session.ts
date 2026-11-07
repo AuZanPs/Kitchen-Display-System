@@ -8,10 +8,12 @@ export const DEVICE_COOKIE = 'kds_device'
 export const STAFF_COOKIE = 'kds_staff'
 export const SUPER_COOKIE = 'kds_super'
 export const OWNER_COOKIE = 'kds_owner'
+export const OAUTH_COOKIE = 'kds_oauth'
 const ADMIN_TTL_S = 12 * 60 * 60
 const STAFF_TTL_S = 12 * 60 * 60
 const SUPER_TTL_S = 4 * 60 * 60
 const OWNER_TTL_S = 14 * 24 * 60 * 60
+const OAUTH_TTL_S = 10 * 60
 const DEVICE_TTL_S = 400 * 24 * 60 * 60 // browsers cap cookie lifetime at 400 days
 const DEVICE_TOKEN = /^main\.([0-9a-f-]{36})\.([0-9a-f]{64})$/
 // Short secrets would make the session signature guessable.
@@ -125,6 +127,40 @@ export async function setOwnerSession(c: Ctx, email: string) {
 
 export function clearOwnerSession(c: Ctx) {
   deleteCookie(c, OWNER_COOKIE, { path: '/' })
+}
+
+/** Short-lived signed OAuth state + PKCE verifier cookie for Google sign-in. */
+export async function setOauthState(c: Ctx, state: string, verifier: string) {
+  const secret = sessionSecret(c.env)
+  if (!secret) throw new Error('SESSION_SECRET is not configured')
+  const exp = Date.now() + OAUTH_TTL_S * 1000
+  const signature = await hmacHex(secret, `oauth.${state}.${verifier}.${exp}`)
+  setCookie(
+    c,
+    OAUTH_COOKIE,
+    `${state}.${verifier}.${exp}.${signature}`,
+    cookieOptions(c, OAUTH_TTL_S),
+  )
+}
+
+/** Reads and deletes the one-time OAuth state cookie; returns the PKCE verifier if valid. */
+export async function takeOauthState(
+  c: Ctx,
+  state: string,
+): Promise<string | null> {
+  const secret = sessionSecret(c.env)
+  const raw = getCookie(c, OAUTH_COOKIE)
+  deleteCookie(c, OAUTH_COOKIE, { path: '/' })
+  if (!secret || !raw) return null
+  const [cookieState, verifier, exp, signature] = raw.split('.')
+  if (!cookieState || !verifier || !exp || !signature) return null
+  if (!DIGITS.test(exp) || !(Number(exp) > Date.now())) return null
+  const expected = await hmacHex(
+    secret,
+    `oauth.${cookieState}.${verifier}.${exp}`,
+  )
+  if (!safeEqual(signature, expected)) return null
+  return safeEqual(state, cookieState) ? verifier : null
 }
 
 /**

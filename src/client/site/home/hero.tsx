@@ -36,6 +36,12 @@ export function Hero() {
         <Wordmark />
         <div className="flex items-center gap-1 md:gap-4">
           <Link
+            to="/how-it-works"
+            className="state inline-flex min-h-11 items-center rounded-full px-3 text-[15px] font-semibold text-surface max-[459px]:hidden [--on:var(--color-surface)]"
+          >
+            {t('homeHowShort')}
+          </Link>
+          <Link
             to="/pricing"
             className="state inline-flex min-h-11 items-center rounded-full px-3 text-[15px] font-semibold text-surface [--on:var(--color-surface)]"
           >
@@ -64,12 +70,12 @@ export function Hero() {
         <p className="after-lines max-w-[44ch] text-[17px] leading-relaxed text-on-ink-soft md:text-[19px]">
           {t('siteLead')}
         </p>
-        <a
-          href="#how-it-works"
+        <Link
+          to="/how-it-works"
           className="after-lines state inline-flex min-h-12 items-center rounded-full px-7 text-[15px] font-semibold text-ink transition-[background-color,scale] duration-150 active:scale-[0.97] [--bg:var(--color-surface)]"
         >
           {t('homeSeeHow')}
-        </a>
+        </Link>
       </div>
       {/* Sits flush on the bottom edge, as if the section cuts it off. */}
       <div className="after-lines mx-auto mt-auto w-full max-w-[68rem] pt-14 md:pt-20">

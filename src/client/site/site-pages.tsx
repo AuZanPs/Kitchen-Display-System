@@ -1,4 +1,4 @@
-import { ExternalLink, Plus, X } from 'lucide-react'
+import { Check, ExternalLink, Plus, ShieldCheck, X } from 'lucide-react'
 import {
   type ReactNode,
   type SubmitEvent,
@@ -42,6 +42,12 @@ export function SiteBar({ children }: { children?: ReactNode }) {
         </span>
       </Link>
       <Link
+        to="/how-it-works"
+        className="state inline-flex min-h-11 items-center rounded-full px-2.5 text-[15px] font-semibold max-[479px]:hidden sm:px-3"
+      >
+        {t('homeHowShort')}
+      </Link>
+      <Link
         to="/pricing"
         className="state inline-flex min-h-11 items-center rounded-full px-2.5 text-[15px] font-semibold max-[359px]:hidden sm:px-3"
       >
@@ -53,7 +59,12 @@ export function SiteBar({ children }: { children?: ReactNode }) {
   )
 }
 
-/** Email in, sign-in link out; the link comes back here with `#token=`. */
+const authConfigSchema = z.object({
+  googleEnabled: z.boolean(),
+  turnstileSiteKey: z.string().nullable(),
+})
+
+/** Email in, sign-in link out; the link comes back here with `#token=`. Also supports Google OAuth. */
 export function SignInPage() {
   const { lang, t } = useI18n()
   const navigate = useNavigate()
@@ -64,7 +75,77 @@ export function SignInPage() {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [verifying, setVerifying] = useState(false)
+  const [authConfig, setAuthConfig] = useState<{
+    googleEnabled: boolean
+    turnstileSiteKey: string | null
+  } | null>(null)
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null)
+  const turnstileRef = useRef<HTMLDivElement>(null)
   const started = useRef(false)
+
+  useEffect(() => {
+    void api('/api/site/auth/config', authConfigSchema).then((res) => {
+      if (res.ok) setAuthConfig(res.data)
+    })
+  }, [])
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const err = params.get('error')
+    if (!err) return
+    window.history.replaceState(
+      null,
+      '',
+      `${window.location.pathname}${window.location.hash}`,
+    )
+    if (err === 'google_not_configured') setError(t('googleNotConfigured'))
+    else if (err === 'rate_limited')
+      setError(localizeError('Too many requests. Wait 15 minutes.', lang))
+    else setError(t('googleFailed'))
+  }, [lang, t])
+
+  useEffect(() => {
+    const siteKey = authConfig?.turnstileSiteKey
+    const container = turnstileRef.current
+    if (!siteKey || !container) return
+    const key: string = siteKey
+    const el: HTMLElement = container
+    let widgetId: string | null = null
+    const win = window as unknown as {
+      turnstile?: {
+        render: (
+          target: HTMLElement,
+          opts: {
+            sitekey: string
+            callback: (token: string) => void
+            'expired-callback': () => void
+          },
+        ) => string
+        remove: (id: string) => void
+      }
+    }
+    function mount() {
+      if (!win.turnstile) return
+      widgetId = win.turnstile.render(el, {
+        sitekey: key,
+        callback: (token) => setTurnstileToken(token),
+        'expired-callback': () => setTurnstileToken(null),
+      })
+    }
+    if (win.turnstile) {
+      mount()
+    } else {
+      const script = document.createElement('script')
+      script.src =
+        'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'
+      script.async = true
+      script.onload = mount
+      document.head.appendChild(script)
+    }
+    return () => {
+      if (widgetId && win.turnstile) win.turnstile.remove(widgetId)
+    }
+  }, [authConfig?.turnstileSiteKey])
 
   // Opening the emailed link signs in once; the token never stays in the address bar.
   // Also when the link opens in this same tab, which only changes the hash.
@@ -91,13 +172,28 @@ export function SignInPage() {
     return () => window.removeEventListener('hashchange', verify)
   }, [lang, navigate])
 
+  function handleGoogle() {
+    setError(null)
+    if (authConfig && !authConfig.googleEnabled) {
+      setError(t('googleNotConfigured'))
+      return
+    }
+    window.location.assign('/api/site/auth/google')
+  }
+
   async function submit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault()
     setBusy(true)
     const result = await api(
       '/api/site/login/start',
       z.object({ devLink: z.string().optional() }),
-      { body: { email: email.trim(), lang } },
+      {
+        body: {
+          email: email.trim(),
+          lang,
+          ...(turnstileToken ? { turnstileToken } : {}),
+        },
+      },
     )
     setBusy(false)
     if (result.ok)
@@ -117,7 +213,7 @@ export function SignInPage() {
       <SiteBar />
       <main className="grid place-items-center px-4 pb-16">
         {sent ? (
-          <div className="rise grid w-[min(26rem,100%)] gap-4">
+          <div className="rise grid w-[min(28rem,100%)] gap-4 rounded-lg bg-wash p-6 sm:p-8">
             <h1 className="text-3xl font-semibold tracking-tight">
               {t('linkSentTitle')}
             </h1>
@@ -145,42 +241,106 @@ export function SignInPage() {
             </Button>
           </div>
         ) : (
-          <form
-            onSubmit={submit}
-            className="rise grid w-[min(26rem,100%)] gap-6"
-            noValidate
-          >
+          <div className="rise grid w-[min(28rem,100%)] gap-5 rounded-lg bg-wash p-6 sm:p-8">
             <div className="grid gap-2">
-              <h1 className="text-4xl font-semibold tracking-tight">
+              <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
                 {t('signInTitle')}
               </h1>
-              <p className="text-ink-soft">{t('signInLead')}</p>
+              <p className="text-[15px] leading-relaxed text-ink-soft">
+                {t('signInLead')}
+              </p>
             </div>
-            <TextField
-              label={t('email')}
-              type="email"
-              autoComplete="email"
-              inputMode="email"
-              value={email}
-              onChange={(e) => {
-                setEmail(e.target.value)
-                setError(null)
-              }}
-              error={error}
-              required
-              autoFocus
-            />
-            <Button
-              type="submit"
-              size="lg"
-              disabled={busy || email.trim() === ''}
+
+            <button
+              type="button"
+              onClick={handleGoogle}
+              className="state flex min-h-12 w-full items-center justify-center gap-3 rounded-full border border-line px-5 text-[15px] font-semibold text-ink transition-[background-color,scale] duration-150 active:scale-[0.98] [--bg:var(--color-surface)]"
             >
-              {t('sendLink')}
-            </Button>
-          </form>
+              <GoogleIcon />
+              <span>{t('continueWithGoogle')}</span>
+            </button>
+
+            <div className="flex items-center gap-3 text-[13px] text-ink-soft">
+              <span aria-hidden className="h-px flex-1 bg-line" />
+              <span>{t('orWithEmail')}</span>
+              <span aria-hidden className="h-px flex-1 bg-line" />
+            </div>
+
+            <form onSubmit={submit} className="grid gap-4" noValidate>
+              <TextField
+                label={t('email')}
+                type="email"
+                autoComplete="email"
+                inputMode="email"
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value)
+                  setError(null)
+                }}
+                error={error}
+                required
+                autoFocus
+              />
+
+              {authConfig?.turnstileSiteKey ? (
+                <div ref={turnstileRef} className="min-h-[65px]" />
+              ) : (
+                <div className="flex items-center justify-between gap-2 rounded-sm border border-line bg-surface px-3.5 py-2.5 text-[13px]">
+                  <span className="flex items-center gap-2 font-medium">
+                    <span
+                      aria-hidden
+                      className="grid size-5 shrink-0 place-items-center rounded-full bg-ink text-surface"
+                    >
+                      <Check size={13} strokeWidth={3} />
+                    </span>
+                    {t('cfSecurityPassed')}
+                  </span>
+                  <span className="flex items-center gap-1 text-[12px] text-ink-soft">
+                    <ShieldCheck size={15} aria-hidden />
+                    {t('cfProtected')}
+                  </span>
+                </div>
+              )}
+
+              <Button
+                type="submit"
+                size="lg"
+                disabled={
+                  busy ||
+                  email.trim() === '' ||
+                  Boolean(authConfig?.turnstileSiteKey && !turnstileToken)
+                }
+              >
+                {t('sendLink')}
+              </Button>
+            </form>
+          </div>
         )}
       </main>
     </div>
+  )
+}
+
+function GoogleIcon() {
+  return (
+    <svg aria-hidden viewBox="0 0 24 24" className="size-5 shrink-0">
+      <path
+        fill="#4285F4"
+        d="M23.49 12.27c0-.79-.07-1.54-.19-2.27H12v4.51h6.47c-.29 1.48-1.14 2.73-2.4 3.58v3h3.86c2.26-2.09 3.56-5.17 3.56-8.82Z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.86-3c-1.08.72-2.45 1.16-4.07 1.16-3.13 0-5.78-2.11-6.73-4.96H1.29v3.09C3.26 21.3 7.31 24 12 24Z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M5.27 14.29c-.25-.72-.38-1.49-.38-2.29s.13-1.57.38-2.29V6.62H1.29a11.99 11.99 0 0 0 0 10.76l3.98-3.09Z"
+      />
+      <path
+        fill="#EA4335"
+        d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.62l3.98 3.09c.95-2.85 3.6-4.96 6.73-4.96Z"
+      />
+    </svg>
   )
 }
 

@@ -551,6 +551,78 @@ export const id = {
   sampleMenuNote:
     'Ini menu contoh. Ganti dengan template yang mirip dapurmu, atau impor file Excel.',
   importPreview: 'Pratinjau menu',
+  continueWithGoogle: 'Lanjutkan dengan Google',
+  orWithEmail: 'atau lanjutkan dengan email',
+  googleNotConfigured:
+    'Masuk dengan Google belum diatur di server ini. Silakan pakai email di bawah.',
+  googleFailed:
+    'Masuk dengan Google belum berhasil. Silakan coba lagi atau pakai email.',
+  cfSecurityPassed: 'Pemeriksaan keamanan lolos',
+  cfProtected: 'Dilindungi Cloudflare',
+  howEyebrow: 'Cara kerja Layar Dapur',
+  howPageTitle: 'Dari meja ke TV dapur dalam hitungan detik.',
+  howPageLead:
+    'Empat layar browser berbagi satu antrean langsung untuk dapurmu. Pelayan mengirim pesanan dari meja, juru masak membaca TV tanpa menyentuh layar, bagian saji menandai siap, dan pemilik memantau semuanya dari mana saja.',
+  howScreensTitle: 'Empat layar, satu ruang langsung',
+  howScreensLead:
+    'Pilih peran untuk melihat apa yang dilakukan layar itu saat jam makan.',
+  howTabWaiterDesc:
+    'Pelayan memilih meja atau bawa pulang, mengetuk menu, mencatat alergi dan catatan, lalu mengecek tiket bersama tamu sebelum dikirim.',
+  howTabWaiterPoint1: 'Pilihan meja dan bawa pulang dalam satu ketukan',
+  howTabWaiterPoint2:
+    'Pilihan tambahan, catatan per menu dan penanda alergi tamu',
+  howTabWaiterPoint3: 'Status langsung dari Tersimpan sampai Siap diantar',
+  howTabTvDesc:
+    'Dipasang di dinding dapur agar semua juru masak bisa membaca antrean dari jauh tanpa menyentuh layar.',
+  howTabTvPoint1:
+    'Tiga kolom jelas: Pesanan baru, Sedang dimasak dan Siap diantar',
+  howTabTvPoint2:
+    'Penghitung waktu langsung di tiap tiket yang menandai pesanan lewat waktu',
+  howTabTvPoint3:
+    'Peringatan alergi kontras tinggi dan kotak biru catatan pesanan',
+  howTabKitchenDesc:
+    'Diletakkan di meja saji agar kepala dapur bisa menerima pesanan, mencentang menu satu per satu, dan memanggil pelayan saat matang.',
+  howTabKitchenPoint1:
+    'Konfirmasi alergi wajib dibaca sebelum menerima pesanan',
+  howTabKitchenPoint2: 'Centang menu satu per satu saat selesai dimasak',
+  howTabKitchenPoint3:
+    'Satu ketukan Tandai siap langsung memperbarui TV dan tablet pelayan',
+  howTabAdminDesc:
+    'Buka dari HP atau laptop di mana saja untuk mengecek omzet langsung, menandai menu habis, memasang perangkat, atau mengunduh CSV pembukuan.',
+  howTabAdminPoint1:
+    'Pesanan harian langsung, jumlah disajikan, kecepatan masak dan omzet',
+  howTabAdminPoint2: 'Tombol habis instan, template siap pakai dan impor Excel',
+  howTabAdminPoint3:
+    'Pemasangan perangkat 6 angka, PIN staf dan unduhan CSV/JSON',
+  howFlowTitle: 'Apa yang terjadi saat pesanan dikirim',
+  howFlow1Title: 'Dicatat dan dicek di meja',
+  howFlow1Body:
+    'Pelayan mengetuk menu, pilihan dan alergi di tablet. Bila Wi-Fi dapur sempat putus, tablet menyimpan antrean pesanan agar tidak ada yang hilang.',
+  howFlow2Title: 'Tampil di TV dapur dalam hitungan detik',
+  howFlow2Body:
+    'Ruang khusus dapurmu menyimpan tiket dan langsung mengirimkannya ke TV serta HP dapur tanpa perlu muat ulang halaman.',
+  howFlow3Title: 'Dikonfirmasi, dimasak dan ditandai siap',
+  howFlow3Body:
+    'Bagian saji mengonfirmasi alergi, mencentang menu yang matang, lalu mengetuk Tandai siap. Pelayan langsung melihatnya.',
+  howFlow4Title: 'Diantar ke meja dan tercatat di riwayat',
+  howFlow4Body:
+    'Setelah diantar, pelayan menandai pesanan disajikan. Waktu masak, nama staf dan total penjualan otomatis tersimpan di riwayat harian dan CSV.',
+  howTrustTitle: 'Dirancang untuk dapur sungguhan',
+  howTrust1Title: 'Tablet tahan gangguan sinyal',
+  howTrust1Body:
+    'Pesanan dan ketukan status tetap tersimpan di perangkat saat sinyal putus, lalu terkirim berurutan begitu Wi-Fi kembali.',
+  howTrust2Title: 'Terpisah untuk tiap dapur',
+  howTrust2Body:
+    'Setiap dapur berjalan di alamat dan ruang data sendiri. Rumah makan lain tidak pernah bisa melihat menu, perangkat atau pesananmu.',
+  howTrust3Title: 'Perangkat terikat kode aman',
+  howTrust3Body:
+    'Tablet dan TV dipasang dengan kode 6 angka sekali pakai dan bisa dicabut dalam satu klik dari Admin bila perangkat hilang.',
+  howTrust4Title: 'Keamanan jaringan Cloudflare',
+  howTrust4Body:
+    'Dilindungi pemeriksaan keamanan Cloudflare, sesi terenkripsi, masuk dengan Google atau tautan email, serta PIN staf yang diacak aman.',
+  howCtaTitle: 'Siap menjalankan dapurmu dengan Layar Dapur?',
+  howCtaBody:
+    'Mulai di paket Gratis dalam dua menit — sampai 3 dapur dan layar tanpa batas, tanpa kartu kredit.',
 } as const
 
 export type Dict = Record<keyof typeof id, string>

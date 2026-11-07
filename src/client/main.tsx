@@ -10,6 +10,7 @@ import { KitchenPage } from './kitchen/kitchen-page'
 import { CenterNote, HOME_BY_ROLE, usePlace, useSession } from './lib/session'
 import { CrashScreen, NotFound, Shell } from './shell'
 import { SiteHome } from './site/home'
+import { HowItWorksPage } from './site/how-it-works-page'
 import { PricingPage } from './site/pricing-page'
 import { AccountPage, SignInPage } from './site/site-pages'
 import { SuperPage } from './super/super-page'
@@ -57,9 +58,11 @@ const router = createBrowserRouter([
       { path: '/sign-in', element: <SignInPage /> },
       { path: '/account', element: <AccountPage /> },
       { path: '/pricing', element: <PricingPage /> },
+      { path: '/how-it-works', element: <HowItWorksPage /> },
       { path: '/masuk', element: <RedirectTo to="/sign-in" /> },
       { path: '/akun', element: <RedirectTo to="/account" /> },
       { path: '/harga', element: <RedirectTo to="/pricing" /> },
+      { path: '/cara-kerja', element: <RedirectTo to="/how-it-works" /> },
       { path: '*', element: <NotFound /> },
     ],
   },

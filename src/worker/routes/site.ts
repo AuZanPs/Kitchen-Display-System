@@ -12,7 +12,9 @@ import {
   clearOwnerSession,
   ipHash,
   ownerSession,
+  setOauthState,
   setOwnerSession,
+  takeOauthState,
 } from '../auth/session'
 import { sendSignInLink } from '../email'
 import { logEvent } from '../log'
@@ -36,6 +38,171 @@ const SIGNUPS_PER_DAY = 100
 
 export const site = new Hono<AppEnv>()
 
+async function pkceChallenge(verifier: string) {
+  const digest = await crypto.subtle.digest(
+    'SHA-256',
+    new TextEncoder().encode(verifier),
+  )
+  return btoa(String.fromCharCode(...new Uint8Array(digest)))
+    .replaceAll('+', '-')
+    .replaceAll('/', '_')
+    .replaceAll('=', '')
+}
+
+async function verifyTurnstile(
+  secret: string,
+  token: string,
+  ip: string | undefined,
+): Promise<boolean> {
+  try {
+    const form = new URLSearchParams({ secret, response: token })
+    if (ip) form.set('remoteip', ip)
+    const res = await fetch(
+      'https://challenges.cloudflare.com/turnstile/v0/siteverify',
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/x-www-form-urlencoded' },
+        body: form.toString(),
+      },
+    )
+    if (!res.ok) return false
+    const data = z.object({ success: z.boolean() }).safeParse(await res.json())
+    return data.success && data.data.success
+  } catch {
+    return false
+  }
+}
+
+site.get('/api/site/auth/config', (c) =>
+  c.json({
+    googleEnabled: Boolean(
+      c.env.GOOGLE_CLIENT_ID && c.env.GOOGLE_CLIENT_SECRET,
+    ),
+    turnstileSiteKey: c.env.TURNSTILE_SITE_KEY || null,
+  }),
+)
+
+site.get('/api/site/auth/google', async (c) => {
+  const dir = directory(c.env)
+  if (
+    !(await dir.allowAttempt(
+      `site-google:${await ipHash(c)}`,
+      15,
+      15 * 60 * 1000,
+    ))
+  ) {
+    return c.redirect('/sign-in?error=rate_limited', 302)
+  }
+  const clientId = c.env.GOOGLE_CLIENT_ID
+  const clientSecret = c.env.GOOGLE_CLIENT_SECRET
+  if (!canSignSessions(c.env) || !clientId || !clientSecret) {
+    return c.redirect('/sign-in?error=google_not_configured', 302)
+  }
+  const state = randomHex(16)
+  const verifier = randomHex(32)
+  const challenge = await pkceChallenge(verifier)
+  await setOauthState(c, state, verifier)
+  const redirectUri = `${new URL(c.req.url).origin}/api/site/auth/google/callback`
+  const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth')
+  authUrl.searchParams.set('client_id', clientId)
+  authUrl.searchParams.set('redirect_uri', redirectUri)
+  authUrl.searchParams.set('response_type', 'code')
+  authUrl.searchParams.set('scope', 'openid email profile')
+  authUrl.searchParams.set('state', state)
+  authUrl.searchParams.set('code_challenge', challenge)
+  authUrl.searchParams.set('code_challenge_method', 'S256')
+  authUrl.searchParams.set('prompt', 'select_account')
+  return c.redirect(authUrl.toString(), 302)
+})
+
+const googleTokenSchema = z.object({
+  access_token: z.string().min(1),
+})
+
+const googleUserSchema = z.object({
+  email: ownerEmailSchema,
+  email_verified: z.boolean(),
+})
+
+site.get('/api/site/auth/google/callback', async (c) => {
+  const dir = directory(c.env)
+  if (
+    !(await dir.allowAttempt(
+      `site-google-cb:${await ipHash(c)}`,
+      20,
+      15 * 60 * 1000,
+    ))
+  ) {
+    return c.redirect('/sign-in?error=rate_limited', 302)
+  }
+  const url = new URL(c.req.url)
+  const code = url.searchParams.get('code')
+  const state = url.searchParams.get('state')
+  const oauthError = url.searchParams.get('error')
+  const verifier = state ? await takeOauthState(c, state) : null
+  const clientId = c.env.GOOGLE_CLIENT_ID
+  const clientSecret = c.env.GOOGLE_CLIENT_SECRET
+  if (
+    oauthError ||
+    !code ||
+    !verifier ||
+    !canSignSessions(c.env) ||
+    !clientId ||
+    !clientSecret
+  ) {
+    return c.redirect('/sign-in?error=google_failed', 302)
+  }
+  try {
+    const redirectUri = `${url.origin}/api/site/auth/google/callback`
+    const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        code,
+        code_verifier: verifier,
+        grant_type: 'authorization_code',
+        redirect_uri: redirectUri,
+      }).toString(),
+    })
+    if (!tokenRes.ok) return c.redirect('/sign-in?error=google_failed', 302)
+    const tokenParsed = googleTokenSchema.safeParse(await tokenRes.json())
+    if (!tokenParsed.success) {
+      return c.redirect('/sign-in?error=google_failed', 302)
+    }
+    const userRes = await fetch(
+      'https://openidconnect.googleapis.com/v1/userinfo',
+      {
+        headers: {
+          authorization: `Bearer ${tokenParsed.data.access_token}`,
+        },
+      },
+    )
+    if (!userRes.ok) return c.redirect('/sign-in?error=google_failed', 302)
+    const userParsed = googleUserSchema.safeParse(await userRes.json())
+    if (!userParsed.success || !userParsed.data.email_verified) {
+      return c.redirect('/sign-in?error=google_failed', 302)
+    }
+    const email = userParsed.data.email
+    if (
+      !(await dir.knownEmail(email)) &&
+      !(await dir.allowAttempt('site-signup-day', SIGNUPS_PER_DAY, DAY_MS))
+    ) {
+      logEvent('info', 'sign_up_cap_reached', {})
+      return c.redirect('/sign-in?error=rate_limited', 302)
+    }
+    await setOwnerSession(c, email)
+    logEvent('info', 'owner_google_sign_in', {})
+    return c.redirect('/account', 302)
+  } catch (err) {
+    logEvent('error', 'google_oauth_failed', {
+      error: err instanceof Error ? err.name : 'unknown',
+    })
+    return c.redirect('/sign-in?error=google_failed', 302)
+  }
+})
+
 site.post(
   '/api/site/login/start',
   invalidInput(
@@ -43,10 +210,11 @@ site.post(
     z.object({
       email: ownerEmailSchema,
       lang: z.enum(['en', 'id']).optional(),
+      turnstileToken: z.string().max(4096).optional(),
     }),
   ),
   async (c) => {
-    const { email, lang } = c.req.valid('json')
+    const { email, lang, turnstileToken } = c.req.valid('json')
     const dir = directory(c.env)
     const window = 15 * 60 * 1000
     if (!(await dir.allowAttempt(`site-login:${await ipHash(c)}`, 5, window))) {
@@ -54,6 +222,19 @@ site.post(
         c,
         fail(429, 'rate_limited', 'Too many requests. Wait 15 minutes.'),
       )
+    }
+    if (c.env.TURNSTILE_SECRET_KEY && c.env.ENVIRONMENT !== 'development') {
+      if (!turnstileToken) {
+        return refuse(c, 403, 'Complete the security check first.')
+      }
+      const passed = await verifyTurnstile(
+        c.env.TURNSTILE_SECRET_KEY,
+        turnstileToken,
+        c.req.header('cf-connecting-ip'),
+      )
+      if (!passed) {
+        return refuse(c, 403, 'Security check failed. Please try again.')
+      }
     }
     const token = randomHex(32)
     const link = `${new URL(c.req.url).origin}/sign-in#token=${token}`

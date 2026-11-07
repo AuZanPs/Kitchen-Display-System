@@ -576,6 +576,34 @@ describe('owner sign-in on the site', () => {
     expect(res.status).toBe(404)
   })
 
+  it('reports auth config and guards Google OAuth when unconfigured or invalid', async () => {
+    const cfg = await call(SITE, '/api/site/auth/config')
+    expect(cfg.status).toBe(200)
+    expect(await cfg.json()).toEqual({
+      googleEnabled: false,
+      turnstileSiteKey: null,
+    })
+
+    const start = await exports.default.fetch(`${SITE}/api/site/auth/google`, {
+      redirect: 'manual',
+      headers: freshIp(),
+    })
+    expect(start.status).toBe(302)
+    expect(start.headers.get('location')).toBe(
+      '/sign-in?error=google_not_configured',
+    )
+
+    const cb = await exports.default.fetch(
+      `${SITE}/api/site/auth/google/callback?code=fake&state=wrong`,
+      {
+        redirect: 'manual',
+        headers: { ...freshIp(), 'Sec-Fetch-Site': 'cross-site' },
+      },
+    )
+    expect(cb.status).toBe(302)
+    expect(cb.headers.get('location')).toBe('/sign-in?error=google_failed')
+  })
+
   function addAdmin(owner: string, slug: string, email: string) {
     return call(SITE, `/api/site/venues/${slug}/admins`, {
       headers: { cookie: owner },

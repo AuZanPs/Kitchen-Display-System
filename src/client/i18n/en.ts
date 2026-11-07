@@ -547,4 +547,71 @@ export const en: Dict = {
   sampleMenuNote:
     'This is a sample menu. Swap it for a template close to your kitchen, or import an Excel file.',
   importPreview: 'Menu preview',
+  continueWithGoogle: 'Continue with Google',
+  orWithEmail: 'or continue with email',
+  googleNotConfigured:
+    'Google sign-in is not configured on this server yet. Please use your email below.',
+  googleFailed:
+    'Google sign-in could not be completed. Please try again or use your email.',
+  cfSecurityPassed: 'Security check passed',
+  cfProtected: 'Protected by Cloudflare',
+  howEyebrow: 'How Layar Dapur works',
+  howPageTitle: 'From the table to the kitchen TV in under a second.',
+  howPageLead:
+    'Four browser screens share one live queue for your kitchen. Waiters send orders from the floor, cooks read the TV hands-free, the pass marks dishes ready, and the owner sees every ticket from anywhere.',
+  howScreensTitle: 'Four screens, one live room',
+  howScreensLead: 'Pick a role to see what that screen does during service.',
+  howTabWaiterDesc:
+    'Waiters pick a table or takeaway, tap dishes, record allergies and notes, and review the ticket with the guest before sending.',
+  howTabWaiterPoint1: 'Table grid and takeaway in one tap',
+  howTabWaiterPoint2: 'Option groups, per-dish notes and guest allergy banners',
+  howTabWaiterPoint3: 'Live status bar from Saved to Ready to serve',
+  howTabTvDesc:
+    'Mounted on the kitchen wall so every cook can read the queue from across the line without touching a screen.',
+  howTabTvPoint1: 'Three clear lanes: New orders, Preparing and Ready to serve',
+  howTabTvPoint2:
+    'Live elapsed timer on every ticket that flags overdue orders',
+  howTabTvPoint3: 'High-contrast allergy warnings and blue order-note boxes',
+  howTabKitchenDesc:
+    'Kept at the pass so the expeditor or head cook can accept orders, check off individual dishes, and call the waiter when ready.',
+  howTabKitchenPoint1:
+    'Mandatory allergy confirmation before accepting an order',
+  howTabKitchenPoint2: 'Check off individual dishes as they finish cooking',
+  howTabKitchenPoint3:
+    'One-tap Mark ready updates the TV and waiter tablet at once',
+  howTabAdminDesc:
+    'Open from your phone or laptop anywhere to check live sales, mark items sold out, pair screens, or download accounting CSVs.',
+  howTabAdminPoint1: 'Live daily orders, served count, prep speed and revenue',
+  howTabAdminPoint2:
+    'Instant sold-out switches, starter templates and Excel import',
+  howTabAdminPoint3: '6-digit device pairing, staff PINs and CSV/JSON exports',
+  howFlowTitle: 'What happens when an order goes out',
+  howFlow1Title: 'Composed and checked at the table',
+  howFlow1Body:
+    'The waiter taps the dishes, options and any allergy on the tablet. If kitchen Wi-Fi blips, the tablet queues the order locally so nothing is lost.',
+  howFlow2Title: 'Broadcast to the kitchen TV in under a second',
+  howFlow2Body:
+    'Your kitchen’s dedicated room saves the ticket and pushes it to the TV and kitchen pass over a live connection — no page refresh needed.',
+  howFlow3Title: 'Confirmed, cooked and marked ready',
+  howFlow3Body:
+    'The pass confirms any allergy, checks off dishes as they come off the stove, and taps Mark ready. The waiter sees it right away.',
+  howFlow4Title: 'Served and recorded in history',
+  howFlow4Body:
+    'Once delivered, the waiter marks the ticket served. Prep time, staff name and sales total are saved to your daily history and CSV export.',
+  howTrustTitle: 'Built for real kitchen service',
+  howTrust1Title: 'Offline-resilient tablets',
+  howTrust1Body:
+    'Orders and status taps queue on the device if the connection drops, then sync in order as soon as Wi-Fi returns.',
+  howTrust2Title: 'Isolated per kitchen',
+  howTrust2Body:
+    'Each kitchen runs on its own subdomain and database room. Another restaurant can never see your menu, devices or orders.',
+  howTrust3Title: 'Hardware-bound pairing',
+  howTrust3Body:
+    'Tablets and TVs pair with a one-time 6-digit code and can be revoked in one click from Admin if a device is lost.',
+  howTrust4Title: 'Cloudflare edge security',
+  howTrust4Body:
+    'Protected by Cloudflare bot checks, signed HttpOnly sessions, Google or email link sign-in, and hashed staff PINs.',
+  howCtaTitle: 'Ready to run your kitchen on Layar Dapur?',
+  howCtaBody:
+    'Start on the Free plan in two minutes — up to 3 kitchens and unlimited screens, with no credit card required.',
 }

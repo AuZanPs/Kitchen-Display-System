@@ -9,6 +9,10 @@ interface __BaseEnv_Env {
 	SESSION_SECRET: string;
 	SUPER_ADMIN_PASSWORD: string;
 	BASE_HOST: string;
+	GOOGLE_CLIENT_ID?: string;
+	GOOGLE_CLIENT_SECRET?: string;
+	TURNSTILE_SITE_KEY?: string;
+	TURNSTILE_SECRET_KEY?: string;
 	VENUE_ROOM: DurableObjectNamespace<import("./src/worker/index").VenueRoom>;
 	DIRECTORY: DurableObjectNamespace<import("./src/worker/index").Directory>;
 }

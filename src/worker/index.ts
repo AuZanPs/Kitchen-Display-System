@@ -21,15 +21,15 @@ const MAX_BODY_BYTES = 64 * 1024
  * (and every socket) must come from this exact origin.
  */
 const sameOrigin: MiddlewareHandler<AppEnv> = async (c, next) => {
-  if (c.req.header('Sec-Fetch-Site') === 'cross-site') {
+  const url = new URL(c.req.url)
+  const isOauthCallback =
+    c.req.method === 'GET' && url.pathname === '/api/site/auth/google/callback'
+  if (!isOauthCallback && c.req.header('Sec-Fetch-Site') === 'cross-site') {
     return refuse(c, 403, 'Cross-site request rejected.')
   }
   const mutating = c.req.method !== 'GET' && c.req.method !== 'HEAD'
   const socket = c.req.header('Upgrade') === 'websocket'
-  if (
-    (mutating || socket) &&
-    c.req.header('Origin') !== new URL(c.req.url).origin
-  ) {
+  if ((mutating || socket) && c.req.header('Origin') !== url.origin) {
     return refuse(c, 403, 'Unknown request origin.')
   }
   await next()
