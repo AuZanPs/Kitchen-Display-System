@@ -14,6 +14,7 @@ const TITLES: Record<string, DictKey> = {
   '/super': 'superTitle',
   '/masuk': 'signInTitle',
   '/akun': 'accountTitle',
+  '/harga': 'pricingTitle',
 }
 
 /** Every route renders inside this: it names the browser tab after the screen. */

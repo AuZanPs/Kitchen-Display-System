@@ -23,7 +23,13 @@ export function Hero() {
     <section className="on-ink flex min-h-svh flex-col bg-ink px-4 text-surface md:px-10">
       <div className="flex min-h-18 items-center justify-between gap-2 md:min-h-24">
         <Wordmark />
-        <div className="flex items-center gap-2 md:gap-4">
+        <div className="flex items-center gap-1 md:gap-4">
+          <Link
+            to="/harga"
+            className="state inline-flex min-h-11 items-center rounded-full px-3 text-[15px] font-semibold text-surface [--on:var(--color-surface)]"
+          >
+            {t('pricingTitle')}
+          </Link>
           <Link
             to="/masuk"
             className="state inline-flex min-h-11 items-center gap-2 rounded-full px-3 text-[15px] font-semibold text-surface [--on:var(--color-surface)]"

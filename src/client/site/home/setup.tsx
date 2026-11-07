@@ -1,4 +1,4 @@
-import { LogIn } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router'
 import { type DictKey, useI18n } from '../../i18n'
@@ -64,8 +64,8 @@ export function Setup() {
           to="/masuk"
           className="state inline-flex min-h-12 items-center gap-2 rounded-full px-6 text-[15px] font-semibold text-surface transition-[background-color,scale] duration-150 active:scale-[0.97] max-sm:w-full max-sm:justify-center [--bg:var(--color-ink)] [--on:var(--color-surface)]"
         >
-          <LogIn size={18} aria-hidden />
-          {t('homeSignInOwner')}
+          {t('startFree')}
+          <ArrowRight size={18} aria-hidden />
         </Link>
       </div>
       <div className="grid gap-4 md:grid-cols-[150px_1fr] md:gap-10">
