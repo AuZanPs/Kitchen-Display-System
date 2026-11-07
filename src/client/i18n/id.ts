@@ -204,10 +204,10 @@ export const id = {
   noOrdersDay: 'Tidak ada pesanan pada tanggal ini.',
   exportTitle: 'Ekspor',
   exportHint:
-    'Satu baris per item, tanpa catatan dan alergi. Maksimal 31 hari.',
+    'Satu baris per item, tanpa catatan dan alergi. Maksimal 14 hari.',
   from: 'Dari',
   to: 'Sampai',
-  exportRange: 'Pilih paling banyak 31 hari, dari tanggal awal.',
+  exportRange: 'Pilih paling banyak 14 hari, dari tanggal awal.',
   downloadCsv: 'Unduh CSV',
   downloadJson: 'Unduh JSON',
   timeline: 'Jejak pesanan',
@@ -488,20 +488,33 @@ export const id = {
   homeHowShort: 'Cara kerja',
   pricingTitle: 'Harga',
   pricingLead:
-    'Gratis selama masa awal, tanpa kartu kredit. Buat akun dengan email, lalu buat dapurmu sendiri.',
+    'Mulai gratis tanpa kartu kredit. Pasang perangkat tanpa batas di sampai 3 dapur, lalu beralih ke Pro saat cabang dan laporanmu bertambah.',
   planFree: 'Gratis',
   planFreePeriod: 'per bulan, selama masa awal',
+  planFreeSub:
+    'Semua yang dibutuhkan satu rumah makan atau usaha kecil untuk berjalan setiap hari.',
   priceFreeVenues: 'Sampai {count} dapur dalam satu akun',
-  priceFreeScreens: 'Tablet pelayan, HP dapur dan TV dapur',
-  priceFreeMenu: 'Menu, meja dan impor menu dari Excel',
-  priceFreeHistory: 'Riwayat 90 hari dan unduhan CSV',
-  priceFreeStaff: 'PIN staf dan admin tambahan',
+  priceFreeScreens: 'Tablet pelayan, HP dapur dan TV dapur tanpa batas',
+  priceFreeMenu: 'Menu lengkap, meja, template siap pakai dan impor Excel',
+  priceFreeHistory: 'Riwayat pesanan 30 hari dan unduhan CSV/JSON 14 hari',
+  priceFreeStaff: 'Sampai 10 PIN staf dan 3 admin tambahan per dapur',
   planPro: 'Pro',
   comingSoon: 'Segera',
-  planProLead: 'Untuk usaha dengan banyak cabang.',
-  priceProVenues: 'Lebih banyak dapur dalam satu akun',
-  priceProHistory: 'Riwayat lebih panjang',
-  priceProHelp: 'Bantuan saat memasang perangkat',
+  planProLead:
+    'Untuk rumah makan yang berkembang dan usaha banyak cabang yang butuh riwayat penuh, laporan mendalam dan dukungan prioritas.',
+  planProIncludes: 'Semua di paket Gratis, ditambah:',
+  priceProVenues: 'Dapur dan cabang tanpa batas dalam satu akun',
+  priceProDashboard:
+    'Ringkasan langsung lintas cabang: bandingkan omzet, pesanan aktif dan kecepatan masak di tiap lokasi',
+  priceProHistory:
+    'Riwayat pesanan 1 tahun penuh dan unduhan pembukuan CSV & Excel bulanan atau tahunan',
+  priceProAnalytics:
+    'Laporan menu terlaris, jam ramai dan rata-rata waktu masak dapur',
+  priceProStaff: 'PIN staf dan akun admin tanpa batas di semua cabang',
+  priceProHelp:
+    'Dukungan prioritas via WhatsApp dan panduan pemasangan perangkat untuk timmu',
+  planProNote:
+    'Mulai di paket Gratis hari ini. Pengguna awal mendapat kabar 30 hari sebelumnya dan harga khusus pendiri saat Pro hadir.',
   startFree: 'Mulai gratis',
   faqTitle: 'Pertanyaan',
   faqAppQ: 'Perlu memasang aplikasi?',
@@ -509,6 +522,9 @@ export const id = {
   faqDevicesQ: 'Perangkat apa yang bisa dipakai?',
   faqDevicesA:
     'Tablet, HP, laptop atau smart TV dengan browser yang masih diperbarui.',
+  faqProQ: 'Kapan saya perlu Pro dibanding Gratis?',
+  faqProA:
+    'Paket Gratis sudah menjalankan layanan harian tanpa batas pesanan atau layar untuk sampai 3 dapur. Pro dirancang saat usahamu berkembang: lebih dari 3 cabang, ekspor pembukuan bulanan penuh, riwayat 1 tahun, serta laporan penjualan dan waktu masak lintas cabang.',
   faqAfterQ: 'Apa yang terjadi setelah masa awal?',
   faqAfterA:
     'Kami kabari lewat email lebih dulu. Dapur, menu dan riwayatmu tetap ada.',

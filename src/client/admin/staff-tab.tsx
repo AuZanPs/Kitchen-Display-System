@@ -51,6 +51,7 @@ export function StaffTab({ notify }: { notify: (text: string) => void }) {
         </h2>
         <Button
           icon={<Plus size={18} aria-hidden />}
+          disabled={(staff?.length ?? 0) >= STAFF_LIMITS.maxPerVenue}
           onClick={() => editing.start(null)}
         >
           {t('addStaff')}

@@ -31,11 +31,12 @@ import {
   ROLES,
   type Role,
 } from '../shared/order'
-import type {
-  AdminStaff,
-  StaffInput,
-  StaffLogin,
-  StaffMember,
+import {
+  type AdminStaff,
+  STAFF_LIMITS,
+  type StaffInput,
+  type StaffLogin,
+  type StaffMember,
 } from '../shared/staff'
 import {
   hashSecret,
@@ -540,6 +541,13 @@ export class VenueRoom extends DurableObject<Env> {
   ): Promise<Result<{ staff: AdminStaff }>> {
     const refused = this.adminRefused(credentials)
     if (refused) return refused
+    if (id === null && adminStaff(this.db).length >= STAFF_LIMITS.maxPerVenue) {
+      return fail(
+        409,
+        'limit_reached',
+        `At most ${STAFF_LIMITS.maxPerVenue} staff members on the Free plan.`,
+      )
+    }
     const pin = input.pin ? await hashPin(input.pin) : null
     const staff = this.ctx.storage.transactionSync(() =>
       saveStaff(this.db, id, input, pin, Date.now()),

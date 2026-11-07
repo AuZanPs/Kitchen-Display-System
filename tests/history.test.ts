@@ -163,9 +163,15 @@ describe('export', () => {
     expect(rows[0]?.ticket).toMatch(/^A-\d{3}$/)
   })
 
-  it('refuses a range longer than 31 days', async () => {
+  it('refuses a range longer than 14 days', async () => {
+    const okRes = await request(
+      '/api/manager/export?from=2026-01-01&to=2026-01-14&format=csv',
+      { headers: await adminHeaders() },
+    )
+    expect(okRes.status).toBe(200)
+
     const res = await request(
-      '/api/manager/export?from=2026-01-01&to=2026-03-01&format=csv',
+      '/api/manager/export?from=2026-01-01&to=2026-01-20&format=csv',
       { headers: await adminHeaders() },
     )
     expect((await rejected(res, 422)).code).toBe('invalid_input')

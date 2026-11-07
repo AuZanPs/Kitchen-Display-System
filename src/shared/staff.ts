@@ -3,7 +3,12 @@ import { z } from 'zod'
 export const STAFF_ROLES = ['waiter', 'kitchen'] as const
 
 /** Staff limits; the admin form and the PIN pad check the same numbers. */
-export const STAFF_LIMITS = { name: 40, pinMin: 4, pinMax: 6 } as const
+export const STAFF_LIMITS = {
+  name: 40,
+  pinMin: 4,
+  pinMax: 6,
+  maxPerVenue: 10,
+} as const
 
 export const pinSchema = z
   .string()

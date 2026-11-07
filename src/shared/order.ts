@@ -29,6 +29,7 @@ export const ERROR_CODES = [
   'allergy_ack_required',
   'rate_limited',
   'pin_required',
+  'limit_reached',
   'internal',
 ] as const
 export type ErrorCode = (typeof ERROR_CODES)[number]

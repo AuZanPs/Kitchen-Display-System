@@ -13,14 +13,22 @@ const FREE: DictKey[] = [
   'priceFreeHistory',
   'priceFreeStaff',
 ]
-const PRO: DictKey[] = ['priceProVenues', 'priceProHistory', 'priceProHelp']
+const PRO: DictKey[] = [
+  'priceProVenues',
+  'priceProDashboard',
+  'priceProHistory',
+  'priceProAnalytics',
+  'priceProStaff',
+  'priceProHelp',
+]
 const FAQ: [DictKey, DictKey][] = [
   ['faqAppQ', 'faqAppA'],
   ['faqDevicesQ', 'faqDevicesA'],
+  ['faqProQ', 'faqProA'],
   ['faqAfterQ', 'faqAfterA'],
 ]
 
-/** One free plan while Layar Dapur is new; paid plans are announced later. */
+/** Generous free plan for daily service; Pro adds multi-branch control and full reporting. */
 export function PricingPage() {
   const { t } = useI18n()
   return (
@@ -40,27 +48,32 @@ export function PricingPage() {
           <section
             aria-labelledby="plan-free"
             style={stagger(0)}
-            className="on-ink rise grid content-start gap-6 rounded-lg bg-ink p-6 text-surface sm:p-8"
+            className="rise flex flex-col justify-between gap-8 rounded-lg bg-wash p-6 sm:p-8"
           >
-            <div className="grid gap-2">
-              <h2 id="plan-free" className="text-xl font-medium">
-                {t('planFree')}
-              </h2>
-              <p className="flex flex-wrap items-baseline gap-x-2">
-                <span className="text-5xl font-semibold tracking-tight tabular-nums">
-                  Rp0
-                </span>
-                <span className="text-on-ink-soft">{t('planFreePeriod')}</span>
-              </p>
+            <div className="grid gap-6">
+              <div className="grid gap-2">
+                <h2 id="plan-free" className="text-xl font-medium">
+                  {t('planFree')}
+                </h2>
+                <p className="flex flex-wrap items-baseline gap-x-2">
+                  <span className="text-5xl font-semibold tracking-tight tabular-nums">
+                    Rp0
+                  </span>
+                  <span className="text-ink-soft">{t('planFreePeriod')}</span>
+                </p>
+                <p className="pt-1 text-[15px] leading-relaxed text-ink-soft">
+                  {t('planFreeSub')}
+                </p>
+              </div>
+              <Features
+                items={FREE.map((key) =>
+                  t(key, { count: VENUE_LIMITS.ownedVenues }),
+                )}
+              />
             </div>
-            <Features
-              items={FREE.map((key) =>
-                t(key, { count: VENUE_LIMITS.ownedVenues }),
-              )}
-            />
             <Link
               to="/sign-in"
-              className="state inline-flex min-h-12 items-center justify-center rounded-full px-7 text-[15px] font-semibold text-ink transition-[background-color,scale] duration-150 active:scale-[0.97] [--bg:var(--color-surface)] sm:w-fit"
+              className="state inline-flex min-h-12 items-center justify-center rounded-full px-7 text-[15px] font-semibold text-surface transition-[background-color,scale] duration-150 active:scale-[0.97] [--bg:var(--color-ink)] [--on:var(--color-surface)] sm:w-fit"
             >
               {t('startFree')}
             </Link>
@@ -69,21 +82,33 @@ export function PricingPage() {
           <section
             aria-labelledby="plan-pro"
             style={stagger(1)}
-            className="rise grid content-start gap-6 rounded-lg border border-line p-6 sm:p-8"
+            className="on-ink rise flex flex-col justify-between gap-6 rounded-lg bg-ink p-6 text-surface sm:p-8"
           >
-            <div className="grid gap-2">
-              <h2
-                id="plan-pro"
-                className="flex flex-wrap items-center gap-2 text-xl font-medium"
-              >
-                {t('planPro')}
-                <span className="rounded-full bg-tonal px-2.5 py-0.5 text-[13px] font-semibold">
-                  {t('comingSoon')}
-                </span>
-              </h2>
-              <p className="text-[17px] text-ink-soft">{t('planProLead')}</p>
+            <div className="grid gap-5">
+              <div className="grid gap-2">
+                <h2
+                  id="plan-pro"
+                  className="flex flex-wrap items-center gap-2.5 text-xl font-medium"
+                >
+                  {t('planPro')}
+                  <span className="rounded-full bg-tonal px-2.5 py-0.5 text-[13px] font-semibold text-ink">
+                    {t('comingSoon')}
+                  </span>
+                </h2>
+                <p className="text-[16px] leading-relaxed text-on-ink-soft">
+                  {t('planProLead')}
+                </p>
+              </div>
+              <div className="grid gap-3">
+                <p className="text-[13px] font-semibold tracking-wide text-on-ink-soft uppercase">
+                  {t('planProIncludes')}
+                </p>
+                <Features items={PRO.map((key) => t(key))} />
+              </div>
             </div>
-            <Features items={PRO.map((key) => t(key))} />
+            <p className="rounded-md bg-ink-raised p-4 text-[14px] leading-relaxed text-on-ink-soft">
+              {t('planProNote')}
+            </p>
           </section>
         </div>
 

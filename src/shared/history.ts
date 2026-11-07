@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { boardOrderSchema } from './board'
 
 export const daySchema = z.iso.date()
-export const MAX_EXPORT_DAYS = 31
+export const MAX_EXPORT_DAYS = 14
 
 export const historyQuerySchema = z.object({ day: daySchema.optional() })
 

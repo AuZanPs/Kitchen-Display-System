@@ -200,10 +200,10 @@ export const en: Dict = {
   statRevenue: 'Sales',
   noOrdersDay: 'No orders on this day.',
   exportTitle: 'Export',
-  exportHint: 'One row per item, without notes or allergies. Up to 31 days.',
+  exportHint: 'One row per item, without notes or allergies. Up to 14 days.',
   from: 'From',
   to: 'To',
-  exportRange: 'Pick at most 31 days, starting from the first date.',
+  exportRange: 'Pick at most 14 days, starting from the first date.',
   downloadCsv: 'Download CSV',
   downloadJson: 'Download JSON',
   timeline: 'Order timeline',
@@ -485,20 +485,33 @@ export const en: Dict = {
   homeHowShort: 'How it works',
   pricingTitle: 'Pricing',
   pricingLead:
-    'Free while we are new, no credit card. Sign up with your email, then create your own kitchen.',
+    'Start free with no credit card. Pair unlimited screens across up to 3 kitchens, then upgrade to Pro when your branches and reporting grow.',
   planFree: 'Free',
   planFreePeriod: 'per month, while we are new',
+  planFreeSub:
+    'Everything a single restaurant or small group needs to run service every day.',
   priceFreeVenues: 'Up to {count} kitchens in one account',
-  priceFreeScreens: 'Waiter tablets, kitchen phones and kitchen TVs',
-  priceFreeMenu: 'Menu, tables and menu import from Excel',
-  priceFreeHistory: '90 days of history and CSV downloads',
-  priceFreeStaff: 'Staff PINs and extra admins',
+  priceFreeScreens: 'Unlimited waiter tablets, kitchen phones and kitchen TVs',
+  priceFreeMenu: 'Full menu builder, tables, templates and Excel import',
+  priceFreeHistory: '30-day order history and 14-day CSV/JSON exports',
+  priceFreeStaff: 'Up to 10 staff PINs and 3 extra admins per kitchen',
   planPro: 'Pro',
   comingSoon: 'Soon',
-  planProLead: 'For businesses with many branches.',
-  priceProVenues: 'More kitchens in one account',
-  priceProHistory: 'Longer history',
-  priceProHelp: 'Help setting up devices',
+  planProLead:
+    'For growing restaurants and multi-branch groups that want full history, deeper numbers and priority support.',
+  planProIncludes: 'Everything in Free, plus:',
+  priceProVenues: 'Unlimited kitchens and branches in one account',
+  priceProDashboard:
+    'Multi-branch live overview: compare sales, active tickets and prep speed across every location',
+  priceProHistory:
+    '1-year order history and full-month or full-year CSV & Excel accounting exports',
+  priceProAnalytics:
+    'Best-selling dishes, peak-hour volume and kitchen prep-time reports',
+  priceProStaff: 'Unlimited staff PINs and admin accounts across all branches',
+  priceProHelp:
+    'Priority WhatsApp support and guided device onboarding for your team',
+  planProNote:
+    'Start on Free today. Early kitchens get 30 days’ notice and founding-member pricing when Pro launches.',
   startFree: 'Start free',
   faqTitle: 'Questions',
   faqAppQ: 'Do I need to install an app?',
@@ -506,6 +519,9 @@ export const en: Dict = {
   faqDevicesQ: 'Which devices work?',
   faqDevicesA:
     'Tablets, phones, laptops or smart TVs with an up-to-date browser.',
+  faqProQ: 'When do I need Pro instead of Free?',
+  faqProA:
+    'Free runs your daily service without limits on orders or screens for up to 3 kitchens. Pro is built for expansion: more than 3 branches, full-month accounting exports, 1-year history, and multi-branch sales and prep-time analytics.',
   faqAfterQ: 'What happens after the free period?',
   faqAfterA: 'We tell you by email first. Your kitchen, menu and history stay.',
   siteCreateVenue: 'Create a kitchen',

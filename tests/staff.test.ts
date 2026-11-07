@@ -154,4 +154,31 @@ describe('staff PINs', () => {
     expect(text).toContain('Lina')
     expect(text).not.toMatch(/pin_?hash|pin_?salt|3141/i)
   })
+
+  it('caps staff members at 10 on the Free plan while still allowing edits', async () => {
+    const listRes = await request('/api/manager/staff', {
+      headers: await adminHeaders(),
+    })
+    const { staff } = (await listRes.json()) as {
+      staff: { id: string; name: string }[]
+    }
+    for (let i = staff.length; i < 10; i++) {
+      await addStaff(`Extra ${i}`, 'waiter', '1234')
+    }
+    const over = await postJson('/api/manager/staff', {
+      name: 'One Too Many',
+      role: 'waiter',
+      pin: '1234',
+    })
+    expect((await rejected(over, 409)).code).toBe('limit_reached')
+
+    const existing = staff[0]
+    if (!existing) throw new Error('expected existing staff')
+    const edit = await request(`/api/manager/staff/${existing.id}`, {
+      method: 'PUT',
+      headers: await adminHeaders(),
+      body: { name: existing.name, role: 'waiter', pin: '4321' },
+    })
+    expect(edit.status).toBe(200)
+  })
 })
