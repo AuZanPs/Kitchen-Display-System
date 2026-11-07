@@ -1,6 +1,7 @@
-import { ArrowRight, LogIn, Plus } from 'lucide-react'
-import { useState } from 'react'
+import { ArrowRight, Check, LogIn, Minus, Plus, RotateCcw } from 'lucide-react'
+import { type ReactNode, useEffect, useState } from 'react'
 import { Link } from 'react-router'
+import { ticketLabel } from '../../../shared/order'
 import { LanguageToggle } from '../../app-bar'
 import { formatIdr, useI18n } from '../../i18n'
 import { useNow } from '../../lib/use-now'
@@ -124,6 +125,19 @@ function HeroDemo() {
   )
   const count = picked.reduce((sum, dish) => sum + (draft[dish.id] ?? 0), 0)
   const [sent, setSent] = useState(false)
+  // The button says "sent" for a moment, the way the real tablet does.
+  const [justSent, setJustSent] = useState(false)
+  useEffect(() => {
+    if (!justSent) return
+    const timer = setTimeout(() => setJustSent(false), 1600)
+    return () => clearTimeout(timer)
+  }, [justSent])
+
+  const change = (id: string, by: number) =>
+    setDraft((d) => ({
+      ...d,
+      [id]: Math.max(0, Math.min(9, (d[id] ?? 0) + by)),
+    }))
 
   function send() {
     if (count === 0) return
@@ -138,6 +152,7 @@ function HeroDemo() {
     setTickets((list) => [...list, ticket])
     setDraft({})
     setSent(true)
+    setJustSent(true)
   }
 
   return (
@@ -147,39 +162,79 @@ function HeroDemo() {
       className="grid overflow-hidden rounded-t-md text-left md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]"
     >
       {/* The waiter's tablet. */}
-      <div className="grid content-start gap-3 bg-surface p-4 pb-8 text-ink md:p-6 md:pb-8">
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-3 bg-surface p-4 pb-8 text-ink md:p-6 md:pb-8">
         <div className="flex items-center justify-between gap-3">
           <span className="rounded-full bg-tonal px-3 py-1 text-[13px] font-semibold">
             {table}
           </span>
-          <span className="text-[13px] text-ink-soft">{t('homeDemoTap')}</span>
+          {count > 0 ? (
+            <button
+              type="button"
+              onClick={() => setDraft({})}
+              className="state inline-flex min-h-10 items-center gap-1.5 rounded-full px-3 text-[13px] font-semibold"
+            >
+              <RotateCcw size={14} aria-hidden />
+              {t('homeDemoClear')}
+            </button>
+          ) : (
+            <span className="text-[13px] text-ink-soft">
+              {t('homeDemoTap')}
+            </span>
+          )}
         </div>
         <ul className="grid gap-1.5">
           {DISHES.map((dish) => {
             const qty = draft[dish.id] ?? 0
             return (
-              <li key={dish.id}>
+              <li
+                key={dish.id}
+                className={`flex min-h-14 items-center gap-2 rounded-sm pr-2 transition-[background-color,box-shadow] duration-150 ${qty > 0 ? 'bg-tonal shadow-[inset_0_0_0_1.5px_var(--color-ink)]' : 'bg-wash'}`}
+              >
+                {/* The whole name adds one, like the real tablet's menu card. */}
                 <button
                   type="button"
-                  onClick={() =>
-                    setDraft((d) => ({ ...d, [dish.id]: Math.min(9, qty + 1) }))
-                  }
-                  className="state flex min-h-12 w-full items-center justify-between gap-3 rounded-sm px-4 text-left transition-[background-color,scale] duration-150 active:scale-[0.98] [--bg:var(--color-wash)]"
+                  onClick={() => change(dish.id, 1)}
+                  className="state grid min-h-14 min-w-0 flex-1 content-center rounded-sm py-1.5 pl-4 text-left transition-[background-color,scale] duration-150 active:scale-[0.98]"
                 >
-                  <span className="text-[15px] font-medium">{dish.name}</span>
-                  <span className="flex items-center gap-2 text-[13px] text-ink-soft tabular-nums">
+                  <span className="truncate text-[15px] font-medium">
+                    {dish.name}
+                  </span>
+                  <span className="text-[13px] text-ink-soft tabular-nums">
                     {formatIdr(dish.price)}
-                    {qty > 0 ? (
-                      <span className="pop grid size-6 place-items-center rounded-full bg-ink text-[13px] font-semibold text-surface">
-                        {qty}
-                      </span>
-                    ) : (
-                      <span className="grid size-6 place-items-center text-ink">
-                        <Plus size={16} aria-hidden />
-                      </span>
-                    )}
                   </span>
                 </button>
+                {qty > 0 ? (
+                  <span className="pop flex shrink-0 items-center rounded-full bg-surface">
+                    <StepButton
+                      label={t('removeOne', { name: dish.name })}
+                      onClick={() => change(dish.id, -1)}
+                    >
+                      <Minus size={16} aria-hidden />
+                    </StepButton>
+                    <output
+                      key={qty}
+                      aria-label={t('qty')}
+                      className="pop w-6 text-center text-[15px] font-semibold tabular-nums"
+                    >
+                      {qty}
+                    </output>
+                    <StepButton
+                      label={t('addOne', { name: dish.name })}
+                      disabled={qty >= 9}
+                      onClick={() => change(dish.id, 1)}
+                    >
+                      <Plus size={16} aria-hidden />
+                    </StepButton>
+                  </span>
+                ) : (
+                  <StepButton
+                    label={t('addOne', { name: dish.name })}
+                    onClick={() => change(dish.id, 1)}
+                    className="bg-surface"
+                  >
+                    <Plus size={16} aria-hidden />
+                  </StepButton>
+                )}
               </li>
             )
           })}
@@ -188,10 +243,26 @@ function HeroDemo() {
         <button
           type="button"
           onClick={send}
-          disabled={count === 0}
-          className={`group state mt-2 flex min-h-16 items-center justify-between gap-4 rounded-full py-2 pr-2 pl-6 text-left text-surface transition-[background-color,scale] duration-150 active:scale-[0.97] [--bg:var(--color-ink)] [--on:var(--color-surface)] disabled:text-ink-soft disabled:[--bg:var(--color-line)] ${count > 0 && !sent ? 'nudge' : ''}`}
+          disabled={count === 0 && !justSent}
+          className={`group state mt-2 flex min-h-16 items-center justify-between gap-3 rounded-full py-2 pr-2 pl-5 text-left text-surface transition-[background-color,scale] duration-150 active:scale-[0.97] [--bg:var(--color-ink)] [--on:var(--color-surface)] disabled:text-ink-soft disabled:[--bg:var(--color-line)] sm:pl-6 ${count > 0 && !sent ? 'nudge' : ''}`}
         >
-          <SendFace count={count} total={total} />
+          {justSent ? (
+            <span
+              aria-live="polite"
+              className="pop flex w-full items-center justify-between gap-3"
+            >
+              <span className="text-[16px] font-semibold">
+                {t('homeDemoSent', {
+                  ticket: ticketLabel(next - 1),
+                })}
+              </span>
+              <span className="grid size-12 place-items-center rounded-full bg-surface text-ink">
+                <Check size={20} aria-hidden />
+              </span>
+            </span>
+          ) : (
+            <SendFace count={count} total={total} />
+          )}
         </button>
       </div>
       {/* The kitchen TV: what was just sent lands here. */}
@@ -234,20 +305,21 @@ export function SendFace({ count, total }: { count: number; total: number }) {
   const { t } = useI18n()
   return (
     <>
-      <span className="grid">
-        <span className="text-[16px] font-semibold">{t('send')}</span>
+      <span className="grid min-w-0">
+        <span className="text-[16px] font-semibold whitespace-nowrap">
+          {t('send')}
+        </span>
+        {/* Count and total share one line, so the button fits a narrow column. */}
         {count > 0 && (
-          <span className="text-[13px] text-on-ink-soft">
-            {t('items', { count })}
+          <span className="text-[13px] whitespace-nowrap text-on-ink-soft tabular-nums">
+            {t('items', { count })} ·{' '}
+            <span className="font-semibold text-surface">
+              {formatIdr(total)}
+            </span>
           </span>
         )}
       </span>
-      <span className="flex items-center gap-4">
-        {count > 0 && (
-          <span className="text-[16px] font-semibold tabular-nums">
-            {formatIdr(total)}
-          </span>
-        )}
+      <span className="flex shrink-0 items-center">
         <span
           aria-hidden
           className="grid size-12 place-items-center rounded-full bg-surface text-ink transition-[translate,background-color] duration-200 ease-[var(--ease-out)] group-hover:translate-x-0.5 group-disabled:bg-surface/60 group-disabled:text-ink-soft group-disabled:translate-x-0"
@@ -267,5 +339,27 @@ export function Age({ since, now }: { since: number; now: number }) {
     <span className="shrink-0 rounded-full bg-tonal px-3 py-1 text-[15px] tabular-nums">
       {text}
     </span>
+  )
+}
+
+function StepButton({
+  label,
+  className = '',
+  ...rest
+}: {
+  label: string
+  className?: string
+  disabled?: boolean
+  onClick: () => void
+  children: ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      className={`state grid size-10 shrink-0 place-items-center rounded-full text-ink transition-[background-color,scale] duration-150 active:scale-[0.9] disabled:text-ink-soft ${className}`}
+      {...rest}
+    />
   )
 }
