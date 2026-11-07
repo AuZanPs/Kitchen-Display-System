@@ -1,3 +1,4 @@
+import { ChevronRight } from 'lucide-react'
 import { type ReactNode, useState } from 'react'
 import { type DictKey, formatIdr, useI18n } from '../../i18n'
 import { delay } from './shared'
@@ -22,19 +23,26 @@ export function OwnerView() {
       </h2>
       <div
         data-reveal
-        className="flex snap-x gap-6 overflow-x-auto md:col-span-5 md:grid md:content-center md:gap-2 md:overflow-visible"
+        className="flex flex-wrap gap-2 md:col-span-5 md:grid md:content-center"
       >
-        {OUTPUTS.map((output) => (
-          <button
-            key={output.id}
-            type="button"
-            aria-pressed={shown === output.id}
-            onClick={() => setShown(output.id)}
-            className={`shrink-0 snap-start text-left text-[22px] leading-[1.1] font-medium tracking-[-0.02em] transition-colors duration-200 hover:text-ink md:text-[clamp(36px,4vw,56px)] ${shown === output.id ? 'text-ink' : 'text-ink-soft'}`}
-          >
-            {t(output.name)}
-          </button>
-        ))}
+        {OUTPUTS.map((output) => {
+          const active = shown === output.id
+          return (
+            <button
+              key={output.id}
+              type="button"
+              aria-pressed={active}
+              onClick={() => setShown(output.id)}
+              className={`state group flex min-h-12 border items-center justify-between gap-3 rounded-full px-5 text-left text-[17px] font-medium tracking-[-0.01em] transition-[background-color,color,scale] duration-200 active:scale-[0.98] md:min-h-16 md:rounded-md md:text-[clamp(24px,2.6vw,36px)] ${active ? 'border-transparent text-ink [--bg:var(--color-tonal)]' : 'border-line text-ink-soft hover:text-ink md:border-transparent'}`}
+            >
+              {t(output.name)}
+              <ChevronRight
+                aria-hidden
+                className={`hidden size-7 shrink-0 transition-[opacity,translate] duration-200 md:block ${active ? 'opacity-100' : 'opacity-0 group-hover:translate-x-1 group-hover:opacity-60'}`}
+              />
+            </button>
+          )
+        })}
         <p className="hidden max-w-[40ch] pt-6 text-[17px] leading-relaxed md:block">
           {t('homeOwnerNote')}
         </p>
@@ -43,11 +51,11 @@ export function OwnerView() {
         data-reveal
         style={delay(1)}
         aria-live="polite"
-        className="relative h-[70svh] overflow-hidden bg-wash md:col-span-7 md:h-[88svh] md:max-h-[760px]"
+        className="grid place-items-center bg-wash p-3 sm:p-6 md:col-span-7 md:min-h-[620px] md:p-10"
       >
         <div
           key={shown}
-          className="rise absolute top-4 left-4 md:top-[72px] md:left-16"
+          className="rise grid w-full min-w-0 justify-items-center"
         >
           {shown === 'today' && <SheetToday />}
           {shown === 'history' && <SheetHistory />}
@@ -61,12 +69,11 @@ export function OwnerView() {
   )
 }
 
-function Sheet({ width, children }: { width: number; children: ReactNode }) {
+function Sheet({ children }: { children: ReactNode }) {
   return (
     <div
       data-ui
-      style={{ width }}
-      className="grid gap-4 rounded-md bg-surface p-5 text-ink"
+      className="grid w-full max-w-[560px] min-w-0 gap-4 rounded-md bg-surface p-4 text-ink sm:p-5"
     >
       {children}
     </div>
@@ -87,7 +94,7 @@ function SheetToday() {
     ['roleTv', 1, 1],
   ]
   return (
-    <Sheet width={560}>
+    <Sheet>
       <p className="text-xl font-medium">{t('homeOutToday')}</p>
       <div className="grid grid-cols-2 gap-2">
         {stats.map(([label, value]) => (
@@ -155,34 +162,36 @@ const HISTORY_ROWS = [
 function SheetHistory() {
   const { t } = useI18n()
   return (
-    <Sheet width={560}>
+    <Sheet>
       <p className="text-xl font-medium">{t('historyTitle')}</p>
-      <table className="w-full text-left text-[13px] tabular-nums">
-        <thead className="text-ink-soft">
-          <tr>
-            <th className="py-2 font-medium">{t('colTicket')}</th>
-            <th className="py-2 font-medium">{t('colWhere')}</th>
-            <th className="py-2 font-medium">{t('colStatus')}</th>
-            <th className="py-2 text-right font-medium">{t('total')}</th>
-            <th className="py-2 text-right font-medium">{t('colSent')}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {HISTORY_ROWS.map((row) => (
-            <tr key={row.no} className="border-t border-line">
-              <td className="py-2.5 font-medium">{row.no}</td>
-              <td className="py-2.5">{row.where}</td>
-              <td className="py-2.5">{t(row.status)}</td>
-              <td
-                className={`py-2.5 text-right ${row.status === 'cancelled' ? 'text-ink-soft line-through' : ''}`}
-              >
-                {formatIdr(row.total)}
-              </td>
-              <td className="py-2.5 text-right">{row.at}</td>
+      <div className="-mx-1 overflow-x-auto px-1">
+        <table className="w-full min-w-[420px] text-left text-[13px] tabular-nums">
+          <thead className="text-ink-soft">
+            <tr>
+              <th className="py-2 font-medium">{t('colTicket')}</th>
+              <th className="py-2 font-medium">{t('colWhere')}</th>
+              <th className="py-2 font-medium">{t('colStatus')}</th>
+              <th className="py-2 text-right font-medium">{t('total')}</th>
+              <th className="py-2 text-right font-medium">{t('colSent')}</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {HISTORY_ROWS.map((row) => (
+              <tr key={row.no} className="border-t border-line">
+                <td className="py-2.5 font-medium">{row.no}</td>
+                <td className="py-2.5">{row.where}</td>
+                <td className="py-2.5">{t(row.status)}</td>
+                <td
+                  className={`py-2.5 text-right ${row.status === 'cancelled' ? 'text-ink-soft line-through' : ''}`}
+                >
+                  {formatIdr(row.total)}
+                </td>
+                <td className="py-2.5 text-right">{row.at}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </Sheet>
   )
 }
@@ -194,9 +203,9 @@ const CSV = `service_day,ticket,status,destination,created_at,created_by,item,mo
 
 function SheetExport() {
   return (
-    <Sheet width={640}>
-      <p className="text-xl font-medium">riwayat-2026-10-20.csv</p>
-      <pre className="overflow-hidden text-[13px] leading-relaxed whitespace-pre">
+    <Sheet>
+      <p className="text-xl font-medium break-all">riwayat-2026-10-20.csv</p>
+      <pre className="overflow-x-auto text-[12px] leading-relaxed whitespace-pre sm:text-[13px]">
         {CSV}
       </pre>
     </Sheet>
