@@ -517,4 +517,18 @@ export const en: Dict = {
   createVenueAction: 'Create and open admin',
   creatingVenue: 'Creating…',
   siteVenueCreated: '{name} is ready',
+  addOne: 'Add one {name}',
+  removeOne: 'Remove one {name}',
+  menuCardInOrder: '{name}, {count} in the order',
+  homeDemoClear: 'Clear',
+  homeDemoSent: '{ticket} sent',
+  fromTemplate: 'From a template',
+  fromFile: 'From an Excel file',
+  templateHint:
+    'Pick the one closest to your dapur. Names, prices and options can be changed afterwards.',
+  templateCount: '{count} {count|item|items}',
+  useTemplate: 'Use a template',
+  sampleMenuNote:
+    'This is a sample menu. Swap it for a template close to your dapur, or import an Excel file.',
+  importPreview: 'Menu preview',
 }

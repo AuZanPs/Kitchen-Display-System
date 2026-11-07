@@ -24,6 +24,7 @@ import { api } from '../lib/api'
 import { whereLabel } from '../lib/board'
 import { failureText, sendCommand } from '../lib/commands'
 import { stagger } from '../lib/stagger'
+import { uuid } from '../lib/uuid'
 import { Ticket } from '../ticket'
 import { Button, IconButton } from '../ui/button'
 import { Chip } from '../ui/chip'
@@ -95,6 +96,56 @@ export function Composer({
   function editLine(line: DraftLine) {
     const item = menu?.find((m) => m.id === line.menuItemId)
     if (item) setEditing({ item, line })
+  }
+
+  // A plain line: no options, note or allergy. Quick taps add to and take from it.
+  const plainLine = (item: MenuItem) =>
+    draft.lines.find(
+      (l) =>
+        l.menuItemId === item.id &&
+        l.optionIds.length === 0 &&
+        l.note === '' &&
+        l.allergy === '',
+    )
+  const inDraft = (item: MenuItem) =>
+    draft.lines
+      .filter((l) => l.menuItemId === item.id)
+      .reduce((sum, l) => sum + l.qty, 0)
+  // Nothing to choose, so a tap adds one. With allergy questions switched on
+  // the dialog stays, so the waiter is still asked.
+  const quick = (item: MenuItem) =>
+    item.modifierGroups.length === 0 && !settings.allergy
+
+  function bump(item: MenuItem, by: 1 | -1) {
+    const plain = plainLine(item)
+    edit((d) => {
+      if (!plain) {
+        if (by < 0) return {}
+        return {
+          lines: [
+            ...d.lines,
+            {
+              key: uuid(),
+              menuItemId: item.id,
+              name: item.name,
+              qty: 1,
+              optionIds: [],
+              modifierNames: [],
+              note: '',
+              allergy: '',
+              unitPriceIdr: item.priceIdr,
+            },
+          ],
+        }
+      }
+      const qty = Math.min(LIMITS.qty, plain.qty + by)
+      return {
+        lines:
+          qty <= 0
+            ? d.lines.filter((l) => l.key !== plain.key)
+            : d.lines.map((l) => (l.key === plain.key ? { ...l, qty } : l)),
+      }
+    })
   }
 
   function saveLine(line: DraftLine) {
@@ -196,31 +247,66 @@ export function Composer({
           <p className="py-10 text-ink-soft">{t('noResults')}</p>
         )}
         <ul className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
-          {visible.map((item, index) => (
-            <li key={item.id} className="rise" style={stagger(index)}>
-              <button
-                type="button"
-                disabled={!item.available}
-                onClick={() => setEditing({ item, line: null })}
-                className={`state group grid h-full min-h-36 w-full content-between gap-6 rounded-[20px] p-5 text-left transition-[background-color,scale] duration-150 ease-out active:scale-[0.98] disabled:active:scale-100 ${item.available ? '[--bg:var(--color-tonal)]' : 'border border-dashed border-ink-soft'}`}
+          {visible.map((item, index) => {
+            const count = inDraft(item)
+            const isQuick = quick(item)
+            const plain = isQuick ? plainLine(item) : undefined
+            return (
+              <li
+                key={item.id}
+                className="rise relative"
+                style={stagger(index)}
               >
-                <span className="text-lg leading-snug">{item.name}</span>
-                <span className="flex items-end justify-between gap-2">
-                  <span className="text-[15px] tabular-nums">
-                    {item.available ? formatIdr(item.priceIdr) : t('soldOut')}
-                  </span>
-                  {item.available && (
-                    <span
-                      className="grid size-12 place-items-center rounded-sm bg-surface"
-                      aria-hidden
-                    >
-                      <Plus size={22} />
+                <button
+                  type="button"
+                  disabled={!item.available}
+                  aria-label={
+                    count > 0
+                      ? t('menuCardInOrder', { name: item.name, count })
+                      : undefined
+                  }
+                  onClick={() =>
+                    isQuick ? bump(item, 1) : setEditing({ item, line: null })
+                  }
+                  className={`state group grid h-full min-h-36 w-full content-between gap-6 rounded-[20px] p-5 text-left transition-[background-color,box-shadow,scale] duration-150 ease-out active:scale-[0.98] disabled:active:scale-100 ${item.available ? '[--bg:var(--color-tonal)]' : 'border border-dashed border-ink-soft'} ${count > 0 ? 'shadow-[inset_0_0_0_2px_var(--color-ink)]' : ''}`}
+                >
+                  <span className="text-lg leading-snug">{item.name}</span>
+                  <span className="flex items-end justify-between gap-2">
+                    <span className="text-[15px] tabular-nums">
+                      {item.available ? formatIdr(item.priceIdr) : t('soldOut')}
                     </span>
-                  )}
-                </span>
-              </button>
-            </li>
-          ))}
+                    {item.available && (
+                      <span
+                        className={`grid size-12 shrink-0 place-items-center rounded-sm ${count > 0 ? 'bg-ink text-surface' : 'bg-surface'}`}
+                        aria-hidden
+                      >
+                        {count > 0 ? (
+                          <span
+                            key={count}
+                            className="pop text-lg font-semibold tabular-nums"
+                          >
+                            {count}
+                          </span>
+                        ) : (
+                          <Plus size={22} />
+                        )}
+                      </span>
+                    )}
+                  </span>
+                </button>
+                {/* Takes one back without opening the order; a sibling, so buttons never nest. */}
+                {plain && (
+                  <IconButton
+                    label={t('removeOne', { name: item.name })}
+                    onClick={() => bump(item, -1)}
+                    className="pop absolute right-[4.5rem] bottom-5 bg-surface"
+                  >
+                    <Minus size={20} aria-hidden />
+                  </IconButton>
+                )}
+              </li>
+            )
+          })}
         </ul>
       </section>
 
@@ -420,7 +506,7 @@ function Summary({
             <div className="flex items-center justify-between">
               <div className="flex items-center rounded-full bg-surface">
                 <IconButton
-                  label={`${t('qty')} -1`}
+                  label={t('removeOne', { name: line.name })}
                   onClick={() => setQty(line.key, line.qty - 1)}
                 >
                   <Minus size={18} aria-hidden />
@@ -429,7 +515,7 @@ function Summary({
                   {line.qty}
                 </output>
                 <IconButton
-                  label={`${t('qty')} +1`}
+                  label={t('addOne', { name: line.name })}
                   disabled={line.qty >= LIMITS.qty}
                   onClick={() => setQty(line.key, line.qty + 1)}
                 >

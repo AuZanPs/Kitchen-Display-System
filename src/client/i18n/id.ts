@@ -521,6 +521,20 @@ export const id = {
   createVenueAction: 'Buat dan buka admin',
   creatingVenue: 'Membuat dapur…',
   siteVenueCreated: '{name} siap',
+  addOne: 'Tambah satu {name}',
+  removeOne: 'Kurangi satu {name}',
+  menuCardInOrder: '{name}, {count} di pesanan',
+  homeDemoClear: 'Kosongkan',
+  homeDemoSent: '{ticket} terkirim',
+  fromTemplate: 'Dari template',
+  fromFile: 'Dari file Excel',
+  templateHint:
+    'Pilih yang paling mirip dengan dapurmu. Nama, harga dan pilihannya bisa diubah setelahnya.',
+  templateCount: '{count} menu',
+  useTemplate: 'Pakai template',
+  sampleMenuNote:
+    'Ini menu contoh. Ganti dengan template yang mirip dapurmu, atau impor file Excel.',
+  importPreview: 'Pratinjau menu',
 } as const
 
 export type Dict = Record<keyof typeof id, string>
