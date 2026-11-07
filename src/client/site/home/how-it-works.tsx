@@ -34,7 +34,7 @@ export function HowItWorks() {
 
   return (
     <section
-      id="cara-kerja"
+      id="how-it-works"
       aria-labelledby="how-title"
       className="mx-auto grid max-w-6xl scroll-mt-4 px-5 pt-28 pb-16 md:grid-cols-12 md:gap-x-10 md:px-10 md:pt-40"
     >
@@ -84,20 +84,34 @@ export function HowItWorks() {
   )
 }
 
-const REVIEW_LINES = [
-  line('a', 1, 'Ayam Bakar Madu', { note: 'Potong kecil', allergy: 'kacang' }),
-  line('t', 2, 'Es Teh Lemon'),
-]
+function reviewLines(lang: 'en' | 'id') {
+  return lang === 'id'
+    ? [
+        line('a', 1, 'Ayam Bakar Madu', {
+          note: 'Potong kecil',
+          allergy: 'kacang',
+        }),
+        line('t', 2, 'Es Teh Lemon'),
+      ]
+    : [
+        line('a', 1, 'Honey Grilled Chicken', {
+          note: 'Cut small',
+          allergy: 'peanuts',
+        }),
+        line('t', 2, 'Iced Lemon Tea'),
+      ]
+}
 
 function StepTablet() {
+  const { lang, t } = useI18n()
   return (
     <Device kind="tablet" className="rounded-[10px] bg-wash">
       <div data-ui className="flex h-full flex-col justify-between gap-3 p-5">
         <Ticket
           ticketNo={null}
-          where="Meja 4"
+          where={`${t('table')} 4`}
           takeaway={false}
-          lines={REVIEW_LINES}
+          lines={reviewLines(lang)}
           orderNote={null}
           size="paper"
         />
@@ -110,7 +124,7 @@ function StepTablet() {
 }
 
 function StepTv() {
-  const { t } = useI18n()
+  const { lang, t } = useI18n()
   return (
     <Device kind="tv" className="bg-ink-raised text-surface">
       <div data-ui className="grid gap-3 p-5">
@@ -126,21 +140,28 @@ function StepTv() {
         <div className="grid grid-cols-2 items-start gap-3">
           <Ticket
             ticketNo={3}
-            where="Meja 9"
+            where={`${t('table')} 9`}
             takeaway={false}
-            lines={[
-              line('s', 3, 'Sate Ayam'),
-              line('n', 1, 'Nasi Goreng Kampung'),
-            ]}
+            lines={
+              lang === 'id'
+                ? [
+                    line('s', 3, 'Sate Ayam'),
+                    line('n', 1, 'Nasi Goreng Kampung'),
+                  ]
+                : [
+                    line('s', 3, 'Chicken Satay'),
+                    line('n', 1, 'Kampung Fried Rice'),
+                  ]
+            }
             orderNote={null}
             size="paper"
             aside={<Age since={0} now={195_000} />}
           />
           <Ticket
             ticketNo={4}
-            where="Meja 4"
+            where={`${t('table')} 4`}
             takeaway={false}
-            lines={REVIEW_LINES}
+            lines={reviewLines(lang)}
             orderNote={null}
             size="paper"
             aside={<Age since={0} now={42_000} />}
@@ -152,7 +173,7 @@ function StepTv() {
 }
 
 function StepPhone() {
-  const { t } = useI18n()
+  const { lang, t } = useI18n()
   const steps: DictKey[] = ['saved', 'onTv', 'accepted', 'ready']
   return (
     <Device kind="phone" className="rounded-[29px] bg-wash">
@@ -164,9 +185,9 @@ function StepPhone() {
       <div data-ui className="grid gap-3 px-3 pt-10">
         <Ticket
           ticketNo={4}
-          where="Meja 4"
+          where={`${t('table')} 4`}
           takeaway={false}
-          lines={REVIEW_LINES}
+          lines={reviewLines(lang)}
           orderNote={null}
           size="paper"
           tonalHeader
@@ -190,9 +211,9 @@ function StepPhone() {
         </p>
         <Ticket
           ticketNo={3}
-          where="Meja 9"
+          where={`${t('table')} 9`}
           takeaway={false}
-          lines={[line('s', 3, 'Sate Ayam')]}
+          lines={[line('s', 3, lang === 'id' ? 'Sate Ayam' : 'Chicken Satay')]}
           orderNote={null}
           size="paper"
         />

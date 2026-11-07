@@ -61,7 +61,7 @@ export function Setup() {
           <span className="block">{t('homeSetupTitle2')}</span>
         </h2>
         <Link
-          to="/masuk"
+          to="/sign-in"
           className="state inline-flex min-h-12 items-center gap-2 rounded-full px-6 text-[15px] font-semibold text-surface transition-[background-color,scale] duration-150 active:scale-[0.97] max-sm:w-full max-sm:justify-center [--bg:var(--color-ink)] [--on:var(--color-surface)]"
         >
           {t('startFree')}

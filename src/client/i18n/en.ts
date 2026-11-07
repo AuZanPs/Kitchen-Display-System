@@ -390,7 +390,7 @@ export const en: Dict = {
   invitedAdmin: 'Admin',
   otherAdmins: 'Other admins',
   otherAdminsHint:
-    'They sign in here with their own email and can open this dapur’s admin. Up to 3.',
+    'They sign in here with their own email and can open this kitchen’s admin. Up to 3.',
   addAdmin: 'Add admin',
   removeAdmin: 'Remove {email}',
   adminAdded: '{email} can sign in now',
@@ -459,14 +459,14 @@ export const en: Dict = {
   homeOutExport: 'CSV export',
   homeOwnerNote:
     'The owner sees the day from anywhere: orders, sales, which screens are online, and a history to download.',
-  homeEveryTitle: 'For warungs, cafés and restaurants.',
+  homeEveryTitle: 'For food stalls, cafés and restaurants.',
   homeEveryBody:
     'One kitchen or several: each has its own address, devices and admins. The owner opens them all from one account.',
   homeSetupTitle1: 'Nothing to install.',
   homeSetupTitle2: 'Just a browser.',
   homeSetupOpen: 'Open',
   homeSetupOpenTitle: 'Your kitchen’s address in the browser',
-  homeSetupOpenNote: 'For example warungmu.layardapur.web.id',
+  homeSetupOpenNote: 'For example yourkitchen.layardapur.web.id',
   homeSetupCode: 'Read',
   homeSetupCodeTitle: 'A 6-digit code appears on screen',
   homeSetupCodeNote: 'It only works for a short while.',
@@ -485,10 +485,10 @@ export const en: Dict = {
   homeHowShort: 'How it works',
   pricingTitle: 'Pricing',
   pricingLead:
-    'Free while we are new, no credit card. Sign up with your email, then create your own dapur.',
+    'Free while we are new, no credit card. Sign up with your email, then create your own kitchen.',
   planFree: 'Free',
   planFreePeriod: 'per month, while we are new',
-  priceFreeVenues: 'Up to {count} dapur in one account',
+  priceFreeVenues: 'Up to {count} kitchens in one account',
   priceFreeScreens: 'Waiter tablets, kitchen phones and kitchen TVs',
   priceFreeMenu: 'Menu, tables and menu import from Excel',
   priceFreeHistory: '90 days of history and CSV downloads',
@@ -496,20 +496,20 @@ export const en: Dict = {
   planPro: 'Pro',
   comingSoon: 'Soon',
   planProLead: 'For businesses with many branches.',
-  priceProVenues: 'More dapur in one account',
+  priceProVenues: 'More kitchens in one account',
   priceProHistory: 'Longer history',
   priceProHelp: 'Help setting up devices',
   startFree: 'Start free',
   faqTitle: 'Questions',
   faqAppQ: 'Do I need to install an app?',
-  faqAppA: 'No. Each device opens your dapur address in a browser.',
+  faqAppA: 'No. Each device opens your kitchen address in a browser.',
   faqDevicesQ: 'Which devices work?',
   faqDevicesA:
     'Tablets, phones, laptops or smart TVs with an up-to-date browser.',
   faqAfterQ: 'What happens after the free period?',
-  faqAfterA: 'We tell you by email first. Your dapur, menu and history stay.',
-  siteCreateVenue: 'Create a dapur',
-  createFirstVenue: 'Create your first dapur',
+  faqAfterA: 'We tell you by email first. Your kitchen, menu and history stay.',
+  siteCreateVenue: 'Create a kitchen',
+  createFirstVenue: 'Create your first kitchen',
   createVenueLead:
     'Its admin opens as soon as it is created. You can create up to 3.',
   siteAdminPasswordHint:
@@ -525,10 +525,10 @@ export const en: Dict = {
   fromTemplate: 'From a template',
   fromFile: 'From an Excel file',
   templateHint:
-    'Pick the one closest to your dapur. Names, prices and options can be changed afterwards.',
+    'Pick the one closest to your kitchen. Names, prices and options can be changed afterwards.',
   templateCount: '{count} {count|item|items}',
   useTemplate: 'Use a template',
   sampleMenuNote:
-    'This is a sample menu. Swap it for a template close to your dapur, or import an Excel file.',
+    'This is a sample menu. Swap it for a template close to your kitchen, or import an Excel file.',
   importPreview: 'Menu preview',
 }

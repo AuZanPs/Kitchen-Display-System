@@ -113,19 +113,22 @@ export function decide(order: OrderState, command: Command): Decision {
   // Two people tapping the same button both succeed.
   if (NOOP_TARGET[command.type] === order.status) return { kind: 'noop' }
   if (command.expectedVersion !== order.version) {
-    return reject('stale_version', 'Pesanan sudah berubah. Muat ulang.')
+    return reject('stale_version', 'Order changed. Reloaded.')
   }
 
   switch (command.type) {
     case 'accept':
       if (order.status !== 'new') {
-        return reject('invalid_transition', 'Hanya pesanan baru bisa diterima.')
+        return reject('invalid_transition', 'Only new orders can be accepted.')
       }
       if (order.cancelRequested) {
-        return reject('invalid_transition', 'Ada permintaan pembatalan.')
+        return reject('invalid_transition', 'A cancellation was requested.')
       }
       if (order.hasAllergy && !command.allergyAcknowledged) {
-        return reject('allergy_ack_required', 'Konfirmasi alergi dulu.')
+        return reject(
+          'allergy_ack_required',
+          'Please confirm the allergy first.',
+        )
       }
       // Accepting covers the whole current ticket, including changes.
       return {
@@ -135,55 +138,58 @@ export function decide(order: OrderState, command: Command): Decision {
 
     case 'ackChange':
       if (!order.changePending) {
-        return reject('invalid_transition', 'Tidak ada perubahan tertunda.')
+        return reject('invalid_transition', 'No pending changes.')
       }
       if (order.pendingChangeHasAllergy && !command.allergyAcknowledged) {
-        return reject('allergy_ack_required', 'Konfirmasi alergi dulu.')
+        return reject(
+          'allergy_ack_required',
+          'Please confirm the allergy first.',
+        )
       }
       return { kind: 'apply', patch: { changePending: false } }
 
     case 'ready':
       if (order.status !== 'accepted') {
-        return reject('invalid_transition', 'Terima pesanan dulu.')
+        return reject('invalid_transition', 'Accept the order first.')
       }
       if (order.cancelRequested) {
-        return reject('invalid_transition', 'Ada permintaan pembatalan.')
+        return reject('invalid_transition', 'A cancellation was requested.')
       }
       if (order.changePending) {
-        return reject('invalid_transition', 'Terima perubahan dulu.')
+        return reject('invalid_transition', 'Acknowledge changes first.')
       }
       return { kind: 'apply', patch: { status: 'ready' } }
 
     case 'serve':
       if (order.status !== 'ready') {
-        return reject('invalid_transition', 'Pesanan belum siap.')
+        return reject('invalid_transition', 'Order is not ready yet.')
       }
       if (order.cancelRequested) {
-        return reject('invalid_transition', 'Ada permintaan pembatalan.')
+        return reject('invalid_transition', 'A cancellation was requested.')
       }
       return { kind: 'apply', patch: { status: 'served' } }
 
     case 'addLines':
       if (order.cancelRequested) {
-        return reject('invalid_transition', 'Ada permintaan pembatalan.')
+        return reject('invalid_transition', 'A cancellation was requested.')
       }
       if (order.status === 'ready' || order.status === 'served') {
         return { kind: 'linked' }
       }
       if (order.status !== 'new' && order.status !== 'accepted') {
-        return reject('invalid_transition', 'Pesanan sudah ditutup.')
+        return reject('invalid_transition', 'Order is already closed.')
       }
       if (order.lineCount + command.lines.length > LIMITS.lines) {
         return reject(
           'too_many_lines',
-          `Maksimal ${LIMITS.lines} baris per pesanan.`,
+          `Maximum ${LIMITS.lines} lines per order.`,
         )
       }
       return { kind: 'apply', patch: { changePending: true } }
 
     case 'moveTable':
       if (isFinished(order.status)) {
-        return reject('invalid_transition', 'Pesanan sudah ditutup.')
+        return reject('invalid_transition', 'Order is already closed.')
       }
       // Ready food only needs the new table; there is nothing left to cook.
       return order.status === 'ready'
@@ -192,16 +198,19 @@ export function decide(order: OrderState, command: Command): Decision {
 
     case 'requestCancel':
       if (isFinished(order.status)) {
-        return reject('invalid_transition', 'Pesanan sudah ditutup.')
+        return reject('invalid_transition', 'Order is already closed.')
       }
       if (order.cancelRequested) {
-        return reject('invalid_transition', 'Pembatalan sudah diminta.')
+        return reject(
+          'invalid_transition',
+          'Cancellation was already requested.',
+        )
       }
       return { kind: 'apply', patch: { cancelRequested: true } }
 
     case 'ackCancel':
       if (!order.cancelRequested) {
-        return reject('invalid_transition', 'Tidak ada permintaan pembatalan.')
+        return reject('invalid_transition', 'No cancellation was requested.')
       }
       return {
         kind: 'apply',
@@ -210,7 +219,7 @@ export function decide(order: OrderState, command: Command): Decision {
 
     case 'managerCancel':
       if (isFinished(order.status)) {
-        return reject('invalid_transition', 'Pesanan sudah ditutup.')
+        return reject('invalid_transition', 'Order is already closed.')
       }
       return {
         kind: 'apply',

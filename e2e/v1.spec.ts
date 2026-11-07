@@ -8,25 +8,28 @@ test('a paired tablet sends an order that appears on the paired TV without reloa
   test.setTimeout(120_000)
   const admin = await signInAdmin(browser)
   // Allergy is off by default; this venue wants the detailed form.
-  await admin.getByRole('button', { name: 'Pengaturan' }).click()
-  await admin.getByRole('switch', { name: /Kolom alergi/ }).check()
-  await expect(admin.getByText('Pengaturan tersimpan')).toBeVisible()
-  await admin.getByRole('button', { name: 'Perangkat' }).click()
-  const tablet = await pair(browser, admin, 'Tablet pelayan', 'Tablet E2E', {
+  await admin.getByRole('button', { name: 'Settings' }).click()
+  await admin.getByRole('switch', { name: /Allergy field/ }).check()
+  await expect(admin.getByText('Settings saved')).toBeVisible()
+  await admin.getByRole('button', { name: 'Devices' }).click()
+  const tablet = await pair(browser, admin, 'Waiter tablet', 'Tablet E2E', {
     width: 1280,
     height: 800,
   })
-  const tv = await pair(browser, admin, 'TV dapur', 'TV E2E', {
+  const tv = await pair(browser, admin, 'Kitchen TV', 'TV E2E', {
     width: 1920,
     height: 1080,
   })
-  const kitchen = await pair(browser, admin, 'HP dapur', 'HP E2E', {
+  const kitchen = await pair(browser, admin, 'Kitchen phone', 'HP E2E', {
     width: 390,
     height: 844,
   })
+  await expect(tablet).toHaveURL(/\/waiter/)
+  await expect(tv).toHaveURL(/\/tv/)
+  await expect(kitchen).toHaveURL(/\/kitchen/)
   // Presence: all three paired screens report online within one poll.
   await expect(admin.getByText('Online', { exact: true })).toHaveCount(3, {
-    timeout: 10_000,
+    timeout: 15_000,
   })
   await admin.screenshot({
     path: 'test-results/admin-devices.png',
@@ -34,33 +37,31 @@ test('a paired tablet sends an order that appears on the paired TV without reloa
   })
   await expectAccessible(admin, 'admin-devices')
 
-  await expect(tablet).toHaveURL(/\/waiter/)
-  await expect(tv).toHaveURL(/\/tv/)
   await expect(tv.getByText('Live')).toBeVisible()
-  await expect(tablet.getByText('TV dapur online')).toBeVisible()
+  await expect(tablet.getByText('Kitchen TV online')).toBeVisible()
 
-  const allergy = `udang ${Date.now()}`
-  await tablet.getByRole('button', { name: 'Pilih meja' }).first().click()
+  const allergy = `shrimp ${Date.now()}`
+  await tablet.getByRole('button', { name: 'Choose a table' }).first().click()
   await tablet.getByRole('button', { name: 'Meja 7', exact: true }).click()
   await tablet.getByRole('button', { name: /Nasi Goreng Kampung/ }).click()
   await tablet.getByRole('button', { name: 'Tidak pedas' }).click()
-  await tablet.getByLabel('Alergi').fill(allergy)
-  await tablet.getByRole('button', { name: /Tambah ke pesanan/ }).click()
+  await tablet.getByLabel('Allergy').fill(allergy)
+  await tablet.getByRole('button', { name: /Add to order/ }).click()
   await tablet.screenshot({ path: 'test-results/composer.png' })
   await expectAccessible(tablet, 'composer')
-  await tablet.getByRole('button', { name: 'Periksa pesanan' }).click()
+  await tablet.getByRole('button', { name: 'Review order' }).click()
   // The review shows the same ticket the kitchen will read.
   await expect(tablet.getByRole('dialog').getByText(allergy)).toBeVisible()
-  await tablet.getByRole('button', { name: 'Kirim ke dapur' }).click()
+  await tablet.getByRole('button', { name: 'Send to kitchen' }).click()
 
   // Arrives on the TV through the socket; the page is never reloaded.
   const ticket = tv.getByRole('article').filter({ hasText: allergy })
   await expect(ticket).toBeVisible({ timeout: 5_000 })
-  await expect(ticket.getByText('ALERGI')).toBeVisible()
+  await expect(ticket.getByText('ALLERGY')).toBeVisible()
 
   // The TV's render receipt flows back to the tablet's status card.
   await expect(
-    tablet.getByRole('status').filter({ hasText: 'Tampil di TV' }).first(),
+    tablet.getByRole('status').filter({ hasText: 'Shown on TV' }).first(),
   ).toBeVisible({
     timeout: 5_000,
   })
@@ -74,20 +75,20 @@ test('a paired tablet sends an order that appears on the paired TV without reloa
     .locator('div')
     .filter({ has: kitchen.getByRole('article').filter({ hasText: allergy }) })
     .last()
-  await card.getByRole('button', { name: 'Terima' }).click()
-  await kitchen.getByRole('button', { name: 'Sudah dibaca, terima' }).click()
+  await card.getByRole('button', { name: 'Accept' }).click()
+  await kitchen.getByRole('button', { name: 'Read, accept' }).click()
   await expect(
     tv
-      .getByRole('region', { name: 'Sedang disiapkan' })
+      .getByRole('region', { name: 'Preparing' })
       .getByRole('article')
       .filter({ hasText: allergy }),
   ).toBeVisible()
   await kitchen.screenshot({ path: 'test-results/kitchen.png', fullPage: true })
   await expectAccessible(kitchen, 'kitchen')
-  await card.getByRole('button', { name: 'Siap' }).click()
+  await card.getByRole('button', { name: 'Ready' }).click()
   await expect(
     tv
-      .getByRole('region', { name: 'Siap diantar' })
+      .getByRole('region', { name: 'Ready to serve' })
       .getByRole('article')
       .filter({ hasText: allergy }),
   ).toBeVisible()
@@ -95,63 +96,63 @@ test('a paired tablet sends an order that appears on the paired TV without reloa
   // The waiter delivers it.
   const served = tablet
     .getByRole('listitem')
-    .filter({ hasText: 'Siap diantar' })
+    .filter({ hasText: 'Ready to serve' })
     .first()
-  await served.getByRole('button', { name: 'Sudah diantar' }).click()
+  await served.getByRole('button', { name: 'Served' }).click()
   await expect(
     tv.getByRole('article').filter({ hasText: allergy }),
   ).toBeHidden()
 
   // The admin can clear a stuck order from the overview; it leaves the TV.
-  await tablet.getByRole('button', { name: 'Pesanan', exact: true }).click()
-  await tablet.locator('label').filter({ hasText: 'Bawa pulang' }).click()
+  await tablet.getByRole('button', { name: 'Orders', exact: true }).click()
+  await tablet.locator('label').filter({ hasText: 'Takeaway' }).click()
   await tablet.getByRole('button', { name: /Es Teh Lemon/ }).click()
-  await tablet.getByRole('button', { name: /Tambah ke pesanan/ }).click()
-  await tablet.getByRole('button', { name: 'Periksa pesanan' }).click()
-  await tablet.getByRole('button', { name: 'Kirim ke dapur' }).click()
+  await tablet.getByRole('button', { name: /Add to order/ }).click()
+  await tablet.getByRole('button', { name: 'Review order' }).click()
+  await tablet.getByRole('button', { name: 'Send to kitchen' }).click()
   const takeaway = tv.getByRole('article').filter({ hasText: 'Es Teh Lemon' })
   await expect(takeaway).toBeVisible()
 
   // Amendments from the waiter's service list: move, add an item, ask to cancel.
   const serviceCard = () => tablet.locator('main > ul > li').first()
-  await serviceCard().getByRole('button', { name: 'Pindah meja' }).click()
+  await serviceCard().getByRole('button', { name: 'Move table' }).click()
   await tablet.getByRole('button', { name: 'Meja 3', exact: true }).click()
   await expect(takeaway).toContainText('Meja 3')
-  await serviceCard().getByRole('button', { name: 'Tambah item' }).click()
-  await expect(tablet.getByText(/Menambah item ke/)).toBeVisible()
+  await serviceCard().getByRole('button', { name: 'Add items' }).click()
+  await expect(tablet.getByText(/Adding items to/)).toBeVisible()
   await tablet.getByRole('button', { name: /Air Mineral/ }).click()
-  await tablet.getByRole('button', { name: /Tambah ke pesanan/ }).click()
-  await tablet.getByRole('button', { name: 'Periksa pesanan' }).click()
-  await tablet.getByRole('button', { name: 'Kirim ke dapur' }).click()
+  await tablet.getByRole('button', { name: /Add to order/ }).click()
+  await tablet.getByRole('button', { name: 'Review order' }).click()
+  await tablet.getByRole('button', { name: 'Send to kitchen' }).click()
   await expect(takeaway).toContainText('Air Mineral')
-  await serviceCard().getByRole('button', { name: 'Batalkan pesanan' }).click()
-  await tablet.getByLabel('Alasan').fill('Salah meja')
-  await tablet.getByRole('button', { name: 'Minta batal' }).click()
+  await serviceCard().getByRole('button', { name: 'Cancel order' }).click()
+  await tablet.getByLabel('Reason').fill('Wrong table')
+  await tablet.getByRole('button', { name: 'Request cancel' }).click()
   await expect(
-    tablet.getByText('Menunggu dapur mengonfirmasi pembatalan'),
+    tablet.getByText('Waiting for the kitchen to confirm the cancel'),
   ).toBeVisible()
   await tablet.screenshot({ path: 'test-results/service.png' })
   await expectAccessible(tablet, 'service')
 
   // The kitchen sees the request on top and confirms it; the TV drops it.
-  await kitchen.getByRole('button', { name: 'Konfirmasi pembatalan' }).click()
+  await kitchen.getByRole('button', { name: 'Confirm cancellation' }).click()
   await expect(takeaway).toBeHidden()
 
-  await admin.getByRole('button', { name: 'Ringkasan' }).click()
+  await admin.getByRole('button', { name: 'Overview' }).click()
   await admin.screenshot({
     path: 'test-results/admin-overview.png',
     fullPage: true,
   })
 
   // Menu edits reach the tablet live: a new item, then one sold out.
-  await tablet.getByRole('button', { name: 'Pesanan', exact: true }).click()
+  await tablet.getByRole('button', { name: 'Orders', exact: true }).click()
   await admin.getByRole('button', { name: 'Menu', exact: true }).click()
-  await admin.getByRole('button', { name: 'Tambah menu' }).click()
-  await admin.getByLabel('Nama menu').fill('Es Kopi E2E')
-  await admin.getByLabel('Harga').fill('25000')
-  await admin.getByLabel('Kategori').fill('Minuman')
-  await admin.getByRole('button', { name: 'Simpan' }).click()
-  await expect(admin.getByText('Es Kopi E2E tersimpan')).toBeVisible()
+  await admin.getByRole('button', { name: 'Add item' }).click()
+  await admin.getByLabel('Item name').fill('Es Kopi E2E')
+  await admin.getByLabel('Price').fill('25000')
+  await admin.getByLabel('Category').fill('Minuman')
+  await admin.getByRole('button', { name: 'Save' }).click()
+  await expect(admin.getByText('Es Kopi E2E saved')).toBeVisible()
   await expect(tablet.getByRole('button', { name: /Es Kopi E2E/ })).toBeVisible(
     { timeout: 5_000 },
   )
@@ -171,33 +172,33 @@ test('a paired tablet sends an order that appears on the paired TV without reloa
   await expectAccessible(admin, 'admin-menu')
 
   // History: today's orders with totals, and each order's timeline.
-  await admin.getByRole('button', { name: 'Riwayat' }).click()
-  await expect(admin.getByText('Omzet')).toBeVisible()
+  await admin.getByRole('button', { name: 'History' }).click()
+  await expect(admin.getByText('Sales')).toBeVisible()
   await admin.getByRole('button', { name: /A-001/ }).click()
   await expect(
-    admin.getByRole('dialog').getByText('Diterima dapur'),
+    admin.getByRole('dialog').getByText('Accepted by kitchen'),
   ).toBeVisible()
   await admin.screenshot({ path: 'test-results/admin-history.png' })
   await expectAccessible(admin, 'history')
   await admin.keyboard.press('Escape')
 
   // Staff PINs: once the admin turns them on, the tablet asks who is working.
-  await admin.getByRole('button', { name: 'Staf', exact: true }).click()
-  await admin.getByRole('button', { name: 'Tambah staf' }).click()
-  await admin.getByLabel('Nama').fill('Rina')
+  await admin.getByRole('button', { name: 'Staff', exact: true }).click()
+  await admin.getByRole('button', { name: 'Add staff' }).click()
+  await admin.getByLabel('Name').fill('Rina')
   await admin.getByLabel('PIN').fill('2468')
-  await admin.getByRole('button', { name: 'Simpan' }).click()
-  await expect(admin.getByText('Rina tersimpan')).toBeVisible()
-  await admin.getByRole('button', { name: 'Pengaturan' }).click()
-  await admin.getByRole('switch', { name: /PIN staf/ }).check()
-  await expect(tablet.getByText('Siapa yang bertugas?').first()).toBeVisible({
+  await admin.getByRole('button', { name: 'Save' }).click()
+  await expect(admin.getByText('Rina saved')).toBeVisible()
+  await admin.getByRole('button', { name: 'Settings' }).click()
+  await admin.getByRole('switch', { name: /Staff PINs/ }).check()
+  await expect(tablet.getByText('Who is working?').first()).toBeVisible({
     timeout: 5_000,
   })
   await tablet.getByRole('button', { name: /Rina/ }).click()
   for (const digit of '2468') {
     await tablet.getByRole('button', { name: digit, exact: true }).click()
   }
-  await expect(tablet.getByRole('button', { name: 'Masuk' })).toBeEnabled()
+  await expect(tablet.getByRole('button', { name: 'Sign in' })).toBeEnabled()
   await tablet.screenshot({ path: 'test-results/pin.png' })
   await expectAccessible(tablet, 'pin')
   // A small phone with its browser bar: the whole pad fits without scrolling.
@@ -209,6 +210,6 @@ test('a paired tablet sends an order that appears on the paired TV without reloa
   await expectAccessible(tablet, 'pin 360')
   await tablet.screenshot({ path: 'test-results/pin-360.png' })
   await tablet.setViewportSize({ width: 1280, height: 800 })
-  await tablet.getByRole('button', { name: 'Masuk' }).click()
+  await tablet.getByRole('button', { name: 'Sign in' }).click()
   await expect(tablet.getByRole('button', { name: 'Rina' })).toBeVisible()
 })

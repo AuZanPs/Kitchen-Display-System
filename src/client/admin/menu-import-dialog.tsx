@@ -7,8 +7,8 @@ import {
   rowsToMenu,
 } from '../../shared/menu-import'
 import {
-  MENU_TEMPLATES,
   type MenuTemplate,
+  menuTemplates,
   templateItems,
 } from '../../shared/menu-templates'
 import { formatIdr, useI18n } from '../i18n'
@@ -36,7 +36,8 @@ export function MenuImportDialog({
   onClose: () => void
   onImported: (message: string) => void
 }) {
-  const { t } = useI18n()
+  const { lang, t } = useI18n()
+  const templates = menuTemplates(lang)
   const inputId = useId()
   const [source, setSource] = useState<'template' | 'file'>('template')
   const [picked, setPicked] = useState<Picked | null>(null)
@@ -154,7 +155,7 @@ export function MenuImportDialog({
 
         {source === 'template' ? (
           <ul className="grid gap-2 sm:grid-cols-2">
-            {MENU_TEMPLATES.map((item) => {
+            {templates.map((item) => {
               const selected = template === item.id
               return (
                 <li key={item.id} className="grid">

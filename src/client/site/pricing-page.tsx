@@ -59,7 +59,7 @@ export function PricingPage() {
               )}
             />
             <Link
-              to="/masuk"
+              to="/sign-in"
               className="state inline-flex min-h-12 items-center justify-center rounded-full px-7 text-[15px] font-semibold text-ink transition-[background-color,scale] duration-150 active:scale-[0.97] [--bg:var(--color-surface)] sm:w-fit"
             >
               {t('startFree')}

@@ -45,10 +45,10 @@ export type ChangePayload = z.infer<typeof changePayloadSchema>
 
 export function summarizeChange(change: ChangePayload): string {
   if (change.kind === 'move_table') {
-    return `Pindah dari ${change.from ?? 'Bawa pulang'} ke ${change.to}`
+    return `Moved from ${change.from ?? 'Takeaway'} to ${change.to}`
   }
   const items = change.lines.map((l) => `${l.qty}× ${l.name}`).join(', ')
-  return `Tambah ${items}`
+  return `Add ${items}`
 }
 
 type OrderRow = typeof schema.orders.$inferSelect

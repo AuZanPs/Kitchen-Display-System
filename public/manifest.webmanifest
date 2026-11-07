@@ -1,6 +1,8 @@
 {
   "name": "Layar Dapur",
   "short_name": "Layar Dapur",
+  "description": "Live kitchen display system for restaurants and cafes",
+  "lang": "en",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f8fafd",

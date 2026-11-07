@@ -138,8 +138,8 @@ function choiceGroups(name: string): ModifierGroup[] {
   if (!match?.[1] || !match[2]) return []
   return [
     {
-      id: 'pilihan',
-      name: 'Pilihan',
+      id: 'choice',
+      name: 'Choice',
       required: true,
       multi: false,
       options: [

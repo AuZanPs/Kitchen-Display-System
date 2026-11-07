@@ -12,9 +12,18 @@ const TITLES: Record<string, DictKey> = {
   '/kitchen': 'kitchenTitle',
   '/tv': 'roleTv',
   '/super': 'superTitle',
+  '/sign-in': 'signInTitle',
+  '/account': 'accountTitle',
+  '/pricing': 'pricingTitle',
   '/masuk': 'signInTitle',
   '/akun': 'accountTitle',
   '/harga': 'pricingTitle',
+}
+
+const DESCRIPTIONS: Record<string, DictKey> = {
+  '/': 'siteLead',
+  '/pricing': 'pricingLead',
+  '/sign-in': 'signInLead',
 }
 
 /** Every route renders inside this: it names the browser tab after the screen. */
@@ -24,6 +33,17 @@ export function Shell() {
   useEffect(() => {
     const key = TITLES[pathname]
     document.title = key ? `${t(key)} · ${t('appName')}` : t('appName')
+    const descKey = DESCRIPTIONS[pathname] ?? 'siteLead'
+    const metaDesc = document.querySelector<HTMLMetaElement>(
+      'meta[name="description"]',
+    )
+    if (metaDesc) metaDesc.content = t(descKey)
+    const canonical = document.querySelector<HTMLLinkElement>(
+      'link[rel="canonical"]',
+    )
+    if (canonical) {
+      canonical.href = `https://layardapur.web.id${pathname === '/' ? '/' : pathname}`
+    }
   }, [pathname, t])
   return <Outlet />
 }

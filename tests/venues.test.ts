@@ -354,6 +354,7 @@ describe('owner sign-in on the site', () => {
     })
     expect(start.status).toBe(200)
     const { devLink } = (await start.json()) as { devLink?: string }
+    expect(devLink).toContain('/sign-in#token=')
     const token = devLink?.split('#token=')[1] ?? ''
     const verify = await call(SITE, '/api/site/login/verify', {
       body: { token },

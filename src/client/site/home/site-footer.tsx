@@ -11,13 +11,16 @@ export function SiteFooter() {
           aria-label={t('appName')}
           className="flex flex-wrap gap-x-6 gap-y-2"
         >
-          <a href="/#cara-kerja" className="underline-offset-4 hover:underline">
+          <a
+            href="/#how-it-works"
+            className="underline-offset-4 hover:underline"
+          >
             {t('homeHowShort')}
           </a>
-          <Link to="/harga" className="underline-offset-4 hover:underline">
+          <Link to="/pricing" className="underline-offset-4 hover:underline">
             {t('pricingTitle')}
           </Link>
-          <Link to="/masuk" className="underline-offset-4 hover:underline">
+          <Link to="/sign-in" className="underline-offset-4 hover:underline">
             {t('signInTitle')}
           </Link>
         </nav>

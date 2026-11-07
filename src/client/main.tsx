@@ -1,6 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { createBrowserRouter, Navigate } from 'react-router'
+import { createBrowserRouter, Navigate, useLocation } from 'react-router'
 import { RouterProvider } from 'react-router/dom'
 import './index.css'
 import { AdminPage } from './admin/admin-page'
@@ -36,6 +36,12 @@ function VenueHome() {
   return <Navigate to="/enroll" replace />
 }
 
+/** Redirects legacy paths while keeping `#token=...` and query parameters intact. */
+function RedirectTo({ to }: { to: string }) {
+  const { search, hash } = useLocation()
+  return <Navigate to={{ pathname: to, search, hash }} replace />
+}
+
 const router = createBrowserRouter([
   {
     element: <Shell />,
@@ -48,9 +54,12 @@ const router = createBrowserRouter([
       { path: '/kitchen', element: <KitchenPage /> },
       { path: '/tv', element: <TvPage /> },
       { path: '/super', element: <SuperPage /> },
-      { path: '/masuk', element: <SignInPage /> },
-      { path: '/akun', element: <AccountPage /> },
-      { path: '/harga', element: <PricingPage /> },
+      { path: '/sign-in', element: <SignInPage /> },
+      { path: '/account', element: <AccountPage /> },
+      { path: '/pricing', element: <PricingPage /> },
+      { path: '/masuk', element: <RedirectTo to="/sign-in" /> },
+      { path: '/akun', element: <RedirectTo to="/account" /> },
+      { path: '/harga', element: <RedirectTo to="/pricing" /> },
       { path: '*', element: <NotFound /> },
     ],
   },

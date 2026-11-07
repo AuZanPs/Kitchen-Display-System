@@ -31,7 +31,7 @@ const SUPER_LOGIN_WINDOW_MS = 15 * 60 * 1000
 
 const requireSuper: MiddlewareHandler<AppEnv> = async (c, next) => {
   if (!(await hasSuperSession(c)))
-    return refuse(c, 401, 'Masuk sebagai super admin.')
+    return refuse(c, 401, 'Sign in as super admin.')
   await next()
 }
 
@@ -54,11 +54,11 @@ superConsole.post(
     if (!(await directory(c.env).allowAttempt(key, 5, SUPER_LOGIN_WINDOW_MS))) {
       return reply(
         c,
-        fail(429, 'rate_limited', 'Terlalu banyak percobaan. Tunggu 15 menit.'),
+        fail(429, 'rate_limited', 'Too many attempts. Wait 15 minutes.'),
       )
     }
     if (!(await isSuperPassword(c.env, c.req.valid('json').password))) {
-      return refuse(c, 401, 'Kata sandi salah.')
+      return refuse(c, 401, 'Wrong password.')
     }
     await setSuperSession(c)
     return c.body(null, 204)
@@ -86,7 +86,11 @@ superConsole.post(
     if (!(await dir.add(slug, name, ownerEmail ?? null))) {
       return reply(
         c,
-        fail(409, 'operation_conflict', 'Alamat ini sudah dipakai dapur lain.'),
+        fail(
+          409,
+          'operation_conflict',
+          'This address is already taken by another kitchen.',
+        ),
       )
     }
     const result = await roomBySlug(c.env, slug).provision({

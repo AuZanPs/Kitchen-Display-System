@@ -198,7 +198,7 @@ export class VenueRoom extends DurableObject<Env> {
   private missing(): Failure | null {
     return this.provisioned
       ? null
-      : fail(404, 'not_found', 'Dapur ini tidak ditemukan.')
+      : fail(404, 'not_found', 'This kitchen was not found.')
   }
 
   /** Why this dapur answers nobody right now, if it doesn't. */
@@ -206,7 +206,7 @@ export class VenueRoom extends DurableObject<Env> {
     const missing = this.missing()
     if (missing) return missing
     if (getMeta(this.db, 'disabled') === '1') {
-      return fail(403, 'forbidden', 'Dapur ini sedang dinonaktifkan.')
+      return fail(403, 'forbidden', 'This kitchen is currently disabled.')
     }
     return null
   }
@@ -217,7 +217,7 @@ export class VenueRoom extends DurableObject<Env> {
     adminPassword: string
   }): Promise<Result<{ name: string }>> {
     if (!this.tenant || this.provisioned) {
-      return fail(409, 'operation_conflict', 'Alamat ini sudah dipakai.')
+      return fail(409, 'operation_conflict', 'This address is already in use.')
     }
     await this.setUp()
     const password = await hashAdminPassword(input.adminPassword)
@@ -289,11 +289,7 @@ export class VenueRoom extends DurableObject<Env> {
     if (closed) return closed
     // Counted before checking, so a correct guess after the limit still fails.
     if (!this.allowAttempt(`admin-login:${ipHash}`, 5, MINUTE_MS)) {
-      return fail(
-        429,
-        'rate_limited',
-        'Terlalu banyak percobaan. Tunggu satu menit.',
-      )
+      return fail(429, 'rate_limited', 'Too many attempts. Wait one minute.')
     }
     const stored = getMeta(this.db, 'admin_password')
     const matches = stored
@@ -301,7 +297,7 @@ export class VenueRoom extends DurableObject<Env> {
       : !this.tenant && (await envPasswordMatches(this.env, password))
     return matches
       ? ok({ epoch: this.adminEpoch() })
-      : fail(401, 'unauthenticated', 'Kata sandi salah.')
+      : fail(401, 'unauthenticated', 'Wrong password.')
   }
 
   /** Super admin: the name shown on this dapur's admin page. */
@@ -456,7 +452,7 @@ export class VenueRoom extends DurableObject<Env> {
       (!target ||
         this.allowAttempt(keys.staff, PIN_TRIES.staff, PIN_TRIES.staffWindowMs))
     if (!allowed) {
-      return fail(429, 'rate_limited', 'Terlalu banyak percobaan. Tunggu.')
+      return fail(429, 'rate_limited', 'Too many attempts. Please wait.')
     }
     if (!target || !(await pinMatches(target, input.pin))) {
       this.ctx.storage.transactionSync(() => {
@@ -465,7 +461,7 @@ export class VenueRoom extends DurableObject<Env> {
         miss(keys.deviceDay, PIN_TRIES.deviceWrongPerDay)
         if (target) miss(keys.staffDay, PIN_TRIES.staffWrongPerDay)
       })
-      return fail(401, 'unauthenticated', 'Nama atau PIN salah.')
+      return fail(401, 'unauthenticated', 'Wrong name or PIN.')
     }
     this.ctx.storage.transactionSync(() =>
       this.db
@@ -501,13 +497,13 @@ export class VenueRoom extends DurableObject<Env> {
         .where(eq(schema.orders.id, input.orderId))
         .get()
       if (!order || order.day !== input.day) {
-        return fail(404, 'not_found', 'Pesanan tidak ditemukan.')
+        return fail(404, 'not_found', 'Order not found.')
       }
       if (!isFinished(order.status)) {
         return fail(
           409,
           'invalid_transition',
-          'Pesanan masih berjalan. Batalkan dulu dari Ringkasan.',
+          'Order is still in progress. Cancel it from Overview first.',
         )
       }
     }
@@ -548,7 +544,7 @@ export class VenueRoom extends DurableObject<Env> {
     const staff = this.ctx.storage.transactionSync(() =>
       saveStaff(this.db, id, input, pin, Date.now()),
     )
-    if (!staff) return fail(404, 'not_found', 'Staf tidak ditemukan.')
+    if (!staff) return fail(404, 'not_found', 'Staff member not found.')
     return ok({ staff }, id === null ? 201 : 200)
   }
 
@@ -623,7 +619,7 @@ export class VenueRoom extends DurableObject<Env> {
     const actor = await this.authenticate(credentials)
     if (!actor) return unauthenticated()
     if (actor.role !== 'kitchen' && actor.role !== 'manager') {
-      return fail(403, 'forbidden', 'Peran ini tidak boleh mengatur TV.')
+      return fail(403, 'forbidden', 'This role cannot control the TV.')
     }
     const signedOut = this.staffRequired(actor)
     if (signedOut) return signedOut
@@ -642,7 +638,7 @@ export class VenueRoom extends DurableObject<Env> {
     const actor = await this.authenticate(credentials)
     if (!actor) return unauthenticated()
     if (actor.role !== 'manager')
-      return fail(403, 'forbidden', 'Hanya manajer.')
+      return fail(403, 'forbidden', 'Managers only.')
     return this.write(() => {
       const today = rollServiceDay(this.db, Date.now())
       setMeta(this.db, 'service_open', '1')
@@ -657,7 +653,7 @@ export class VenueRoom extends DurableObject<Env> {
     const actor = await this.authenticate(credentials)
     if (!actor) return unauthenticated()
     if (actor.role !== 'manager')
-      return fail(403, 'forbidden', 'Hanya manajer.')
+      return fail(403, 'forbidden', 'Managers only.')
     return this.write(() => {
       const active = this.db
         .select({ id: schema.orders.id })
@@ -669,7 +665,7 @@ export class VenueRoom extends DurableObject<Env> {
         return fail(
           422,
           'invalid_transition',
-          'Masih ada pesanan aktif. Selesaikan dulu atau tutup paksa.',
+          'Active orders remain. Finish them first or force close.',
         )
       }
       setMeta(this.db, 'service_open', '0')
@@ -707,7 +703,7 @@ export class VenueRoom extends DurableObject<Env> {
     const refused = this.adminRefused(credentials)
     if (refused) return refused
     const item = this.write(() => saveMenuItem(this.db, id, input, Date.now()))
-    if (!item) return fail(404, 'not_found', 'Menu tidak ditemukan.')
+    if (!item) return fail(404, 'not_found', 'Menu item not found.')
     return ok({ item }, id === null ? 201 : 200)
   }
 
@@ -735,13 +731,13 @@ export class VenueRoom extends DurableObject<Env> {
     if (refused) return refused
     const result = this.write(() => deleteMenuItem(this.db, id))
     if (result === 'missing') {
-      return fail(404, 'not_found', 'Menu tidak ditemukan.')
+      return fail(404, 'not_found', 'Menu item not found.')
     }
     if (result === 'ordered') {
       return fail(
         409,
         'operation_conflict',
-        'Menu ini sudah pernah dipesan, jadi hanya bisa disembunyikan.',
+        'This item has already been ordered, so it can only be hidden.',
       )
     }
     return ok(null)
@@ -762,7 +758,7 @@ export class VenueRoom extends DurableObject<Env> {
     const refused = this.adminRefused(credentials)
     if (refused) return refused
     const table = this.write(() => saveTable(this.db, id, input))
-    if (!table) return fail(404, 'not_found', 'Meja tidak ditemukan.')
+    if (!table) return fail(404, 'not_found', 'Table not found.')
     return ok({ table }, id === null ? 201 : 200)
   }
 
@@ -778,7 +774,7 @@ export class VenueRoom extends DurableObject<Env> {
     const closed = this.closed()
     if (closed) return closed
     if (!this.allowAttempt(`enroll:${ipHash}`, 10, 10 * MINUTE_MS)) {
-      return fail(429, 'rate_limited', 'Terlalu banyak percobaan. Tunggu.')
+      return fail(429, 'rate_limited', 'Too many attempts. Please wait.')
     }
     const pollSecret = randomHex(32)
     const secretHash = await sha256Hex(pollSecret)
@@ -800,7 +796,7 @@ export class VenueRoom extends DurableObject<Env> {
         })
       }
     }
-    return fail(429, 'rate_limited', 'Coba lagi sebentar lagi.')
+    return fail(429, 'rate_limited', 'Try again in a moment.')
   }
 
   async approveEnrollment(credentials: Credentials, input: Approve) {
@@ -911,7 +907,7 @@ export class VenueRoom extends DurableObject<Env> {
       return null
     }
     if (!getSettings(this.db).staffPins) return null
-    return fail(401, 'pin_required', 'Masuk dengan PIN dulu.')
+    return fail(401, 'pin_required', 'Sign in with a PIN first.')
   }
 
   /** Runs one transaction and broadcasts if it moved the board. */

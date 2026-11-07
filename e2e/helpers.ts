@@ -17,9 +17,12 @@ export const SUPER_ADMIN_PASSWORD =
 /** Waits for entrance motion to finish; endless spinners are ignored. */
 export async function settle(page: Page) {
   // Data still loading would fade in after the check below.
-  await page.locator('[aria-label="Memuat…"]').first().waitFor({
-    state: 'detached',
-  })
+  await page
+    .locator('[aria-label="Loading…"], [aria-label="Memuat…"]')
+    .first()
+    .waitFor({
+      state: 'detached',
+    })
   await page.waitForFunction(() =>
     document
       .getAnimations()
@@ -98,9 +101,9 @@ export async function expectAccessible(page: Page, screen: string) {
 export async function signInAdmin(browser: Browser) {
   const admin = await (await browser.newContext()).newPage()
   await admin.goto('/admin')
-  await admin.getByLabel('Kata sandi').fill(ADMIN_PASSWORD)
-  await admin.getByRole('button', { name: 'Masuk' }).click()
-  await expect(admin.getByRole('heading', { name: 'Layar' })).toBeVisible()
+  await admin.getByLabel('Password').fill(ADMIN_PASSWORD)
+  await admin.getByRole('button', { name: 'Sign in' }).click()
+  await expect(admin.getByRole('heading', { name: 'Screens' })).toBeVisible()
   return admin
 }
 
@@ -119,13 +122,13 @@ export async function pair(
   await expectAccessible(page, 'enroll')
   const spoken = await page.getByText(/^\d \d \d \d \d \d$/).textContent()
   const code = (spoken ?? '').replaceAll(' ', '')
-  await admin.getByLabel('Kode').fill(code)
+  await admin.getByLabel('Code').fill(code)
   await admin
     .locator('label')
     .filter({ has: admin.getByRole('radio', { name: role }) })
     .click()
-  await admin.getByLabel('Nama perangkat').fill(label)
-  await admin.getByRole('button', { name: 'Setujui' }).click()
-  await expect(admin.getByText(`${label} dipasang`)).toBeVisible()
+  await admin.getByLabel('Device name').fill(label)
+  await admin.getByRole('button', { name: 'Approve' }).click()
+  await expect(admin.getByText(`${label} paired`)).toBeVisible()
   return page
 }

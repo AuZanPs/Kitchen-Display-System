@@ -1,11 +1,81 @@
 import type { MenuItemInput, ModifierGroup } from './menu'
 
-/** Ready menus for common kinds of dapur; prices are typical, not advice. */
+/** Ready menus for common kinds of kitchens; prices are typical, not advice. */
 type TemplateItem = [
   category: string,
   name: string,
   priceIdr: number,
   groups?: ModifierGroup[],
+]
+
+const spiceEn: ModifierGroup = {
+  id: 'spice',
+  name: 'Spice level',
+  required: true,
+  multi: false,
+  options: [
+    { id: 'mild', name: 'Not spicy', priceDeltaIdr: 0 },
+    { id: 'medium', name: 'Medium spicy', priceDeltaIdr: 0 },
+    { id: 'extra', name: 'Extra spicy', priceDeltaIdr: 0 },
+  ],
+}
+const tempEn: ModifierGroup = {
+  id: 'temp',
+  name: 'Temperature',
+  required: true,
+  multi: false,
+  options: [
+    { id: 'iced', name: 'Iced', priceDeltaIdr: 0 },
+    { id: 'hot', name: 'Hot', priceDeltaIdr: 0 },
+  ],
+}
+const sugarEn: ModifierGroup = {
+  id: 'sugar',
+  name: 'Sugar',
+  required: false,
+  multi: false,
+  options: [
+    { id: 'normal', name: 'Normal sugar', priceDeltaIdr: 0 },
+    { id: 'less', name: 'Less sugar', priceDeltaIdr: 0 },
+    { id: 'none', name: 'No sugar', priceDeltaIdr: 0 },
+  ],
+}
+const riceEn: ModifierGroup = {
+  id: 'rice',
+  name: 'Rice',
+  required: false,
+  multi: false,
+  options: [
+    { id: 'white', name: 'Steamed rice', priceDeltaIdr: 5000 },
+    { id: 'coconut', name: 'Coconut rice', priceDeltaIdr: 7000 },
+    { id: 'none', name: 'No rice', priceDeltaIdr: 0 },
+  ],
+}
+const extrasEn: ModifierGroup = {
+  id: 'extras',
+  name: 'Add-ons',
+  required: false,
+  multi: true,
+  options: [
+    { id: 'egg', name: 'Fried egg', priceDeltaIdr: 5000 },
+    { id: 'crackers', name: 'Crackers', priceDeltaIdr: 3000 },
+  ],
+}
+const coffeeEn: ModifierGroup = {
+  id: 'shot',
+  name: 'Add-ons',
+  required: false,
+  multi: true,
+  options: [
+    { id: 'shot', name: 'Extra shot', priceDeltaIdr: 6000 },
+    { id: 'oat', name: 'Oat milk', priceDeltaIdr: 8000 },
+  ],
+}
+const drinksEn: TemplateItem[] = [
+  ['Drinks', 'Sweet Iced Tea', 6000, [sugarEn]],
+  ['Drinks', 'Hot Tea', 5000, [sugarEn]],
+  ['Drinks', 'Fresh Orange Juice', 10000, [tempEn, sugarEn]],
+  ['Drinks', 'Mineral Water', 5000],
 ]
 
 const pedas: ModifierGroup = {
@@ -71,7 +141,7 @@ const kopi: ModifierGroup = {
     { id: 'oat', name: 'Susu oat', priceDeltaIdr: 8000 },
   ],
 }
-const drinks: TemplateItem[] = [
+const drinksId: TemplateItem[] = [
   ['Minuman', 'Es Teh Manis', 6000, [gula]],
   ['Minuman', 'Teh Hangat', 5000, [gula]],
   ['Minuman', 'Es Jeruk', 10000, [suhu, gula]],
@@ -86,6 +156,89 @@ export type MenuTemplate = {
 }
 
 export const MENU_TEMPLATES: MenuTemplate[] = [
+  {
+    id: 'rumah-makan',
+    name: 'Restaurant',
+    lead: 'Rice, mains, soups, sides, and drinks.',
+    items: [
+      ['Rice & mains', 'Special Fried Rice', 30000, [spiceEn, extrasEn]],
+      ['Rice & mains', 'Fried Chicken Rice', 28000, [spiceEn]],
+      ['Rice & mains', 'Grilled Chicken Rice', 30000, [spiceEn]],
+      ['Rice & mains', 'Beef Rendang Rice', 35000],
+      ['Rice & mains', 'Grilled Fish Rice', 38000, [spiceEn]],
+      ['Soups & greens', 'Tamarind Vegetable Soup', 12000],
+      ['Soups & greens', 'Stir-fried Morning Glory', 15000, [spiceEn]],
+      ['Soups & greens', 'Oxtail Soup', 55000],
+      ['Soups & greens', 'Chicken Soto Soup', 25000],
+      ['Sides', 'Steamed Rice', 6000],
+      ['Sides', 'Fried Tempeh', 5000],
+      ['Sides', 'Fried Tofu', 5000],
+      ['Sides', 'Chili Sambal', 4000],
+      ...drinksEn,
+    ],
+  },
+  {
+    id: 'kedai-kopi',
+    name: 'Coffee shop',
+    lead: 'Espresso, non-coffee drinks, and snacks.',
+    items: [
+      ['Coffee', 'Palm Sugar Iced Latte', 22000, [sugarEn, coffeeEn]],
+      ['Coffee', 'Americano', 20000, [tempEn, coffeeEn]],
+      ['Coffee', 'Cafe Latte', 25000, [tempEn, sugarEn, coffeeEn]],
+      ['Coffee', 'Cappuccino', 25000, [tempEn, sugarEn, coffeeEn]],
+      ['Coffee', 'Black Brewed Coffee', 12000, [sugarEn]],
+      ['Non-coffee', 'Matcha Latte', 26000, [tempEn, sugarEn]],
+      ['Non-coffee', 'Chocolate', 24000, [tempEn, sugarEn]],
+      ['Non-coffee', 'Pulled Milk Tea', 18000, [tempEn, sugarEn]],
+      ['Non-coffee', 'Lemon Tea', 16000, [tempEn, sugarEn]],
+      ['Snacks', 'French Fries', 20000],
+      ['Snacks', 'Fried Banana', 18000],
+      ['Snacks', 'Chocolate Cheese Toast', 22000],
+      ['Snacks', 'Butter Croissant', 22000],
+      ['Drinks', 'Mineral Water', 6000],
+    ],
+  },
+  {
+    id: 'mi-bakso',
+    name: 'Noodles & meatballs',
+    lead: 'Chicken noodles, meatball soup, and sides.',
+    items: [
+      ['Noodles', 'Chicken Noodles', 18000, [spiceEn]],
+      ['Noodles', 'Chicken Noodles with Meatballs', 23000, [spiceEn]],
+      ['Noodles', 'Chicken Noodles with Wontons', 23000, [spiceEn]],
+      ['Noodles', 'Fried Noodles', 20000, [spiceEn, extrasEn]],
+      ['Noodles', 'Stir-fried Flat Noodles', 22000, [spiceEn, extrasEn]],
+      ['Meatballs', 'Tendon Meatball Soup', 22000],
+      ['Meatballs', 'Egg-stuffed Meatball Soup', 24000],
+      ['Meatballs', 'Mixed Meatball Soup', 25000],
+      ['Meatballs', 'Wonton Meatball Soup', 22000],
+      ['Sides', 'Fried Wontons', 8000],
+      ['Sides', 'Braised Chicken Feet', 6000],
+      ['Sides', 'Stuffed Tofu', 5000],
+      ...drinksEn,
+    ],
+  },
+  {
+    id: 'ayam-penyet',
+    name: 'Grilled chicken & rice',
+    lead: 'Chicken, duck, and catfish with fresh sambal.',
+    items: [
+      ['Mains', 'Smashed Fried Chicken', 22000, [spiceEn, riceEn]],
+      ['Mains', 'Crispy Chili Chicken', 20000, [spiceEn, riceEn]],
+      ['Mains', 'Fried Duck', 32000, [spiceEn, riceEn]],
+      ['Mains', 'Crispy Fried Catfish', 18000, [spiceEn, riceEn]],
+      ['Mains', 'Spiced Chicken Giblets', 10000, [riceEn]],
+      ['Mains', 'Smashed Fried Tempeh', 12000, [spiceEn, riceEn]],
+      ['Sides', 'Steamed Rice', 5000],
+      ['Sides', 'Omelette', 6000],
+      ['Sides', 'Extra Sambal', 3000],
+      ['Sides', 'Extra Fresh Greens', 4000],
+      ...drinksEn,
+    ],
+  },
+]
+
+const MENU_TEMPLATES_ID: MenuTemplate[] = [
   {
     id: 'rumah-makan',
     name: 'Rumah makan',
@@ -104,7 +257,7 @@ export const MENU_TEMPLATES: MenuTemplate[] = [
       ['Tambahan', 'Tempe Goreng', 5000],
       ['Tambahan', 'Tahu Goreng', 5000],
       ['Tambahan', 'Sambal Terasi', 4000],
-      ...drinks,
+      ...drinksId,
     ],
   },
   {
@@ -145,7 +298,7 @@ export const MENU_TEMPLATES: MenuTemplate[] = [
       ['Tambahan', 'Pangsit Goreng', 8000],
       ['Tambahan', 'Ceker', 6000],
       ['Tambahan', 'Tahu Bakso', 5000],
-      ...drinks,
+      ...drinksId,
     ],
   },
   {
@@ -163,10 +316,14 @@ export const MENU_TEMPLATES: MenuTemplate[] = [
       ['Tambahan', 'Telur Dadar', 6000],
       ['Tambahan', 'Sambal Extra', 3000],
       ['Tambahan', 'Lalapan Extra', 4000],
-      ...drinks,
+      ...drinksId,
     ],
   },
 ]
+
+export function menuTemplates(lang: 'en' | 'id' = 'en'): MenuTemplate[] {
+  return lang === 'id' ? MENU_TEMPLATES_ID : MENU_TEMPLATES
+}
 
 /** A template as items the import call takes, numbered from `firstSort`. */
 export function templateItems(

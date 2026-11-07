@@ -42,7 +42,7 @@ export function placeOf(c: Context<AppEnv>): Place {
 }
 
 export const notFound = (c: Context) =>
-  c.json({ error: { code: 'not_found', message: 'Tidak ditemukan.' } }, 404)
+  c.json({ error: { code: 'not_found', message: 'Not found.' } }, 404)
 
 export function invalidInput<T extends z.ZodType>(
   target: 'json' | 'param' | 'query',
@@ -54,7 +54,7 @@ export function invalidInput<T extends z.ZodType>(
         {
           error: {
             code: 'invalid_input',
-            message: 'Ada isian yang kosong atau terlalu panjang.',
+            message: 'A field is missing or too long.',
             details: {
               issues: result.error.issues.map((issue) => ({
                 path: issue.path.filter((p) => typeof p !== 'symbol'),
@@ -90,7 +90,7 @@ export function refuse(c: Context, status: 401 | 403, message: string) {
 
 export const requireAdmin: MiddlewareHandler<AppEnv> = async (c, next) => {
   if ((await adminEpoch(c, roomOf(c))) === null) {
-    return refuse(c, 401, 'Masuk sebagai admin.')
+    return refuse(c, 401, 'Sign in as admin.')
   }
   await next()
 }

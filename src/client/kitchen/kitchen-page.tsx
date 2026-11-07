@@ -10,7 +10,12 @@ import { useState } from 'react'
 import { type BoardOrder, isFinished } from '../../shared/board'
 import { AppBar } from '../app-bar'
 import { formatMinutes, formatTime, useI18n } from '../i18n'
-import { boardLines, minutesSince, whereLabel } from '../lib/board'
+import {
+  boardLines,
+  localizeSummary,
+  minutesSince,
+  whereLabel,
+} from '../lib/board'
 import { failureText, sendCommand } from '../lib/commands'
 import { RequireRole, type Session } from '../lib/session'
 import { stagger } from '../lib/stagger'
@@ -39,7 +44,7 @@ function Kitchen({
   refresh: () => void
 }) {
   const device = session.label
-  const { t } = useI18n()
+  const { lang, t } = useI18n()
   const { board, lastMessageAt, startedAt, serverOffsetMs } = useBoardSocket()
   const now = useNow(1000)
   const snackbar = useSnackbar()
@@ -181,7 +186,7 @@ function Kitchen({
                                     key={change.version}
                                     className="pl-6 font-normal"
                                   >
-                                    {change.summary}
+                                    {localizeSummary(change.summary, lang)}
                                   </span>
                                 ))}
                               </div>

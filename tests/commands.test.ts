@@ -109,8 +109,8 @@ describe('order lifecycle', () => {
     const details = staleDetails.parse(error.details)
     expect(details.current.version).toBe(3)
     expect(details.changes).toEqual([
-      'Diterima dapur',
-      'Minta pembatalan: Tamu pergi',
+      'Accepted by kitchen',
+      'Cancel requested: Tamu pergi',
     ])
   })
 
@@ -155,7 +155,7 @@ describe('changes', () => {
     let order = await boardOrder(orderId)
     expect(order.changePending).toBe(true)
     expect(order.pendingChanges).toEqual([
-      { version: 3, kind: 'add_lines', summary: 'Tambah 2× Es Teh Lemon' },
+      { version: 3, kind: 'add_lines', summary: 'Add 2× Es Teh Lemon' },
     ])
     expect(order.lines.at(-1)?.addedInVersion).toBe(3)
 
@@ -226,9 +226,7 @@ describe('changes', () => {
       changePending: true,
       version: 2,
     })
-    expect(order.pendingChanges[0]?.summary).toBe(
-      'Pindah dari Meja 7 ke Meja 3',
-    )
+    expect(order.pendingChanges[0]?.summary).toBe('Moved from Meja 7 to Meja 3')
 
     const same = await rejected(
       await postCommand(orderId, {
@@ -298,7 +296,7 @@ describe('cancellation', () => {
     const events = await getHistory(orderId)
     expect(events.at(-1)).toMatchObject({
       type: 'managerCancel',
-      summary: 'Dibatalkan manajer: Pesanan ganda',
+      summary: 'Cancelled by manager: Pesanan ganda',
     })
   })
 

@@ -18,7 +18,7 @@ import {
   useI18n,
 } from '../i18n'
 import { api } from '../lib/api'
-import { boardLines, whereLabel } from '../lib/board'
+import { boardLines, localizeSummary, whereLabel } from '../lib/board'
 import { stagger } from '../lib/stagger'
 import { Ticket } from '../ticket'
 import { Card } from '../ui/card'
@@ -455,7 +455,7 @@ function OrderDialog({
   onClose: () => void
   who: (event: OrderEvent) => string
 }) {
-  const { t } = useI18n()
+  const { lang, t } = useI18n()
   const [shown, setShown] = useState<BoardOrder | null>(null)
   const eventLabel = (type: string) => {
     const key = EVENT_KEY[type]
@@ -516,7 +516,9 @@ function OrderDialog({
                     </span>
                   </span>
                   {WITH_SUMMARY.has(event.type) && (
-                    <span className="text-sm">{event.summary}</span>
+                    <span className="text-sm">
+                      {localizeSummary(event.summary, lang)}
+                    </span>
                   )}
                   <span className="text-sm text-ink-soft">{who(event)}</span>
                 </li>

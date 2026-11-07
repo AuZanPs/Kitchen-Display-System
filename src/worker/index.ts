@@ -22,7 +22,7 @@ const MAX_BODY_BYTES = 64 * 1024
  */
 const sameOrigin: MiddlewareHandler<AppEnv> = async (c, next) => {
   if (c.req.header('Sec-Fetch-Site') === 'cross-site') {
-    return refuse(c, 403, 'Permintaan lintas situs ditolak.')
+    return refuse(c, 403, 'Cross-site request rejected.')
   }
   const mutating = c.req.method !== 'GET' && c.req.method !== 'HEAD'
   const socket = c.req.header('Upgrade') === 'websocket'
@@ -30,7 +30,7 @@ const sameOrigin: MiddlewareHandler<AppEnv> = async (c, next) => {
     (mutating || socket) &&
     c.req.header('Origin') !== new URL(c.req.url).origin
   ) {
-    return refuse(c, 403, 'Asal permintaan tidak dikenal.')
+    return refuse(c, 403, 'Unknown request origin.')
   }
   await next()
 }
@@ -73,7 +73,7 @@ app.use(
         {
           error: {
             code: 'invalid_input',
-            message: 'Permintaan terlalu besar.',
+            message: 'Request is too large.',
           },
         },
         413,
@@ -90,7 +90,12 @@ app.onError((err, c) => {
     ray: c.req.header('cf-ray') ?? null,
   })
   return c.json(
-    { error: { code: 'internal', message: 'Terjadi kesalahan. Coba lagi.' } },
+    {
+      error: {
+        code: 'internal',
+        message: 'Something went wrong. Please try again.',
+      },
+    },
     500,
   )
 })

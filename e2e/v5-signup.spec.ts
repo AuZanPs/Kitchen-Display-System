@@ -11,9 +11,9 @@ async function noSidewaysScroll(page: Page) {
   ).toBeLessThanOrEqual(0)
 }
 
-// A new owner reads the pricing, signs up by email, creates a dapur and lands
+// A new owner reads the pricing, signs up by email, creates a kitchen and lands
 // in its admin without another password.
-test('a new owner signs up and creates their own dapur', async ({
+test('a new owner signs up and creates their own kitchen', async ({
   browser,
   baseURL,
 }) => {
@@ -23,8 +23,17 @@ test('a new owner signs up and creates their own dapur', async ({
   const slug = `kedai-${Date.now().toString(36)}`
   const page = await (await browser.newContext()).newPage()
 
+  // Legacy Indonesian route redirects cleanly to the English SEO route.
   await page.goto(`${site}/harga`)
+  await expect(page).toHaveURL(/\/pricing$/)
+  await expect(page.getByRole('heading', { name: 'Pricing' })).toBeVisible()
+
+  // Indonesian remains available as the second language option.
+  await page.locator('label').filter({ hasText: 'id' }).click()
   await expect(page.getByRole('heading', { name: 'Harga' })).toBeVisible()
+  await page.locator('label').filter({ hasText: 'en' }).click()
+  await expect(page.getByRole('heading', { name: 'Pricing' })).toBeVisible()
+
   for (const width of WIDTHS) {
     await page.setViewportSize({ width, height: 900 })
     await expectAccessible(page, `pricing ${width}`)
@@ -35,20 +44,20 @@ test('a new owner signs up and creates their own dapur', async ({
     })
   }
 
-  await page.getByRole('link', { name: 'Mulai gratis' }).click()
-  await expect(page).toHaveURL(/\/masuk$/)
+  await page.getByRole('link', { name: 'Start free' }).click()
+  await expect(page).toHaveURL(/\/sign-in$/)
   await page.getByLabel('Email').fill(`${slug}@contoh.id`)
-  await page.getByRole('button', { name: 'Kirim tautan' }).click()
-  await page.getByRole('link', { name: /Buka tautan/ }).click()
-  await expect(page).toHaveURL(/\/akun$/)
+  await page.getByRole('button', { name: 'Send link' }).click()
+  await page.getByRole('link', { name: /Open sign-in link/ }).click()
+  await expect(page).toHaveURL(/\/account$/)
 
   const form = page.getByRole('form').or(page.locator('form')).first()
   await expect(
-    page.getByRole('heading', { name: 'Buat dapur pertamamu' }),
+    page.getByRole('heading', { name: 'Create your first kitchen' }),
   ).toBeVisible()
-  await page.getByLabel('Nama dapur').fill('Kedai Bu Siti')
-  await expect(page.getByLabel('Alamat')).toHaveValue('kedai-bu-siti')
-  await page.getByLabel('Alamat').fill(slug)
+  await page.getByLabel('Kitchen name').fill('Kedai Bu Siti')
+  await expect(page.getByLabel('Address')).toHaveValue('kedai-bu-siti')
+  await page.getByLabel('Address').fill(slug)
   for (const width of WIDTHS) {
     await page.setViewportSize({ width, height: 900 })
     await expectAccessible(page, `account create ${width}`)
@@ -58,14 +67,14 @@ test('a new owner signs up and creates their own dapur', async ({
       fullPage: true,
     })
   }
-  await form.getByRole('button', { name: 'Buat dan buka admin' }).click()
-  await expect(form.getByText('Minimal 8 karakter.')).toBeVisible()
-  await page.getByLabel('Kata sandi admin').fill('rahasia-kedai')
-  await form.getByRole('button', { name: 'Buat dan buka admin' }).click()
+  await form.getByRole('button', { name: 'Create and open admin' }).click()
+  await expect(form.getByText('At least 8 characters.')).toBeVisible()
+  await page.getByLabel('Admin password').fill('rahasia-kedai')
+  await form.getByRole('button', { name: 'Create and open admin' }).click()
 
   await expect(page).toHaveURL(
     new RegExp(`^http://${slug}\\.localhost:${port}/admin`),
   )
-  await expect(page.getByRole('heading', { name: 'Layar' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Screens' })).toBeVisible()
   await settle(page)
 })

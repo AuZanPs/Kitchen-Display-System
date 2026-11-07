@@ -131,28 +131,28 @@ function SheetToday() {
 const HISTORY_ROWS = [
   {
     no: 'A-045',
-    where: 'Meja 3',
+    tableNo: 3,
     status: 'served',
     total: 74_000,
     at: '19:38',
   },
   {
     no: 'A-046',
-    where: 'Bawa pulang',
+    tableNo: null,
     status: 'served',
     total: 42_000,
     at: '19:42',
   },
   {
     no: 'A-047',
-    where: 'Meja 9',
+    tableNo: 9,
     status: 'cancelled',
     total: 18_000,
     at: '19:47',
   },
   {
     no: 'A-048',
-    where: 'Meja 4',
+    tableNo: 4,
     status: 'served',
     total: 92_000,
     at: '19:51',
@@ -179,7 +179,11 @@ function SheetHistory() {
             {HISTORY_ROWS.map((row) => (
               <tr key={row.no} className="border-t border-line">
                 <td className="py-2.5 font-medium">{row.no}</td>
-                <td className="py-2.5">{row.where}</td>
+                <td className="py-2.5">
+                  {row.tableNo === null
+                    ? t('takeaway')
+                    : `${t('table')} ${row.tableNo}`}
+                </td>
                 <td className="py-2.5">{t(row.status)}</td>
                 <td
                   className={`py-2.5 text-right ${row.status === 'cancelled' ? 'text-ink-soft line-through' : ''}`}
@@ -196,17 +200,26 @@ function SheetHistory() {
   )
 }
 
-const CSV = `service_day,ticket,status,destination,created_at,created_by,item,modifiers,qty,unit_price_idr,line_total_idr
+const CSV = {
+  en: `service_day,ticket,status,destination,created_at,created_by,item,modifiers,qty,unit_price_idr,line_total_idr
+2026-10-20,A-048,served,Table 4,2026-10-20T12:51:04.000Z,Rina,Honey Grilled Chicken,,1,56000,56000
+2026-10-20,A-048,served,Table 4,2026-10-20T12:51:04.000Z,Rina,Iced Lemon Tea,,2,18000,36000
+2026-10-20,A-046,served,takeaway,2026-10-20T12:42:17.000Z,Rina,Kampung Fried Rice,,1,42000,42000`,
+  id: `service_day,ticket,status,destination,created_at,created_by,item,modifiers,qty,unit_price_idr,line_total_idr
 2026-10-20,A-048,served,Meja 4,2026-10-20T12:51:04.000Z,Rina,Ayam Bakar Madu,,1,56000,56000
 2026-10-20,A-048,served,Meja 4,2026-10-20T12:51:04.000Z,Rina,Es Teh Lemon,,2,18000,36000
-2026-10-20,A-046,served,takeaway,2026-10-20T12:42:17.000Z,Rina,Nasi Goreng Kampung,,1,42000,42000`
+2026-10-20,A-046,served,takeaway,2026-10-20T12:42:17.000Z,Rina,Nasi Goreng Kampung,,1,42000,42000`,
+} as const
 
 function SheetExport() {
+  const { lang } = useI18n()
   return (
     <Sheet>
-      <p className="text-xl font-medium break-all">riwayat-2026-10-20.csv</p>
+      <p className="text-xl font-medium break-all">
+        {lang === 'id' ? 'riwayat-2026-10-20.csv' : 'history-2026-10-20.csv'}
+      </p>
       <pre className="overflow-x-auto text-[12px] leading-relaxed whitespace-pre sm:text-[13px]">
-        {CSV}
+        {CSV[lang]}
       </pre>
     </Sheet>
   )

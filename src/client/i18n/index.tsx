@@ -3,6 +3,7 @@ import {
   type ReactNode,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
 } from 'react'
@@ -12,19 +13,19 @@ import { type Dict, type DictKey, id } from './id'
 
 export type { DictKey }
 
-export const LANGS = ['id', 'en'] as const
+export const LANGS = ['en', 'id'] as const
 export type Lang = (typeof LANGS)[number]
 
-const DICTS: Record<Lang, Dict> = { id, en }
+const DICTS: Record<Lang, Dict> = { en, id }
 const STORAGE_KEY = 'kds_lang'
 const langSchema = z.enum(LANGS)
 
 function storedLang(): Lang {
   try {
     const parsed = langSchema.safeParse(localStorage.getItem(STORAGE_KEY))
-    return parsed.success ? parsed.data : 'id'
+    return parsed.success ? parsed.data : 'en'
   } catch {
-    return 'id'
+    return 'en'
   }
 }
 
@@ -39,6 +40,10 @@ const I18nContext = createContext<I18n | null>(null)
 
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Lang>(storedLang)
+
+  useEffect(() => {
+    document.documentElement.lang = lang
+  }, [lang])
 
   const setLang = useCallback((next: Lang) => {
     setLangState(next)

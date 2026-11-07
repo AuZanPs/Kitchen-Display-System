@@ -50,38 +50,38 @@ test('every screen at phone, tablet and desktop widths', async ({
     return res.status
   })
   expect(settings).toBe(200)
-  await admin.getByRole('button', { name: 'Perangkat', exact: true }).click()
+  await admin.getByRole('button', { name: 'Devices', exact: true }).click()
   const tablet = await pair(
     browser,
     admin,
-    'Tablet pelayan',
+    'Waiter tablet',
     'Tablet layar',
     PHONE,
   )
-  const kitchen = await pair(browser, admin, 'HP dapur', 'HP layar', PHONE)
-  const tv = await pair(browser, admin, 'TV dapur', 'TV layar', DESKTOP)
+  const kitchen = await pair(browser, admin, 'Kitchen phone', 'HP layar', PHONE)
+  const tv = await pair(browser, admin, 'Kitchen TV', 'TV layar', DESKTOP)
 
   // An order placed on a phone-sized tablet, with an allergy and a note.
   await expect(tablet).toHaveURL(/\/waiter/)
-  await tablet.getByRole('button', { name: 'Pilih meja' }).first().click()
+  await tablet.getByRole('button', { name: 'Choose a table' }).first().click()
   await tablet.getByRole('button', { name: 'Meja 4', exact: true }).click()
   await tablet.getByRole('button', { name: /Ayam Bakar Madu/ }).click()
-  await tablet.getByLabel('Catatan', { exact: true }).fill('Potong kecil')
-  await tablet.getByLabel('Alergi').fill('kacang')
-  await tablet.getByRole('button', { name: /Tambah ke pesanan/ }).click()
-  await tablet.getByRole('button', { name: 'Periksa pesanan' }).click()
-  await tablet.getByRole('button', { name: 'Kirim ke dapur' }).click()
-  await expect(tablet.getByText('Layanan meja').first()).toBeVisible()
+  await tablet.getByLabel('Note', { exact: true }).fill('Cut small')
+  await tablet.getByLabel('Allergy').fill('peanuts')
+  await tablet.getByRole('button', { name: /Add to order/ }).click()
+  await tablet.getByRole('button', { name: 'Review order' }).click()
+  await tablet.getByRole('button', { name: 'Send to kitchen' }).click()
+  await expect(tablet.getByText('Table service').first()).toBeVisible()
 
   for (const size of [PHONE, TABLET, DESKTOP]) {
     await tablet.setViewportSize(size)
-    await tablet.getByRole('button', { name: 'Layanan meja' }).click()
+    await tablet.getByRole('button', { name: 'Table service' }).click()
     await expectAccessible(tablet, `service ${size.width}`)
     await tablet.screenshot({
       path: `test-results/screen-service-${size.width}.png`,
       fullPage: true,
     })
-    await tablet.getByRole('button', { name: 'Pesanan', exact: true }).click()
+    await tablet.getByRole('button', { name: 'Orders', exact: true }).click()
     await expectAccessible(tablet, `composer ${size.width}`)
     await tablet.screenshot({
       path: `test-results/screen-composer-${size.width}.png`,
@@ -92,10 +92,10 @@ test('every screen at phone, tablet and desktop widths', async ({
   // On a phone the order so far rides in a bar and opens as a sheet.
   await tablet.setViewportSize(PHONE)
   await tablet.getByRole('button', { name: /Es Teh Lemon/ }).click()
-  await tablet.getByRole('button', { name: /Tambah ke pesanan/ }).click()
+  await tablet.getByRole('button', { name: /Add to order/ }).click()
   await settle(tablet)
   await tablet.screenshot({ path: 'test-results/screen-cartbar-360.png' })
-  await tablet.getByRole('button', { name: /1 item dipilih/ }).click()
+  await tablet.getByRole('button', { name: /1 item selected/ }).click()
   await expectAccessible(tablet, 'summary sheet 360')
   await tablet.screenshot({ path: 'test-results/screen-sheet-360.png' })
   await tablet.keyboard.press('Escape')
@@ -139,14 +139,7 @@ test('every screen at phone, tablet and desktop widths', async ({
     }
     Object.assign(window, { fetch: patched, realFetch: real })
   })
-  const tabs = [
-    'Ringkasan',
-    'Menu',
-    'Staf',
-    'Perangkat',
-    'Riwayat',
-    'Pengaturan',
-  ]
+  const tabs = ['Overview', 'Menu', 'Staff', 'Devices', 'History', 'Settings']
   for (const size of [PHONE, TABLET, DESKTOP, LAPTOP]) {
     await admin.setViewportSize(size)
     for (const tab of tabs) {
@@ -161,8 +154,8 @@ test('every screen at phone, tablet and desktop widths', async ({
   }
 
   // The spreadsheet view of the day, wide and on a phone.
-  await admin.getByRole('button', { name: 'Riwayat', exact: true }).click()
-  await admin.locator('label').filter({ hasText: 'Tabel' }).click()
+  await admin.getByRole('button', { name: 'History', exact: true }).click()
+  await admin.locator('label').filter({ hasText: 'Table' }).click()
   await expect(admin.getByRole('table')).toBeVisible()
   for (const size of [LAPTOP, PHONE]) {
     await admin.setViewportSize(size)
@@ -172,15 +165,15 @@ test('every screen at phone, tablet and desktop widths', async ({
       fullPage: true,
     })
   }
-  await admin.locator('label').filter({ hasText: 'Daftar' }).click()
+  await admin.locator('label').filter({ hasText: 'List' }).click()
 
-  // Deleting lives in Pengaturan, never on the history itself.
+  // Deleting lives in Settings, never on the history itself.
   await admin.evaluate(() => {
     Object.assign(window, { fetch: Reflect.get(window, 'realFetch') })
   })
   await admin.setViewportSize(PHONE)
-  await expect(admin.getByRole('button', { name: /^Hapus/ })).toHaveCount(0)
-  await admin.getByRole('button', { name: 'Pengaturan', exact: true }).click()
+  await expect(admin.getByRole('button', { name: /^Delete/ })).toHaveCount(0)
+  await admin.getByRole('button', { name: 'Settings', exact: true }).click()
   await settle(admin)
   await expectAccessible(admin, 'history delete card 360')
   await admin.screenshot({
@@ -190,24 +183,22 @@ test('every screen at phone, tablet and desktop widths', async ({
 
   // One served order, then the rest of the day.
   await admin
-    .getByRole('button', { name: /^Hapus A-\d{3}$/ })
+    .getByRole('button', { name: /^Delete A-\d{3}$/ })
     .first()
     .click()
   await expectAccessible(admin, 'delete order 360')
   await admin.screenshot({ path: 'test-results/screen-delete-order-360.png' })
-  await admin.getByRole('button', { name: 'Hapus', exact: true }).click()
-  await expect(admin.getByText('1 pesanan dihapus')).toBeVisible()
+  await admin.getByRole('button', { name: 'Delete', exact: true }).click()
+  await expect(admin.getByText('1 order deleted')).toBeVisible()
 
-  await admin.getByRole('button', { name: /^Hapus semua/ }).click()
-  const deleteDay = admin.getByRole('button', { name: 'Hapus', exact: true })
+  await admin.getByRole('button', { name: /^Delete all/ }).click()
+  const deleteDay = admin.getByRole('button', { name: 'Delete', exact: true })
   await expect(deleteDay).toBeDisabled()
-  await admin.getByLabel('Ketik HAPUS untuk melanjutkan').fill('hapus')
+  await admin.getByLabel('Type DELETE to continue').fill('delete')
   await expectAccessible(admin, 'delete day 360')
   await admin.screenshot({ path: 'test-results/screen-delete-day-360.png' })
   await deleteDay.click()
-  await expect(admin.getByText(/^\d+ pesanan dihapus$/)).toBeVisible()
-  await expect(admin.getByRole('button', { name: /^Hapus semua/ })).toBeHidden()
-  await expect(
-    admin.getByText('Tidak ada pesanan selesai di tanggal ini.'),
-  ).toBeVisible()
+  await expect(admin.getByText(/^\d+ orders? deleted$/)).toBeVisible()
+  await expect(admin.getByRole('button', { name: /^Delete all/ })).toBeHidden()
+  await expect(admin.getByText('No finished orders on this day.')).toBeVisible()
 })

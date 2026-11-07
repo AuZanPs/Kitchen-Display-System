@@ -83,7 +83,7 @@ function actorName(actor: Actor) {
 }
 
 function forbidden(): Failure {
-  return fail(403, 'forbidden', 'Peran ini tidak boleh melakukan itu.')
+  return fail(403, 'forbidden', 'This role cannot do that.')
 }
 
 // --- idempotency -----------------------------------------------------------
@@ -111,7 +111,7 @@ function previousOperation(
       failure: fail(
         409,
         'operation_conflict',
-        'Permintaan ini sudah dikirim dengan isi berbeda.',
+        'This request was already sent with different contents.',
       ),
     }
   }
@@ -168,14 +168,18 @@ function resolveLines(
   lines.forEach((line, index) => {
     const item = items.get(line.menuItemId)
     if (!item || item.hidden) {
-      problems.push({ index, code: 'unknown_item', message: 'Menu tidak ada.' })
+      problems.push({
+        index,
+        code: 'unknown_item',
+        message: 'Menu item not found.',
+      })
       return
     }
     if (!item.available) {
       problems.push({
         index,
         code: 'item_unavailable',
-        message: `${item.name} sedang habis.`,
+        message: `${item.name} is sold out.`,
       })
       return
     }
@@ -214,7 +218,7 @@ function resolveTable(db: Db, tableId: string): string | Failure {
     .where(eq(schema.tables.id, tableId))
     .get()
   if (!table?.active) {
-    return fail(422, 'invalid_input', 'Meja tidak ditemukan.', {
+    return fail(422, 'invalid_input', 'Table not found.', {
       field: 'tableId',
     })
   }
@@ -224,7 +228,7 @@ function resolveTable(db: Db, tableId: string): string | Failure {
 function serviceClosed(db: Db): Failure | null {
   return getMeta(db, 'service_open') === '1'
     ? null
-    : fail(422, 'service_closed', 'Hari layanan belum dibuka.')
+    : fail(422, 'service_closed', 'Service day is closed.')
 }
 
 // --- writes ------------------------------------------------------------------
@@ -314,7 +318,7 @@ function insertOrder(
     1,
     'created',
     {
-      summary: `Pesanan ${ticketLabel(ticketNo)} dibuat`,
+      summary: `Order ${ticketLabel(ticketNo)} created`,
       linkedTo: order.linkedTo,
     },
     now,
@@ -426,15 +430,15 @@ function changesSince(db: Db, orderId: string, version: number): string[] {
 }
 
 const SUMMARIES: Record<Command['type'], string> = {
-  accept: 'Diterima dapur',
-  ackChange: 'Perubahan diterima dapur',
-  ready: 'Siap diantar',
-  serve: 'Sudah diantar',
-  addLines: 'Tambah item',
-  moveTable: 'Pindah meja',
-  requestCancel: 'Minta pembatalan',
-  ackCancel: 'Pembatalan dikonfirmasi',
-  managerCancel: 'Dibatalkan manajer',
+  accept: 'Accepted by kitchen',
+  ackChange: 'Change acknowledged by kitchen',
+  ready: 'Ready to serve',
+  serve: 'Served',
+  addLines: 'Items added',
+  moveTable: 'Table moved',
+  requestCancel: 'Cancel requested',
+  ackCancel: 'Cancellation confirmed',
+  managerCancel: 'Cancelled by manager',
 }
 
 const STATUS_TIME: Partial<
@@ -481,7 +485,7 @@ function addLinkedTicket(
     order.version,
     'addLines',
     {
-      summary: `Tambahan dibuat sebagai ${ticketLabel(linked.ticketNo)}`,
+      summary: `Added as ${ticketLabel(linked.ticketNo)}`,
       linkedOrderId: linked.orderId,
     },
     ctx.now,
@@ -525,7 +529,7 @@ export function runCommand(
     .from(schema.orders)
     .where(eq(schema.orders.id, orderId))
     .get()
-  if (!order) return fail(404, 'not_found', 'Pesanan tidak ditemukan.')
+  if (!order) return fail(404, 'not_found', 'Order not found.')
 
   const decision = decide(orderState(db, order), command)
 
@@ -583,7 +587,7 @@ export function runCommand(
       const label = resolveTable(db, command.tableId)
       if (typeof label !== 'string') return label
       if (label === order.tableLabel) {
-        return fail(422, 'invalid_input', 'Pesanan sudah di meja itu.')
+        return fail(422, 'invalid_input', 'Order is already at that table.')
       }
       patch.destination = 'table'
       patch.tableLabel = label
@@ -669,7 +673,7 @@ export function runCommand(
 
 export function orderHistory(db: Db, orderId: string) {
   const order = boardOrder(db, orderId)
-  if (!order) return fail(404, 'not_found', 'Pesanan tidak ditemukan.')
+  if (!order) return fail(404, 'not_found', 'Order not found.')
   const events = db
     .select()
     .from(schema.orderEvents)

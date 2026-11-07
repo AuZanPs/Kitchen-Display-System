@@ -29,7 +29,8 @@ admin.post(
   '/api/admin/login',
   invalidInput('json', passwordBody),
   async (c) => {
-    if (!canSignSessions(c.env)) return refuse(c, 401, 'Admin belum disiapkan.')
+    if (!canSignSessions(c.env))
+      return refuse(c, 401, 'Admin is not configured yet.')
     const result = await venueRoom(c).adminLogin(
       await ipHash(c),
       c.req.valid('json').password,
@@ -68,7 +69,8 @@ admin.post(
   '/api/admin/handoff',
   invalidInput('json', tokenSchema),
   async (c) => {
-    if (!canSignSessions(c.env)) return refuse(c, 401, 'Admin belum disiapkan.')
+    if (!canSignSessions(c.env))
+      return refuse(c, 401, 'Admin is not configured yet.')
     const place = placeOf(c)
     const slug = place.kind === 'venue' ? place.slug : null
     const email = await directory(c.env).takeToken(
@@ -77,7 +79,7 @@ admin.post(
       slug,
     )
     if (!email)
-      return refuse(c, 401, 'Tautan ini sudah dipakai atau kedaluwarsa.')
+      return refuse(c, 401, 'This link has already been used or has expired.')
     const result = await venueRoom(c).adminHandoff()
     if (!result.ok) return reply(c, result)
     await setAdminSession(c, roomOf(c), result.body.epoch)

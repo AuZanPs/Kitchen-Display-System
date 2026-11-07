@@ -4,7 +4,11 @@ import {
   parseCsv,
   rowsToMenu,
 } from '../src/shared/menu-import'
-import { MENU_TEMPLATES, templateItems } from '../src/shared/menu-templates'
+import {
+  MENU_TEMPLATES,
+  menuTemplates,
+  templateItems,
+} from '../src/shared/menu-templates'
 import { adminHeaders, createOrder, getBoard, line, request } from './helpers'
 
 // The first rows of a real menu file: a title, a note, then the header.
@@ -37,6 +41,8 @@ describe('menu file rows', () => {
       ['Tambahan', 'Telur Ceplok/Dadar', 6000, 14],
     ])
     const jumbo = result.items[2]?.modifierGroups[0]
+    expect(jumbo?.id).toBe('choice')
+    expect(jumbo?.name).toBe('Choice')
     expect(jumbo?.required).toBe(true)
     expect(jumbo?.options.map((o) => o.name)).toEqual(['Bakmi', 'Kwetiau'])
     expect(result.items[1]?.modifierGroups).toEqual([])
@@ -180,8 +186,20 @@ describe('menu import, bulk changes and delete', () => {
 })
 
 describe('menu templates', () => {
-  it('are valid imports with no repeated item', () => {
-    for (const template of MENU_TEMPLATES) {
+  it('are valid imports with no repeated item in English and Indonesian', () => {
+    expect(MENU_TEMPLATES.map((t) => t.name)).toEqual([
+      'Restaurant',
+      'Coffee shop',
+      'Noodles & meatballs',
+      'Grilled chicken & rice',
+    ])
+    expect(menuTemplates('id').map((t) => t.name)).toEqual([
+      'Rumah makan',
+      'Kedai kopi',
+      'Mi & bakso',
+      'Ayam & lalapan',
+    ])
+    for (const template of [...MENU_TEMPLATES, ...menuTemplates('id')]) {
       const items = templateItems(template, 1)
       expect(
         menuImportSchema.safeParse({ items, hideCurrent: true }).success,

@@ -2,12 +2,12 @@ import type { BoardMessage, BoardOrder } from '../../shared/board'
 import { ACTIVE_STATUSES, DEFAULT_SETTINGS } from '../../shared/board'
 
 const DISHES = [
-  ['Nasi Goreng Kampung', ['Pedas sedang', 'Telur ceplok']],
-  ['Ayam Bakar Madu', ['Sambal terpisah']],
-  ['Mie Goreng Jawa', ['Extra pedas']],
-  ['Es Teh Lemon', ['Tanpa es']],
-  ['Kopi Susu Aren', ['Dingin', 'Sedikit gula']],
-  ['Sate Ayam', []],
+  ['Kampung Fried Rice', ['Medium spicy', 'Fried egg']],
+  ['Honey Grilled Chicken', ['Sambal on the side']],
+  ['Javanese Fried Noodles', ['Extra spicy']],
+  ['Iced Lemon Tea', ['No ice']],
+  ['Palm Sugar Iced Latte', ['Iced', 'Less sugar']],
+  ['Chicken Satay', []],
 ] as const
 
 /** Dev-only `/tv?fixture=N`: N synthetic tickets to check fitting and wrapping. */
@@ -21,8 +21,8 @@ export function fixtureBoard(count: number, now: number): BoardMessage {
       status: ACTIVE_STATUSES[i % 3] ?? 'new',
       version: 1,
       takeaway: i % 4 === 3,
-      table: i % 4 === 3 ? null : `Meja ${(i % 15) + 1}`,
-      orderNote: i % 6 === 0 ? 'Tamu ulang tahun, keluarkan bersamaan' : null,
+      table: i % 4 === 3 ? null : `Table ${(i % 15) + 1}`,
+      orderNote: i % 6 === 0 ? 'Birthday table, serve together' : null,
       changePending: false,
       cancelRequested: false,
       cancelReason: null,
@@ -42,8 +42,8 @@ export function fixtureBoard(count: number, now: number): BoardMessage {
           name,
           qty: (j % 3) + 1,
           modifiers: [...modifiers],
-          note: j === 1 ? 'Piring terpisah' : null,
-          allergy: i % 7 === 2 && j === 0 ? 'udang dan kacang' : null,
+          note: j === 1 ? 'Extra plate' : null,
+          allergy: i % 7 === 2 && j === 0 ? 'shrimp and peanuts' : null,
           addedInVersion: 1,
         }
       }),

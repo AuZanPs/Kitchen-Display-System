@@ -118,7 +118,7 @@ export function chooseOptions(
   optionIds: string[],
 ): ChosenOptions {
   if (new Set(optionIds).size !== optionIds.length) {
-    return { ok: false, message: 'Pilihan yang sama dipilih dua kali.' }
+    return { ok: false, message: 'The same option was selected twice.' }
   }
   const names: string[] = []
   let priceDeltaIdr = 0
@@ -127,10 +127,10 @@ export function chooseOptions(
     const picked = group.options.filter((o) => optionIds.includes(o.id))
     matched += picked.length
     if (group.required && picked.length === 0) {
-      return { ok: false, message: `Pilih ${group.name}.` }
+      return { ok: false, message: `Choose ${group.name}.` }
     }
     if (!group.multi && picked.length > 1) {
-      return { ok: false, message: `Pilih satu ${group.name} saja.` }
+      return { ok: false, message: `Choose only one ${group.name}.` }
     }
     for (const option of picked) {
       names.push(option.name)
@@ -138,7 +138,7 @@ export function chooseOptions(
     }
   }
   if (matched !== optionIds.length) {
-    return { ok: false, message: 'Pilihan tidak tersedia untuk menu ini.' }
+    return { ok: false, message: 'Option is not available for this item.' }
   }
   return { ok: true, names, priceDeltaIdr }
 }

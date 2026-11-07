@@ -23,7 +23,7 @@ export type Credentials =
     }
 
 export function unauthenticated(): Failure {
-  return fail(401, 'unauthenticated', 'Perangkat belum terdaftar.')
+  return fail(401, 'unauthenticated', 'Device is not paired.')
 }
 
 /** True while `key` has used up `limit` inside its window; counts nothing. */
@@ -132,7 +132,7 @@ export function approveChallenge(
     )
     .get()
   if (!challenge) {
-    return fail(404, 'not_found', 'Kode salah atau sudah kedaluwarsa.')
+    return fail(404, 'not_found', 'Wrong or expired code.')
   }
   db.update(schema.enrollChallenges)
     .set({ approvedRole: input.role, approvedLabel: input.label })
@@ -162,7 +162,7 @@ export function pollChallenge(
     .where(eq(schema.enrollChallenges.id, input.challengeId))
     .get()
   if (!challenge || challenge.consumedAt || challenge.expiresAt <= now) {
-    return fail(404, 'not_found', 'Kode sudah kedaluwarsa. Minta kode baru.')
+    return fail(404, 'not_found', 'Code expired. Request a new code.')
   }
   if (!safeEqual(challenge.secretHash, input.secretHash)) {
     const attempts = challenge.attempts + 1

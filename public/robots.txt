@@ -1,0 +1,14 @@
+User-agent: *
+Allow: /
+Allow: /pricing
+Allow: /sign-in
+Disallow: /account
+Disallow: /admin
+Disallow: /waiter
+Disallow: /kitchen
+Disallow: /tv
+Disallow: /enroll
+Disallow: /super
+Disallow: /api/
+
+Sitemap: https://layardapur.web.id/sitemap.xml

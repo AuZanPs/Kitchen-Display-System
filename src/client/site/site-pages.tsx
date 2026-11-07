@@ -32,7 +32,7 @@ export function SiteBar({ children }: { children?: ReactNode }) {
       <Link
         to="/"
         translate="no"
-        className="mr-auto flex items-center gap-3 text-lg font-semibold whitespace-nowrap"
+        className="mr-auto flex items-center gap-2 text-lg font-semibold whitespace-nowrap sm:gap-3"
       >
         <BrandMark />
         {/* Room for the sign-out button on the smallest phones. */}
@@ -41,8 +41,8 @@ export function SiteBar({ children }: { children?: ReactNode }) {
         </span>
       </Link>
       <Link
-        to="/harga"
-        className="state inline-flex min-h-11 items-center rounded-full px-3 text-[15px] font-semibold max-[359px]:hidden"
+        to="/pricing"
+        className="state inline-flex min-h-11 items-center rounded-full px-2.5 text-[15px] font-semibold max-[359px]:hidden sm:px-3"
       >
         {t('pricingTitle')}
       </Link>
@@ -80,7 +80,7 @@ export function SignInPage() {
         (result) => {
           started.current = false
           setVerifying(false)
-          if (result.ok) navigate('/akun', { replace: true })
+          if (result.ok) navigate('/account', { replace: true })
           else setError(result.message)
         },
       )
@@ -191,7 +191,7 @@ export function AccountPage() {
   const load = useCallback(async () => {
     const result = await api('/api/site/session', accountSchema)
     if (result.ok) setAccount(result.data)
-    else if (result.status === 401) navigate('/masuk', { replace: true })
+    else if (result.status === 401) navigate('/sign-in', { replace: true })
     else setError(t('networkError'))
   }, [navigate, t])
 

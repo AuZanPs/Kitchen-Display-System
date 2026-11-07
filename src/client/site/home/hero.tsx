@@ -8,15 +8,25 @@ import { useNow } from '../../lib/use-now'
 import { Ticket, type TicketLine } from '../../ticket'
 import { delay, line } from './shared'
 
-// Sample content for the fragments: dishes and tables of the demo dapur.
-const DISHES = [
-  { id: 'ayam', name: 'Ayam Bakar Madu', price: 56_000 },
-  { id: 'nasi', name: 'Nasi Goreng Kampung', price: 42_000 },
-  { id: 'mie', name: 'Mie Goreng Jawa', price: 38_000 },
-  { id: 'sate', name: 'Sate Ayam', price: 45_000 },
-  { id: 'teh', name: 'Es Teh Lemon', price: 18_000 },
-] as const
-const TABLES = ['Meja 4', 'Meja 9', 'Meja 2', 'Meja 11']
+// Sample content for the fragments: dishes and tables of the demo kitchen.
+const DISHES = {
+  en: [
+    { id: 'ayam', name: 'Honey Grilled Chicken', price: 56_000 },
+    { id: 'nasi', name: 'Kampung Fried Rice', price: 42_000 },
+    { id: 'mie', name: 'Javanese Fried Noodles', price: 38_000 },
+    { id: 'sate', name: 'Chicken Satay', price: 45_000 },
+    { id: 'teh', name: 'Iced Lemon Tea', price: 18_000 },
+  ],
+  id: [
+    { id: 'ayam', name: 'Ayam Bakar Madu', price: 56_000 },
+    { id: 'nasi', name: 'Nasi Goreng Kampung', price: 42_000 },
+    { id: 'mie', name: 'Mie Goreng Jawa', price: 38_000 },
+    { id: 'sate', name: 'Sate Ayam', price: 45_000 },
+    { id: 'teh', name: 'Es Teh Lemon', price: 18_000 },
+  ],
+} as const
+type DishId = (typeof DISHES.en)[number]['id']
+const TABLE_NOS = [4, 9, 2, 11]
 
 export function Hero() {
   const { t } = useI18n()
@@ -26,13 +36,13 @@ export function Hero() {
         <Wordmark />
         <div className="flex items-center gap-1 md:gap-4">
           <Link
-            to="/harga"
+            to="/pricing"
             className="state inline-flex min-h-11 items-center rounded-full px-3 text-[15px] font-semibold text-surface [--on:var(--color-surface)]"
           >
             {t('pricingTitle')}
           </Link>
           <Link
-            to="/masuk"
+            to="/sign-in"
             className="state inline-flex min-h-11 items-center gap-2 rounded-full px-3 text-[15px] font-semibold text-surface [--on:var(--color-surface)]"
           >
             <LogIn size={18} aria-hidden className="max-sm:hidden" />
@@ -55,7 +65,7 @@ export function Hero() {
           {t('siteLead')}
         </p>
         <a
-          href="#cara-kerja"
+          href="#how-it-works"
           className="after-lines state inline-flex min-h-12 items-center rounded-full px-7 text-[15px] font-semibold text-ink transition-[background-color,scale] duration-150 active:scale-[0.97] [--bg:var(--color-surface)]"
         >
           {t('homeSeeHow')}
@@ -90,14 +100,15 @@ function Wordmark() {
 
 type DemoTicket = {
   no: number
-  where: string
+  tableNo: number
   sentAt: number
-  lines: TicketLine[]
+  items: { id: DishId; qty: number; initial?: boolean }[]
 }
 
 /** The live thing: tap dishes, send, and watch the ticket land on the TV. */
 function HeroDemo() {
-  const { t } = useI18n()
+  const { lang, t } = useI18n()
+  const dishes = DISHES[lang]
   const now = useNow(1000)
   const [draft, setDraft] = useState<Record<string, number>>({
     ayam: 1,
@@ -106,19 +117,15 @@ function HeroDemo() {
   const [tickets, setTickets] = useState<DemoTicket[]>(() => [
     {
       no: 3,
-      where: 'Meja 7',
+      tableNo: 7,
       sentAt: Date.now() - 95_000,
-      lines: [
-        line('a', 1, 'Ayam Bakar Madu', {
-          note: 'Potong kecil',
-          allergy: 'kacang',
-        }),
-      ],
+      items: [{ id: 'ayam', qty: 1, initial: true }],
     },
   ])
   const next = (tickets.at(-1)?.no ?? 0) + 1
-  const table = TABLES[(next - 4) % TABLES.length] ?? 'Meja 4'
-  const picked = DISHES.filter((dish) => (draft[dish.id] ?? 0) > 0)
+  const tableNo = TABLE_NOS[(next - 4) % TABLE_NOS.length] ?? 4
+  const table = `${t('table')} ${tableNo}`
+  const picked = dishes.filter((dish) => (draft[dish.id] ?? 0) > 0)
   const total = picked.reduce(
     (sum, dish) => sum + dish.price * (draft[dish.id] ?? 0),
     0,
@@ -143,16 +150,34 @@ function HeroDemo() {
     if (count === 0) return
     const ticket: DemoTicket = {
       no: next,
-      where: table,
+      tableNo,
       sentAt: Date.now(),
-      lines: picked.map((dish) =>
-        line(dish.id, draft[dish.id] ?? 1, dish.name),
-      ),
+      items: picked.map((dish) => ({
+        id: dish.id,
+        qty: draft[dish.id] ?? 1,
+      })),
     }
     setTickets((list) => [...list, ticket])
     setDraft({})
     setSent(true)
     setJustSent(true)
+  }
+
+  function renderLines(items: DemoTicket['items']): TicketLine[] {
+    return items.map((item, i) => {
+      const dish = dishes.find((d) => d.id === item.id) ?? dishes[0]
+      return line(
+        `${item.id}-${i}`,
+        item.qty,
+        dish.name,
+        item.initial
+          ? {
+              note: lang === 'id' ? 'Potong kecil' : 'Cut small',
+              allergy: lang === 'id' ? 'kacang' : 'peanuts',
+            }
+          : undefined,
+      )
+    })
   }
 
   return (
@@ -183,7 +208,7 @@ function HeroDemo() {
           )}
         </div>
         <ul className="grid gap-1.5">
-          {DISHES.map((dish) => {
+          {dishes.map((dish) => {
             const qty = draft[dish.id] ?? 0
             return (
               <li
@@ -286,9 +311,9 @@ function HeroDemo() {
               key={ticket.no}
               className="ticket-enter"
               ticketNo={ticket.no}
-              where={ticket.where}
+              where={`${t('table')} ${ticket.tableNo}`}
               takeaway={false}
-              lines={ticket.lines}
+              lines={renderLines(ticket.items)}
               orderNote={null}
               size="paper"
               aside={<Age since={ticket.sentAt} now={now} />}

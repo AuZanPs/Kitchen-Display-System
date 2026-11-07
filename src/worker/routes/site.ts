@@ -46,15 +46,11 @@ site.post(
     if (!(await dir.allowAttempt(`site-login:${await ipHash(c)}`, 5, window))) {
       return reply(
         c,
-        fail(
-          429,
-          'rate_limited',
-          'Terlalu banyak permintaan. Tunggu 15 menit.',
-        ),
+        fail(429, 'rate_limited', 'Too many requests. Wait 15 minutes.'),
       )
     }
     const token = randomHex(32)
-    const link = `${new URL(c.req.url).origin}/masuk#token=${token}`
+    const link = `${new URL(c.req.url).origin}/sign-in#token=${token}`
     /**
      * Any email may sign in; that is how a new owner signs up. Past the inbox
      * cap new mail is skipped while links already sent keep working, so nobody
@@ -108,17 +104,17 @@ site.post(
     if (!(await dir.allowAttempt(key, 10, 15 * 60 * 1000))) {
       return reply(
         c,
-        fail(429, 'rate_limited', 'Terlalu banyak percobaan. Tunggu 15 menit.'),
+        fail(429, 'rate_limited', 'Too many attempts. Wait 15 minutes.'),
       )
     }
-    if (!canSignSessions(c.env)) return refuse(c, 401, 'Belum disiapkan.')
+    if (!canSignSessions(c.env)) return refuse(c, 401, 'Not configured yet.')
     const email = await dir.takeToken(
       'login',
       await sha256Hex(c.req.valid('json').token),
       null,
     )
     if (!email) {
-      return refuse(c, 401, 'Tautan ini sudah dipakai atau kedaluwarsa.')
+      return refuse(c, 401, 'This link has already been used or has expired.')
     }
     await setOwnerSession(c, email)
     return c.body(null, 204)
@@ -127,11 +123,11 @@ site.post(
 
 site.get('/api/site/session', async (c) => {
   const session = await ownerSession(c)
-  if (!session) return refuse(c, 401, 'Masuk dulu.')
+  if (!session) return refuse(c, 401, 'Sign in first.')
   const venues = await directory(c.env).account(session.email, session.issuedAt)
   if (!venues) {
     clearOwnerSession(c)
-    return refuse(c, 401, 'Masuk dulu.')
+    return refuse(c, 401, 'Sign in first.')
   }
   return c.json({ email: session.email, venues })
 })
@@ -144,7 +140,7 @@ site.post('/api/site/logout', (c) => {
 /** Ends this owner's sign-in on every browser, this one included. */
 site.post('/api/site/logout-everywhere', async (c) => {
   const session = await ownerSession(c)
-  if (!session) return refuse(c, 401, 'Masuk dulu.')
+  if (!session) return refuse(c, 401, 'Sign in first.')
   await directory(c.env).signOutOwner(session.email)
   clearOwnerSession(c)
   return c.body(null, 204)
@@ -156,7 +152,7 @@ site.post(
   invalidInput('json', z.object({ slug: z.string().regex(SLUG_PATTERN) })),
   async (c) => {
     const session = await ownerSession(c)
-    if (!session) return refuse(c, 401, 'Masuk dulu.')
+    if (!session) return refuse(c, 401, 'Sign in first.')
     const { slug } = c.req.valid('json')
     const token = randomHex(32)
     const issued = await directory(c.env).issueToken(
@@ -167,7 +163,7 @@ site.post(
       HANDOFF_TTL_MS,
       session.issuedAt,
     )
-    if (!issued) return refuse(c, 403, 'Dapur ini tidak bisa dibuka.')
+    if (!issued) return refuse(c, 403, 'This kitchen cannot be opened.')
     const url = new URL(c.req.url)
     url.hostname = `${slug}.${c.env.BASE_HOST}`
     url.pathname = '/admin'
@@ -183,13 +179,13 @@ site.post(
   invalidInput('json', ownedVenueCreateSchema),
   async (c) => {
     const session = await ownerSession(c)
-    if (!session) return refuse(c, 401, 'Masuk dulu.')
+    if (!session) return refuse(c, 401, 'Sign in first.')
     const dir = directory(c.env)
     const hour = 60 * 60 * 1000
     if (!(await dir.allowAttempt(`site-create:${await ipHash(c)}`, 5, hour))) {
       return reply(
         c,
-        fail(429, 'rate_limited', 'Terlalu banyak percobaan. Tunggu satu jam.'),
+        fail(429, 'rate_limited', 'Too many attempts. Wait one hour.'),
       )
     }
     const { slug, name, adminPassword } = c.req.valid('json')
@@ -200,21 +196,25 @@ site.post(
       session.issuedAt,
       VENUE_LIMITS.ownedVenues,
     )
-    if (added === 'signed_out') return refuse(c, 401, 'Masuk dulu.')
+    if (added === 'signed_out') return refuse(c, 401, 'Sign in first.')
     if (added === 'full') {
       return reply(
         c,
         fail(
           409,
           'operation_conflict',
-          `Satu akun bisa membuat ${VENUE_LIMITS.ownedVenues} dapur. Hubungi kami untuk lebih.`,
+          `One account can create ${VENUE_LIMITS.ownedVenues} kitchens. Contact us if you need more.`,
         ),
       )
     }
     if (added === 'taken') {
       return reply(
         c,
-        fail(409, 'operation_conflict', 'Alamat ini sudah dipakai dapur lain.'),
+        fail(
+          409,
+          'operation_conflict',
+          'This address is already taken by another kitchen.',
+        ),
       )
     }
     const result = await roomBySlug(c.env, slug).provision({
@@ -240,7 +240,7 @@ site.post(
   invalidInput('json', adminEmailBody),
   async (c) => {
     const session = await ownerSession(c)
-    if (!session) return refuse(c, 401, 'Masuk dulu.')
+    if (!session) return refuse(c, 401, 'Sign in first.')
     const result = await directory(c.env).inviteAdmin(
       session.email,
       session.issuedAt,
@@ -248,10 +248,10 @@ site.post(
       c.req.valid('json').email,
     )
     if (result === 'forbidden') {
-      return refuse(c, 403, 'Hanya pemilik yang bisa mengatur admin.')
+      return refuse(c, 403, 'Only the owner can manage admins.')
     }
     if (result === 'self') {
-      return reply(c, fail(422, 'invalid_input', 'Ini email pemilik.'))
+      return reply(c, fail(422, 'invalid_input', 'This is the owner email.'))
     }
     if (result === 'full') {
       return reply(
@@ -259,7 +259,7 @@ site.post(
         fail(
           409,
           'operation_conflict',
-          `Paling banyak ${VENUE_LIMITS.invitedAdmins} admin lain.`,
+          `At most ${VENUE_LIMITS.invitedAdmins} additional admins.`,
         ),
       )
     }
@@ -273,7 +273,7 @@ site.post(
   invalidInput('json', adminEmailBody),
   async (c) => {
     const session = await ownerSession(c)
-    if (!session) return refuse(c, 401, 'Masuk dulu.')
+    if (!session) return refuse(c, 401, 'Sign in first.')
     const { slug } = c.req.valid('param')
     const removed = await directory(c.env).revokeAdmin(
       session.email,
@@ -282,7 +282,7 @@ site.post(
       c.req.valid('json').email,
     )
     if (!removed) {
-      return refuse(c, 403, 'Hanya pemilik yang bisa mengatur admin.')
+      return refuse(c, 403, 'Only the owner can manage admins.')
     }
     // Their admin sign-in on the dapur ends now; the owner opens it again from the site.
     const signedOut = await roomBySlug(c.env, slug).signOutAdmins()
