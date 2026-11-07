@@ -8,7 +8,7 @@ import {
   type RenderedMessage,
 } from '../../shared/board'
 import { ticketLabel } from '../../shared/order'
-import { formatTime, type Translate, useI18n } from '../i18n'
+import { formatTime, type Lang, type Translate, useI18n } from '../i18n'
 import { boardLines, whereLabel } from '../lib/board'
 import { RequireRole } from '../lib/session'
 import { STALE_AFTER_MS, useBoardSocket } from '../lib/use-board-socket'
@@ -45,12 +45,13 @@ export function TvPage() {
 }
 
 function FixtureBoard({ count }: { count: number }) {
-  const [board] = useState(() => fixtureBoard(count, Date.now()))
+  const { lang } = useI18n()
+  const [board] = useState(() => fixtureBoard(count, Date.now(), lang))
   const now = useNow(1000)
   return (
     <BoardView
       board={board}
-      place="Fixture"
+      place={lang === 'id' ? 'Contoh' : 'Fixture'}
       now={now}
       serverOffsetMs={0}
       lastMessageAt={now}
@@ -92,7 +93,7 @@ function BoardView({
   lastMessageAt: number | null
   disconnected: boolean
 }) {
-  const { t } = useI18n()
+  const { lang, t } = useI18n()
   const attention = (board?.orders ?? []).filter(
     (o) => (o.changePending || o.cancelRequested) && o.status !== 'cancelled',
   )
@@ -147,6 +148,7 @@ function BoardView({
               label={t(lane.label)}
               orders={board.orders.filter((o) => o.status === lane.status)}
               serverNow={now + serverOffsetMs}
+              lang={lang}
               t={t}
             />
           ))}
@@ -168,11 +170,13 @@ function Lane({
   label,
   orders,
   serverNow,
+  lang,
   t,
 }: {
   label: string
   orders: BoardOrder[]
   serverNow: number
+  lang: Lang
   t: Translate
 }) {
   const boxRef = useRef<HTMLDivElement>(null)
@@ -235,7 +239,7 @@ function Lane({
               ticketNo={order.ticketNo}
               where={whereLabel(order, t)}
               takeaway={order.takeaway}
-              lines={boardLines(order)}
+              lines={boardLines(order, lang)}
               orderNote={order.orderNote}
               tonalHeader={order.status === 'ready'}
               aside={

@@ -1,7 +1,8 @@
 import type { BoardMessage, BoardOrder } from '../../shared/board'
 import { ACTIVE_STATUSES, DEFAULT_SETTINGS } from '../../shared/board'
+import type { Lang } from '../i18n'
 
-const DISHES = [
+const DISHES_EN = [
   ['Kampung Fried Rice', ['Medium spicy', 'Fried egg']],
   ['Honey Grilled Chicken', ['Sambal on the side']],
   ['Javanese Fried Noodles', ['Extra spicy']],
@@ -10,8 +11,22 @@ const DISHES = [
   ['Chicken Satay', []],
 ] as const
 
+const DISHES_ID = [
+  ['Nasi Goreng Kampung', ['Pedas sedang', 'Telur ceplok']],
+  ['Ayam Bakar Madu', ['Sambal terpisah']],
+  ['Mie Goreng Jawa', ['Ekstra pedas']],
+  ['Es Teh Lemon', ['Tanpa es']],
+  ['Es Kopi Susu Gula Aren', ['Dingin', 'Sedikit gula']],
+  ['Sate Ayam', []],
+] as const
+
 /** Dev-only `/tv?fixture=N`: N synthetic tickets to check fitting and wrapping. */
-export function fixtureBoard(count: number, now: number): BoardMessage {
+export function fixtureBoard(
+  count: number,
+  now: number,
+  lang: Lang = 'en',
+): BoardMessage {
+  const dishes = lang === 'id' ? DISHES_ID : DISHES_EN
   const orders: BoardOrder[] = Array.from({ length: count }, (_, i) => {
     // Every fifth ticket is long enough to need a second column.
     const lineCount = i % 5 === 4 ? 16 : (i % 3) + 1
@@ -21,8 +36,16 @@ export function fixtureBoard(count: number, now: number): BoardMessage {
       status: ACTIVE_STATUSES[i % 3] ?? 'new',
       version: 1,
       takeaway: i % 4 === 3,
-      table: i % 4 === 3 ? null : `Table ${(i % 15) + 1}`,
-      orderNote: i % 6 === 0 ? 'Birthday table, serve together' : null,
+      table:
+        i % 4 === 3
+          ? null
+          : `${lang === 'id' ? 'Meja' : 'Table'} ${(i % 15) + 1}`,
+      orderNote:
+        i % 6 === 0
+          ? lang === 'id'
+            ? 'Meja ulang tahun, sajikan bersamaan'
+            : 'Birthday table, serve together'
+          : null,
       changePending: false,
       cancelRequested: false,
       cancelReason: null,
@@ -36,14 +59,24 @@ export function fixtureBoard(count: number, now: number): BoardMessage {
       createdByName: null,
       shownOnTv: true,
       lines: Array.from({ length: lineCount }, (_, j) => {
-        const [name, modifiers] = DISHES[(i + j) % DISHES.length] ?? DISHES[0]
+        const [name, modifiers] = dishes[(i + j) % dishes.length] ?? dishes[0]
         return {
           id: `fixture-${i}-${j}`,
           name,
           qty: (j % 3) + 1,
           modifiers: [...modifiers],
-          note: j === 1 ? 'Extra plate' : null,
-          allergy: i % 7 === 2 && j === 0 ? 'shrimp and peanuts' : null,
+          note:
+            j === 1
+              ? lang === 'id'
+                ? 'Piring tambahan'
+                : 'Extra plate'
+              : null,
+          allergy:
+            i % 7 === 2 && j === 0
+              ? lang === 'id'
+                ? 'udang dan kacang'
+                : 'shrimp and peanuts'
+              : null,
           addedInVersion: 1,
         }
       }),

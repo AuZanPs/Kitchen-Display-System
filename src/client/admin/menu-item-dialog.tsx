@@ -9,6 +9,7 @@ import {
 } from '../../shared/menu'
 import { formatIdr, useI18n } from '../i18n'
 import { api } from '../lib/api'
+import { localizeMenuText } from '../lib/board'
 import { failureText } from '../lib/commands'
 import { uuid } from '../lib/uuid'
 import { Button, IconButton } from '../ui/button'
@@ -86,15 +87,16 @@ export function MenuItemDialog({
   onDuplicate?: (item: AdminMenuItem) => void
   onSaved: (message: string) => void
 }) {
-  const { t } = useI18n()
+  const { lang, t } = useI18n()
   const start = item ?? copyOf
   const [name, setName] = useState(
     item?.name ?? (copyOf ? t('copyName', { name: copyOf.name }) : ''),
   )
   const [price, setPrice] = useState(start ? String(start.priceIdr) : '')
-  const [category, setCategory] = useState(
-    start?.category ?? categories[0] ?? '',
-  )
+  const [category, setCategory] = useState(() => {
+    const initial = start?.category ?? categories[0] ?? ''
+    return initial ? localizeMenuText(initial, lang) : ''
+  })
   const [sort, setSort] = useState(String(item?.sort ?? nextSort))
   const [available, setAvailable] = useState(start?.available ?? true)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -102,9 +104,10 @@ export function MenuItemDialog({
     () =>
       start?.modifierGroups.map((g) => ({
         ...g,
+        name: localizeMenuText(g.name, lang),
         options: g.options.map((o) => ({
           id: o.id,
-          name: o.name,
+          name: localizeMenuText(o.name, lang),
           price: String(o.priceDeltaIdr),
         })),
       })) ?? [],
@@ -153,10 +156,18 @@ export function MenuItemDialog({
     setTried(true)
     if (!valid || priceIdr === null) return
     setBusy(true)
+    const trimmedCategory = category.trim()
+    const canonicalCategory =
+      categories.find(
+        (c) =>
+          c.toLowerCase() === trimmedCategory.toLowerCase() ||
+          localizeMenuText(c, lang).toLowerCase() ===
+            trimmedCategory.toLowerCase(),
+      ) ?? trimmedCategory
     const input: MenuItemInput = {
       name: name.trim(),
       priceIdr,
-      category: category.trim(),
+      category: canonicalCategory,
       sort: sortValue,
       available,
       hidden,
@@ -312,7 +323,7 @@ export function MenuItemDialog({
           />
           <datalist id="menu-categories">
             {categories.map((c) => (
-              <option key={c} value={c} />
+              <option key={c} value={localizeMenuText(c, lang)} />
             ))}
           </datalist>
           <TextField

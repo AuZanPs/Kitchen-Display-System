@@ -86,7 +86,7 @@ const pedas: ModifierGroup = {
   options: [
     { id: 'tidak', name: 'Tidak pedas', priceDeltaIdr: 0 },
     { id: 'sedang', name: 'Pedas sedang', priceDeltaIdr: 0 },
-    { id: 'extra', name: 'Extra pedas', priceDeltaIdr: 0 },
+    { id: 'extra', name: 'Ekstra pedas', priceDeltaIdr: 0 },
   ],
 }
 const suhu: ModifierGroup = {
@@ -137,7 +137,7 @@ const kopi: ModifierGroup = {
   required: false,
   multi: true,
   options: [
-    { id: 'shot', name: 'Extra shot', priceDeltaIdr: 6000 },
+    { id: 'shot', name: 'Tambahan espresso', priceDeltaIdr: 6000 },
     { id: 'oat', name: 'Susu oat', priceDeltaIdr: 8000 },
   ],
 }
@@ -273,7 +273,7 @@ const MENU_TEMPLATES_ID: MenuTemplate[] = [
       ['Non-kopi', 'Matcha Latte', 26000, [suhu, gula]],
       ['Non-kopi', 'Coklat', 24000, [suhu, gula]],
       ['Non-kopi', 'Teh Tarik', 18000, [suhu, gula]],
-      ['Non-kopi', 'Lemon Tea', 16000, [suhu, gula]],
+      ['Non-kopi', 'Teh Lemon', 16000, [suhu, gula]],
       ['Camilan', 'Kentang Goreng', 20000],
       ['Camilan', 'Pisang Goreng', 18000],
       ['Camilan', 'Roti Bakar Coklat Keju', 22000],
@@ -314,8 +314,8 @@ const MENU_TEMPLATES_ID: MenuTemplate[] = [
       ['Lalapan', 'Tempe Penyet', 12000, [pedas, nasi]],
       ['Tambahan', 'Nasi Putih', 5000],
       ['Tambahan', 'Telur Dadar', 6000],
-      ['Tambahan', 'Sambal Extra', 3000],
-      ['Tambahan', 'Lalapan Extra', 4000],
+      ['Tambahan', 'Sambal Tambahan', 3000],
+      ['Tambahan', 'Lalapan Tambahan', 4000],
       ...drinksId,
     ],
   },

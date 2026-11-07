@@ -10,6 +10,7 @@ import {
 import { AppBar } from './app-bar'
 import { useI18n } from './i18n'
 import { api } from './lib/api'
+import { localizeStaff } from './lib/board'
 import { stagger } from './lib/stagger'
 import { Button, IconButton } from './ui/button'
 
@@ -21,7 +22,7 @@ export function StaffSignIn({
   device: string
   onSignedIn: () => void
 }) {
-  const { t } = useI18n()
+  const { lang, t } = useI18n()
   const [staff, setStaff] = useState<StaffMember[] | null>(null)
   const [failed, setFailed] = useState(false)
   const [picked, setPicked] = useState<StaffMember | null>(null)
@@ -61,8 +62,10 @@ export function StaffSignIn({
                     onClick={() => setPicked(member)}
                     className="state flex min-h-24 w-full items-center gap-4 rounded-md px-4 text-left text-lg font-medium transition-[background-color,scale] duration-150 active:scale-[0.98] [--bg:var(--color-wash)]"
                   >
-                    <Monogram name={member.name} />
-                    <span className="min-w-0 break-words">{member.name}</span>
+                    <Monogram name={localizeStaff(member.name, lang)} />
+                    <span className="min-w-0 break-words">
+                      {localizeStaff(member.name, lang)}
+                    </span>
                   </button>
                 </li>
               ))}
@@ -103,7 +106,7 @@ function PinPad({
   onBack: () => void
   onSignedIn: () => void
 }) {
-  const { t } = useI18n()
+  const { lang, t } = useI18n()
   const [pin, setPin] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [shakes, setShakes] = useState(0)
@@ -154,9 +157,11 @@ function PinPad({
         <IconButton label={t('back')} onClick={onBack}>
           <ArrowLeft size={22} aria-hidden />
         </IconButton>
-        <Monogram name={member.name} />
+        <Monogram name={localizeStaff(member.name, lang)} />
         <div className="grid min-w-0">
-          <h2 className="text-xl font-medium break-words">{member.name}</h2>
+          <h2 className="text-xl font-medium break-words">
+            {localizeStaff(member.name, lang)}
+          </h2>
           <p className="text-ink-soft">{t('enterPin')}</p>
         </div>
       </div>
@@ -237,7 +242,7 @@ export function StaffChip({
   name: string
   onSignedOut: () => void
 }) {
-  const { t } = useI18n()
+  const { lang, t } = useI18n()
   return (
     <Button
       variant="tonal"
@@ -248,7 +253,7 @@ export function StaffChip({
         onSignedOut()
       }}
     >
-      <span className="max-w-32 truncate">{name}</span>
+      <span className="max-w-32 truncate">{localizeStaff(name, lang)}</span>
     </Button>
   )
 }

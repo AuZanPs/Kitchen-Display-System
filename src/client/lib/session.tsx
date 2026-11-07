@@ -6,6 +6,7 @@ import { staffMemberSchema } from '../../shared/staff'
 import { useI18n } from '../i18n'
 import { Button } from '../ui/button'
 import { api, PIN_REQUIRED_EVENT } from './api'
+import { localizeError } from './commands'
 
 export const sessionSchema = z.object({
   role: z.enum(ROLES),
@@ -84,7 +85,7 @@ export function RequireRole({
   children: (session: Session, refresh: () => void) => ReactNode
 }) {
   const { state, retry } = useSession()
-  const { t } = useI18n()
+  const { lang, t } = useI18n()
   // A re-check keeps the page mounted; only the first load shows a note.
   const [last, setLast] = useState<Session | null>(null)
   useEffect(() => {
@@ -92,7 +93,9 @@ export function RequireRole({
   }, [state])
   if (state.status === 'loading' && last) return children(last, retry)
   if (state.status === 'loading') return <CenterNote>{t('loading')}</CenterNote>
-  if (state.status === 'closed') return <CenterNote>{state.message}</CenterNote>
+  if (state.status === 'closed') {
+    return <CenterNote>{localizeError(state.message, lang)}</CenterNote>
+  }
   if (state.status === 'error') {
     return (
       <CenterNote>

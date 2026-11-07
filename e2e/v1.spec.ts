@@ -42,9 +42,9 @@ test('a paired tablet sends an order that appears on the paired TV without reloa
 
   const allergy = `shrimp ${Date.now()}`
   await tablet.getByRole('button', { name: 'Choose a table' }).first().click()
-  await tablet.getByRole('button', { name: 'Meja 7', exact: true }).click()
+  await tablet.getByRole('button', { name: 'Table 7', exact: true }).click()
   await tablet.getByRole('button', { name: /Nasi Goreng Kampung/ }).click()
-  await tablet.getByRole('button', { name: 'Tidak pedas' }).click()
+  await tablet.getByRole('button', { name: 'Not spicy' }).click()
   await tablet.getByLabel('Allergy').fill(allergy)
   await tablet.getByRole('button', { name: /Add to order/ }).click()
   await tablet.screenshot({ path: 'test-results/composer.png' })
@@ -116,8 +116,8 @@ test('a paired tablet sends an order that appears on the paired TV without reloa
   // Amendments from the waiter's service list: move, add an item, ask to cancel.
   const serviceCard = () => tablet.locator('main > ul > li').first()
   await serviceCard().getByRole('button', { name: 'Move table' }).click()
-  await tablet.getByRole('button', { name: 'Meja 3', exact: true }).click()
-  await expect(takeaway).toContainText('Meja 3')
+  await tablet.getByRole('button', { name: 'Table 3', exact: true }).click()
+  await expect(takeaway).toContainText('Table 3')
   await serviceCard().getByRole('button', { name: 'Add items' }).click()
   await expect(tablet.getByText(/Adding items to/)).toBeVisible()
   await tablet.getByRole('button', { name: /Air Mineral/ }).click()

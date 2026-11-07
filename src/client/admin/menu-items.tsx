@@ -22,6 +22,7 @@ import {
 } from '../../shared/menu'
 import { formatIdr, useI18n } from '../i18n'
 import { api } from '../lib/api'
+import { localizeMenuText } from '../lib/board'
 import { stagger } from '../lib/stagger'
 import { Button, IconButton } from '../ui/button'
 import { Chip } from '../ui/chip'
@@ -70,7 +71,7 @@ export function MenuItems({
   reload: () => Promise<void>
   notify: (text: string) => void
 }) {
-  const { t } = useI18n()
+  const { lang, t } = useI18n()
   const editing = useEditing<AdminMenuItem>()
   const [copyOf, setCopyOf] = useState<AdminMenuItem | null>(null)
   const [importing, setImporting] = useState(false)
@@ -95,7 +96,10 @@ export function MenuItems({
   const matches = shown.filter(
     (i) =>
       (activeFilter === null || i.category === activeFilter) &&
-      (needle === '' || fold(`${i.name} ${i.category}`).includes(needle)),
+      (needle === '' ||
+        fold(
+          `${i.name} ${i.category} ${localizeMenuText(i.category, lang)}`,
+        ).includes(needle)),
   )
   const narrowed = needle !== '' || activeFilter !== null
   const byCategory = shownCategories
@@ -185,7 +189,10 @@ export function MenuItems({
         sort++
       }
     }
-    void apply(changes, t('categoryMoved', { name: category }))
+    void apply(
+      changes,
+      t('categoryMoved', { name: localizeMenuText(category, lang) }),
+    )
   }
 
   function toggle(id: string) {
@@ -289,7 +296,7 @@ export function MenuItems({
                   selected={activeFilter === c}
                   onClick={() => setFilter(activeFilter === c ? null : c)}
                 >
-                  {c}
+                  {localizeMenuText(c, lang)}
                 </Chip>
               ))}
             </div>
@@ -323,11 +330,12 @@ export function MenuItems({
 
       {byCategory.map(({ category, rows }) => {
         const position = shownCategories.indexOf(category)
+        const categoryLabel = localizeMenuText(category, lang)
         return (
           <div key={category} className="grid gap-2">
             <div className="flex min-h-12 items-center gap-1">
               <h3 className="mr-auto px-1 text-sm font-medium text-ink-soft">
-                {category}
+                {categoryLabel}
                 <span className="sr-only">, </span>
                 <span className="ml-2 tabular-nums" aria-hidden>
                   {rows.length}
@@ -356,20 +364,20 @@ export function MenuItems({
               {!selecting && !narrowed && (
                 <>
                   <IconButton
-                    label={t('renameCategory', { name: category })}
+                    label={t('renameCategory', { name: categoryLabel })}
                     onClick={() => setRenaming(category)}
                   >
                     <Pencil size={18} aria-hidden />
                   </IconButton>
                   <IconButton
-                    label={t('moveUp', { name: category })}
+                    label={t('moveUp', { name: categoryLabel })}
                     disabled={busy || position === 0}
                     onClick={() => moveCategory(category, -1)}
                   >
                     <ArrowUp size={18} aria-hidden />
                   </IconButton>
                   <IconButton
-                    label={t('moveDown', { name: category })}
+                    label={t('moveDown', { name: categoryLabel })}
                     disabled={busy || position === shownCategories.length - 1}
                     onClick={() => moveCategory(category, 1)}
                   >
@@ -504,7 +512,9 @@ export function MenuItems({
               >
                 <span className="mr-auto grid min-w-0">
                   <span className="font-medium break-words">{item.name}</span>
-                  <span className="text-sm text-ink-soft">{item.category}</span>
+                  <span className="text-sm text-ink-soft">
+                    {localizeMenuText(item.category, lang)}
+                  </span>
                 </span>
                 <IconButton
                   label={t('editItemName', { name: item.name })}
@@ -571,15 +581,21 @@ export function MenuItems({
         onRename={async (to) => {
           const from = renaming
           if (from === null) return
+          const targetCategory =
+            categories.find(
+              (c) => c !== from && localizeMenuText(c, lang) === to,
+            ) ?? to
           const ok = await apply(
             all
               .filter((i) => i.category === from)
-              .map((i) => ({ id: i.id, category: to })),
-            t('categoryRenamed', { name: to }),
+              .map((i) => ({ id: i.id, category: targetCategory })),
+            t('categoryRenamed', {
+              name: localizeMenuText(targetCategory, lang),
+            }),
           )
           if (ok) {
             setRenaming(null)
-            if (filter === from) setFilter(to)
+            if (filter === from) setFilter(targetCategory)
           }
         }}
       />
@@ -617,8 +633,9 @@ function RenameCategoryDialog({
   onClose: () => void
   onRename: (to: string) => Promise<void>
 }) {
-  const { t } = useI18n()
-  const [value, setValue] = useState(name ?? '')
+  const { lang, t } = useI18n()
+  const localizedName = name ? localizeMenuText(name, lang) : ''
+  const [value, setValue] = useState(localizedName)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -627,9 +644,13 @@ function RenameCategoryDialog({
     const to = value.trim()
     if (to === '') return setError(t('fieldRequired'))
     if (to.length > MENU_LIMITS.category) return
-    if (to === name) return onClose()
+    if (to === name || to === localizedName) return onClose()
     // Two categories with one name would merge their items; say so first.
-    if (taken.includes(to) && error === null) {
+    if (
+      (taken.includes(to) ||
+        taken.some((c) => localizeMenuText(c, lang) === to)) &&
+      error === null
+    ) {
       return setError(t('categoryMerge', { name: to }))
     }
     setBusy(true)

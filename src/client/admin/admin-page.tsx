@@ -19,6 +19,7 @@ import { type Device, devicesSchema } from '../../shared/devices'
 import { AppBar, SignOutButton } from '../app-bar'
 import { useI18n } from '../i18n'
 import { api } from '../lib/api'
+import { localizeError } from '../lib/commands'
 import { useBoardSocket } from '../lib/use-board-socket'
 import { PasswordSignIn } from '../password-sign-in'
 import { useSnackbar } from '../ui/snackbar'
@@ -68,7 +69,7 @@ export function AdminPage() {
 }
 
 function Login({ onSignedIn }: { onSignedIn: () => void }) {
-  const { t } = useI18n()
+  const { lang, t } = useI18n()
   return (
     <PasswordSignIn
       title={t('adminTitle')}
@@ -80,7 +81,7 @@ function Login({ onSignedIn }: { onSignedIn: () => void }) {
             ? t('networkError')
             : // A switched-off or unknown dapur says so itself.
               result.status === 403 || result.status === 404
-              ? result.message
+              ? localizeError(result.message, lang)
               : t('wrongPassword')
       }
       onSignedIn={onSignedIn}

@@ -19,6 +19,7 @@ import {
 import { AppBar, SignOutButton } from '../app-bar'
 import { formatDay, useI18n } from '../i18n'
 import { api } from '../lib/api'
+import { localizeError } from '../lib/commands'
 import { stagger } from '../lib/stagger'
 import { PasswordSignIn } from '../password-sign-in'
 import { Monogram } from '../staff-sign-in'
@@ -55,13 +56,15 @@ export function SuperPage() {
 }
 
 function Login({ onSignedIn }: { onSignedIn: () => void }) {
-  const { t } = useI18n()
+  const { lang, t } = useI18n()
   return (
     <PasswordSignIn
       title={t('superTitle')}
       endpoint="/api/super/login"
       errorText={(result) =>
-        result.status === 0 ? t('networkError') : result.message
+        result.status === 0
+          ? t('networkError')
+          : localizeError(result.message, lang)
       }
       onSignedIn={onSignedIn}
     />
@@ -96,7 +99,7 @@ function Venues({ onSignedOut }: { onSignedOut: () => void }) {
       z.unknown(),
       { method: 'PUT', body: { disabled } },
     )
-    if (!result.ok) return snackbar.show(result.message)
+    if (!result.ok) return snackbar.show(localizeError(result.message, lang))
     snackbar.show(
       t(disabled ? 'venueDisabled' : 'venueEnabled', { name: venue.name }),
     )
@@ -324,7 +327,7 @@ function AddVenue({
   onOpenChange: (open: boolean) => void
   onCreated: (name: string) => void
 }) {
-  const { t } = useI18n()
+  const { lang, t } = useI18n()
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
   const [slugEdited, setSlugEdited] = useState(false)
@@ -365,7 +368,7 @@ function AddVenue({
     })
     setBusy(false)
     if (result.ok) return onCreated(name.trim())
-    setServerError(result.message)
+    setServerError(localizeError(result.message, lang))
   }
 
   return (
@@ -450,7 +453,7 @@ function ResetPassword({
   venue: Venue | null
   onDone: (name: string | null) => void
 }) {
-  const { t } = useI18n()
+  const { lang, t } = useI18n()
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -475,7 +478,7 @@ function ResetPassword({
     )
     setBusy(false)
     if (result.ok) return onDone(venue.name)
-    setError(result.message)
+    setError(localizeError(result.message, lang))
   }
 
   return (
@@ -517,7 +520,7 @@ function OwnerEmail({
   venue: Venue | null
   onDone: (savedFor: string | null) => void
 }) {
-  const { t } = useI18n()
+  const { lang, t } = useI18n()
   const [email, setEmail] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -541,7 +544,7 @@ function OwnerEmail({
     )
     setBusy(false)
     if (result.ok) return onDone(venue.name)
-    setError(result.message)
+    setError(localizeError(result.message, lang))
   }
 
   return (
@@ -586,7 +589,7 @@ function RenameVenue({
   venue: Venue | null
   onDone: (savedAs: string | null) => void
 }) {
-  const { t } = useI18n()
+  const { lang, t } = useI18n()
   const [name, setName] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -610,7 +613,7 @@ function RenameVenue({
     })
     setBusy(false)
     if (result.ok) return onDone(value)
-    setError(result.message)
+    setError(localizeError(result.message, lang))
   }
 
   return (

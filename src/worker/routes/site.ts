@@ -38,9 +38,15 @@ export const site = new Hono<AppEnv>()
 
 site.post(
   '/api/site/login/start',
-  invalidInput('json', z.object({ email: ownerEmailSchema })),
+  invalidInput(
+    'json',
+    z.object({
+      email: ownerEmailSchema,
+      lang: z.enum(['en', 'id']).optional(),
+    }),
+  ),
   async (c) => {
-    const { email } = c.req.valid('json')
+    const { email, lang } = c.req.valid('json')
     const dir = directory(c.env)
     const window = 15 * 60 * 1000
     if (!(await dir.allowAttempt(`site-login:${await ipHash(c)}`, 5, window))) {
@@ -77,7 +83,7 @@ site.post(
         logEvent('info', 'sign_up_cap_reached', {})
         return true
       }
-      await sendSignInLink(c.env, email, link)
+      await sendSignInLink(c.env, email, link, lang)
       return true
     }
     // Development has no mailbox: the page shows the link instead.

@@ -18,7 +18,12 @@ import {
   useI18n,
 } from '../i18n'
 import { api } from '../lib/api'
-import { boardLines, localizeSummary, whereLabel } from '../lib/board'
+import {
+  boardLines,
+  localizeStaff,
+  localizeSummary,
+  whereLabel,
+} from '../lib/board'
 import { stagger } from '../lib/stagger'
 import { Ticket } from '../ticket'
 import { Card } from '../ui/card'
@@ -81,7 +86,7 @@ export function HistoryTab({
   devices: Device[] | null
   notify: (text: string) => void
 }) {
-  const { t } = useI18n()
+  const { lang, t } = useI18n()
   const [day, setDay] = useState(jakartaToday)
   const { history } = useDayHistory(day, notify)
   const [staffNames, setStaffNames] = useState(new Map<string, string>())
@@ -99,9 +104,12 @@ export function HistoryTab({
 
   useEffect(() => {
     void api('/api/manager/staff', adminStaffListSchema).then((r) => {
-      if (r.ok) setStaffNames(new Map(r.data.staff.map((s) => [s.id, s.name])))
+      if (r.ok)
+        setStaffNames(
+          new Map(r.data.staff.map((s) => [s.id, localizeStaff(s.name, lang)])),
+        )
     })
-  }, [])
+  }, [lang])
 
   return (
     <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,20rem)] lg:items-start">
@@ -161,7 +169,7 @@ export function HistoryTab({
                     {order.createdByName && (
                       <span className="text-ink-soft">
                         {' '}
-                        · {order.createdByName}
+                        · {localizeStaff(order.createdByName, lang)}
                       </span>
                     )}
                   </span>
@@ -288,7 +296,7 @@ function OrderTable({
   sales: number
   onOpen: (order: HistoryOrder) => void
 }) {
-  const { t } = useI18n()
+  const { lang, t } = useI18n()
   // Names only exist with staff PINs on; an empty column is just noise.
   const named = orders.some((o) => o.createdByName)
   const time = (at: number | null) => (at === null ? '–' : formatTime(at))
@@ -365,7 +373,11 @@ function OrderTable({
                   {time(order.servedAt ?? order.cancelledAt)}
                 </td>
                 {named && (
-                  <td className={cell}>{order.createdByName ?? '–'}</td>
+                  <td className={cell}>
+                    {order.createdByName
+                      ? localizeStaff(order.createdByName, lang)
+                      : '–'}
+                  </td>
                 )}
                 <td className={cell}>
                   <span className="block max-w-72 truncate" title={items}>
@@ -488,7 +500,7 @@ function OrderDialog({
             ticketNo={shown.ticketNo}
             where={whereLabel(shown, t)}
             takeaway={shown.takeaway}
-            lines={boardLines(shown)}
+            lines={boardLines(shown, lang)}
             orderNote={shown.orderNote}
           />
           <section

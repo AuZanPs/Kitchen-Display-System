@@ -1,6 +1,8 @@
 import { evictDurableObject } from 'cloudflare:test'
 import { exports } from 'cloudflare:workers'
 import { describe, expect, it } from 'vitest'
+import { rowsToMenu } from '../src/shared/menu-import'
+import { menuTemplates } from '../src/shared/menu-templates'
 import {
   adminHeaders,
   command,
@@ -239,5 +241,27 @@ describe('venue settings', () => {
   it('rejects a partial settings body', async () => {
     const res = await postJson('/api/admin/settings', { allergy: true })
     expect(res.status).toBe(422)
+  })
+})
+
+describe('strict EN / ID localization', () => {
+  it('provides pure English and Indonesian menu templates and choice groups', () => {
+    const enTemplates = menuTemplates('en')
+    const idTemplates = menuTemplates('id')
+    expect(enTemplates[0]?.name).toBe('Restaurant')
+    expect(idTemplates[0]?.name).toBe('Rumah makan')
+
+    const rows = [
+      ['Nama', 'Harga'],
+      ['Bakmi/Kwetiau Ayam', '25000'],
+    ]
+    const enImported = rowsToMenu(rows, 1, 'en')
+    const idImported = rowsToMenu(rows, 1, 'id')
+    expect(enImported.ok && enImported.items[0]?.modifierGroups[0]?.name).toBe(
+      'Choice',
+    )
+    expect(idImported.ok && idImported.items[0]?.modifierGroups[0]?.name).toBe(
+      'Pilihan',
+    )
   })
 })

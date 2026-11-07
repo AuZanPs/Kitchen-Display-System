@@ -11,6 +11,7 @@ import {
 } from '../../shared/staff'
 import { useI18n } from '../i18n'
 import { api } from '../lib/api'
+import { localizeStaff } from '../lib/board'
 import { failureText } from '../lib/commands'
 import { stagger } from '../lib/stagger'
 import { Monogram } from '../staff-sign-in'
@@ -28,7 +29,7 @@ const ROLE_KEY = {
 } as const
 
 export function StaffTab({ notify }: { notify: (text: string) => void }) {
-  const { t } = useI18n()
+  const { lang, t } = useI18n()
   const [staff, setStaff] = useState<AdminStaff[] | null>(null)
   const editing = useEditing<AdminStaff>()
 
@@ -85,12 +86,15 @@ export function StaffTab({ notify }: { notify: (text: string) => void }) {
                     onClick={() => editing.start(member)}
                     className={`state flex min-h-16 w-full items-center gap-4 rounded-md px-4 py-2 text-left ${member.disabled ? 'border border-dashed border-ink-soft' : '[--bg:var(--color-wash)]'}`}
                   >
-                    <Monogram name={member.name} muted={member.disabled} />
+                    <Monogram
+                      name={localizeStaff(member.name, lang)}
+                      muted={member.disabled}
+                    />
                     <span className="mr-auto grid min-w-0">
                       <span
                         className={`font-medium break-words ${member.disabled ? 'text-ink-soft' : ''}`}
                       >
-                        {member.name}
+                        {localizeStaff(member.name, lang)}
                       </span>
                       {(!member.hasPin || member.disabled) && (
                         <span className="text-sm text-ink-soft">
@@ -131,8 +135,10 @@ function StaffDialog({
   onClose: () => void
   onSaved: (name: string) => void
 }) {
-  const { t } = useI18n()
-  const [name, setName] = useState(member?.name ?? '')
+  const { lang, t } = useI18n()
+  const [name, setName] = useState(
+    member ? localizeStaff(member.name, lang) : '',
+  )
   const [role, setRole] = useState<StaffRole>(member?.role ?? 'waiter')
   const [pin, setPin] = useState('')
   const [active, setActive] = useState(!(member?.disabled ?? false))

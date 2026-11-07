@@ -15,7 +15,7 @@ import {
 import type { Table } from '../../shared/menu'
 import { LIMITS, ticketLabel } from '../../shared/order'
 import { type DictKey, formatMinutes, useI18n } from '../i18n'
-import { minutesSince, whereLabel } from '../lib/board'
+import { localizeTable, minutesSince, whereLabel } from '../lib/board'
 import { failureText, sendCommand } from '../lib/commands'
 import { stagger } from '../lib/stagger'
 import { useNow } from '../lib/use-now'
@@ -101,7 +101,7 @@ export function ServiceList({
       result.ok
         ? t('moved', {
             ticket: ticketLabel(order.ticketNo),
-            table: table.label,
+            table: localizeTable(table.label, t),
           })
         : failureText(result, t),
     )

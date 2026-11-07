@@ -18,6 +18,7 @@ import {
 import { BrandMark, LanguageToggle, SignOutButton } from '../app-bar'
 import { useI18n } from '../i18n'
 import { api } from '../lib/api'
+import { localizeError } from '../lib/commands'
 import { CenterNote } from '../lib/session'
 import { stagger } from '../lib/stagger'
 import { Monogram } from '../staff-sign-in'
@@ -54,7 +55,7 @@ export function SiteBar({ children }: { children?: ReactNode }) {
 
 /** Email in, sign-in link out; the link comes back here with `#token=`. */
 export function SignInPage() {
-  const { t } = useI18n()
+  const { lang, t } = useI18n()
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [sent, setSent] = useState<{ email: string; devLink?: string } | null>(
@@ -81,14 +82,14 @@ export function SignInPage() {
           started.current = false
           setVerifying(false)
           if (result.ok) navigate('/account', { replace: true })
-          else setError(result.message)
+          else setError(localizeError(result.message, lang))
         },
       )
     }
     verify()
     window.addEventListener('hashchange', verify)
     return () => window.removeEventListener('hashchange', verify)
-  }, [navigate])
+  }, [lang, navigate])
 
   async function submit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -96,12 +97,17 @@ export function SignInPage() {
     const result = await api(
       '/api/site/login/start',
       z.object({ devLink: z.string().optional() }),
-      { body: { email: email.trim() } },
+      { body: { email: email.trim(), lang } },
     )
     setBusy(false)
     if (result.ok)
       setSent({ email: email.trim(), devLink: result.data.devLink })
-    else setError(result.status === 422 ? t('emailInvalid') : result.message)
+    else
+      setError(
+        result.status === 422
+          ? t('emailInvalid')
+          : localizeError(result.message, lang),
+      )
   }
 
   if (verifying) return <CenterNote>{t('signingIn')}</CenterNote>
@@ -180,7 +186,7 @@ export function SignInPage() {
 
 /** The signed-in owner's dapur; each opens its admin without another password. */
 export function AccountPage() {
-  const { t } = useI18n()
+  const { lang, t } = useI18n()
   const navigate = useNavigate()
   const [account, setAccount] = useState<z.infer<typeof accountSchema> | null>(
     null,
@@ -206,7 +212,7 @@ export function AccountPage() {
       { body: { slug } },
     )
     if (result.ok) window.location.assign(result.data.url)
-    else setError(result.message)
+    else setError(localizeError(result.message, lang))
   }
 
   async function signOut(everywhere = false) {
@@ -323,7 +329,7 @@ function InvitedAdmins({
   admins: string[]
   onChanged: (message: string) => void
 }) {
-  const { t } = useI18n()
+  const { lang, t } = useI18n()
   const [email, setEmail] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -337,7 +343,7 @@ function InvitedAdmins({
       body: { email: parsed.data },
     })
     setBusy(false)
-    if (!result.ok) return setError(result.message)
+    if (!result.ok) return setError(localizeError(result.message, lang))
     setEmail('')
     onChanged(t('adminAdded', { email: parsed.data }))
   }
@@ -351,7 +357,7 @@ function InvitedAdmins({
       },
     )
     if (result.ok) onChanged(t('adminRemoved', { email: target }))
-    else setError(result.message)
+    else setError(localizeError(result.message, lang))
   }
 
   return (
@@ -427,7 +433,7 @@ function CreateVenue({
   first: boolean
   onCreated: (slug: string, name: string) => void
 }) {
-  const { t } = useI18n()
+  const { lang, t } = useI18n()
   const [open, setOpen] = useState(first)
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
@@ -463,7 +469,7 @@ function CreateVenue({
       body: { name: name.trim(), slug: address, adminPassword: password },
     })
     setBusy(false)
-    if (!result.ok) return setError(result.message)
+    if (!result.ok) return setError(localizeError(result.message, lang))
     onCreated(result.data.slug, result.data.name)
   }
 

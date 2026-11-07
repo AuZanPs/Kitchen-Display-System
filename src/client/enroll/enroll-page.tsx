@@ -6,6 +6,7 @@ import { type Challenge, challengeSchema } from '../../shared/devices'
 import { LanguageToggle } from '../app-bar'
 import { formatTime, useI18n } from '../i18n'
 import { api } from '../lib/api'
+import { localizeError } from '../lib/commands'
 import {
   CenterNote,
   HOME_BY_ROLE,
@@ -29,13 +30,14 @@ type State =
   | { status: 'error'; message: string }
 
 export function EnrollPage() {
+  const { lang } = useI18n()
   const { state: session } = useSession()
   if (session.status === 'ok') {
     return <Navigate to={HOME_BY_ROLE[session.session.role]} replace />
   }
   if (session.status === 'loading') return null
   if (session.status === 'closed') {
-    return <CenterNote>{session.message}</CenterNote>
+    return <CenterNote>{localizeError(session.message, lang)}</CenterNote>
   }
   return <Pairing />
 }

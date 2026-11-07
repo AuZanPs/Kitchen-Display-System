@@ -18,6 +18,7 @@ import {
 } from '../../shared/menu'
 import { useI18n } from '../i18n'
 import { api } from '../lib/api'
+import { localizeTable } from '../lib/board'
 import { failureText } from '../lib/commands'
 import { stagger } from '../lib/stagger'
 import { Button } from '../ui/button'
@@ -124,7 +125,7 @@ function Tables({
               onClick={() => editing.start(table)}
               className={`state min-h-14 rounded-sm px-2 text-[15px] font-medium transition-[background-color,scale] duration-150 active:scale-[0.97] ${table.active ? '[--bg:var(--color-surface)]' : 'border border-dashed border-ink-soft text-ink-soft'}`}
             >
-              {table.label}
+              {localizeTable(table.label, t)}
             </button>
           </li>
         ))}
@@ -159,7 +160,7 @@ function TableDialog({
   onSaved: (label: string) => void
 }) {
   const { t } = useI18n()
-  const [label, setLabel] = useState(table?.label ?? '')
+  const [label, setLabel] = useState(table ? localizeTable(table.label, t) : '')
   const [sort, setSort] = useState(String(table?.sort ?? nextSort))
   const [active, setActive] = useState(table?.active ?? true)
   const [error, setError] = useState<string | null>(null)
@@ -179,7 +180,7 @@ function TableDialog({
       setError(failureText(result, t))
       return
     }
-    onSaved(result.data.table.label)
+    onSaved(localizeTable(result.data.table.label, t))
   }
 
   return (

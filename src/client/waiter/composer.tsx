@@ -21,7 +21,12 @@ import {
 } from '../../shared/order'
 import { formatIdr, formatTime, type Translate, useI18n } from '../i18n'
 import { api } from '../lib/api'
-import { whereLabel } from '../lib/board'
+import {
+  localizeMenuItem,
+  localizeMenuText,
+  localizeTable,
+  whereLabel,
+} from '../lib/board'
 import { failureText, sendCommand } from '../lib/commands'
 import { stagger } from '../lib/stagger'
 import { uuid } from '../lib/uuid'
@@ -66,7 +71,7 @@ export function Composer({
   target: BoardOrder | null
   onLeaveTarget: () => void
 }) {
-  const { t } = useI18n()
+  const { lang, t } = useI18n()
   const { draft, edit } = drafts
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState<string | null>(null)
@@ -78,13 +83,19 @@ export function Composer({
   // Narrow screens keep the summary in a sheet behind a bar (BUILD.md §6).
   const [sheetOpen, setSheetOpen] = useState(false)
 
-  const categories = useMemo(
-    () => [...new Set(menu?.map((m) => m.category))],
-    [menu],
+  const localizedMenu = useMemo(
+    () => menu?.map((m) => localizeMenuItem(m, lang)) ?? null,
+    [menu, lang],
   )
-  const visible = (menu ?? []).filter(
+  const categories = useMemo(
+    () => [...new Set(localizedMenu?.map((m) => m.category))],
+    [localizedMenu],
+  )
+  const activeCategory =
+    category && categories.includes(category) ? category : null
+  const visible = (localizedMenu ?? []).filter(
     (m) =>
-      (category === null || m.category === category) &&
+      (activeCategory === null || m.category === activeCategory) &&
       m.name
         .toLocaleLowerCase('id')
         .includes(query.trim().toLocaleLowerCase('id')),
@@ -94,7 +105,7 @@ export function Composer({
   const needsTable = !target && !draft.destination
 
   function editLine(line: DraftLine) {
-    const item = menu?.find((m) => m.id === line.menuItemId)
+    const item = localizedMenu?.find((m) => m.id === line.menuItemId)
     if (item) setEditing({ item, line })
   }
 
@@ -229,13 +240,16 @@ export function Composer({
         </label>
 
         <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
-          <Chip selected={category === null} onClick={() => setCategory(null)}>
+          <Chip
+            selected={activeCategory === null}
+            onClick={() => setCategory(null)}
+          >
             {t('all')}
           </Chip>
           {categories.map((c) => (
             <Chip
               key={c}
-              selected={category === c}
+              selected={activeCategory === c}
               onClick={() => setCategory(c)}
             >
               {c}
@@ -406,7 +420,8 @@ function whereText(draft: Draft, tables: Table[] | null, t: Translate) {
   const d = draft.destination
   if (!d) return t('chooseTable')
   if (d.type === 'takeaway') return t('takeaway')
-  return tables?.find((tb) => tb.id === d.tableId)?.label ?? t('table')
+  const label = tables?.find((tb) => tb.id === d.tableId)?.label
+  return label ? localizeTable(label, t) : t('table')
 }
 
 function Summary({
@@ -431,7 +446,7 @@ function Summary({
   sheet?: boolean
   className?: string
 }) {
-  const { t } = useI18n()
+  const { lang, t } = useI18n()
   const [confirmDiscard, setConfirmDiscard] = useState(false)
   const { edit } = drafts
   const count = draftCount(draft)
@@ -489,7 +504,10 @@ function Summary({
               <span className="text-[17px]">{line.name}</span>
               {(line.modifierNames.length > 0 || line.note) && (
                 <span className="text-[13px] text-ink-soft">
-                  {[...line.modifierNames, line.note]
+                  {[
+                    ...line.modifierNames.map((m) => localizeMenuText(m, lang)),
+                    line.note,
+                  ]
                     .filter(Boolean)
                     .join(' · ')}
                 </span>
@@ -607,7 +625,7 @@ function ReviewDialog({
   target: BoardOrder | null
   onSent: (message: string) => void
 }) {
-  const { t } = useI18n()
+  const { lang, t } = useI18n()
   const [send, setSend] = useState<SendState>({ status: 'idle' })
   const { draft } = drafts
   const body = toCreateOrder(draft)
@@ -722,7 +740,7 @@ function ReviewDialog({
             key: l.key,
             qty: l.qty,
             name: l.name,
-            modifiers: l.modifierNames,
+            modifiers: l.modifierNames.map((m) => localizeMenuText(m, lang)),
             note: l.note || null,
             allergy: l.allergy || null,
           }))}

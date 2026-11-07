@@ -64,7 +64,7 @@ test('every screen at phone, tablet and desktop widths', async ({
   // An order placed on a phone-sized tablet, with an allergy and a note.
   await expect(tablet).toHaveURL(/\/waiter/)
   await tablet.getByRole('button', { name: 'Choose a table' }).first().click()
-  await tablet.getByRole('button', { name: 'Meja 4', exact: true }).click()
+  await tablet.getByRole('button', { name: 'Table 4', exact: true }).click()
   await tablet.getByRole('button', { name: /Ayam Bakar Madu/ }).click()
   await tablet.getByLabel('Note', { exact: true }).fill('Cut small')
   await tablet.getByLabel('Allergy').fill('peanuts')

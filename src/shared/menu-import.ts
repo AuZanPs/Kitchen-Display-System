@@ -79,7 +79,11 @@ export type ImportRows =
  * Turns spreadsheet rows into menu items. The header row is the first one with
  * a name and a price column; rows without a name or a price are skipped.
  */
-export function rowsToMenu(rows: string[][], firstSort: number): ImportRows {
+export function rowsToMenu(
+  rows: string[][],
+  firstSort: number,
+  lang: 'en' | 'id' = 'en',
+): ImportRows {
   const headerAt = rows.findIndex(
     (r) =>
       r.some((c) => HEADERS.name.test(c.trim())) &&
@@ -116,7 +120,7 @@ export function rowsToMenu(rows: string[][], firstSort: number): ImportRows {
       sort: firstSort + items.length,
       available: true,
       hidden: false,
-      modifierGroups: choiceGroups(baseName),
+      modifierGroups: choiceGroups(baseName, lang),
     })
     if (item.success) items.push(item.data)
     else skipped++
@@ -133,13 +137,13 @@ function toPrice(text: string): number | null {
   return digits === '' ? null : Number(digits)
 }
 
-function choiceGroups(name: string): ModifierGroup[] {
+function choiceGroups(name: string, lang: 'en' | 'id' = 'en'): ModifierGroup[] {
   const match = CHOICE_PREFIX.exec(name)
   if (!match?.[1] || !match[2]) return []
   return [
     {
       id: 'choice',
-      name: 'Choice',
+      name: lang === 'id' ? 'Pilihan' : 'Choice',
       required: true,
       multi: false,
       options: [

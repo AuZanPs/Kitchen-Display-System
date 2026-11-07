@@ -153,7 +153,7 @@ function Kitchen({
                         ticketNo={order.ticketNo}
                         where={whereLabel(order, t)}
                         takeaway={order.takeaway}
-                        lines={boardLines(order)}
+                        lines={boardLines(order, lang)}
                         orderNote={order.orderNote}
                         aside={
                           <span

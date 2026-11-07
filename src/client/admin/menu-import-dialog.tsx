@@ -76,7 +76,7 @@ export function MenuImportDialog({
       setError(t('importUnreadable'))
       return
     }
-    const result = rowsToMenu(rows, nextSort)
+    const result = rowsToMenu(rows, nextSort, lang)
     if (!result.ok) {
       setError(
         t(result.reason === 'no_header' ? 'importNoHeader' : 'importNoRows'),
