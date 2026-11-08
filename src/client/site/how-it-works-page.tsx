@@ -11,10 +11,17 @@ import { Link } from 'react-router'
 import { type DictKey, formatIdr, useI18n } from '../i18n'
 import { stagger } from '../lib/stagger'
 import { Ticket } from '../ticket'
+import { Device, DeviceStage } from './home/device'
 import { Age, SendFace } from './home/hero'
 import { delay, line } from './home/shared'
 import { SiteFooter } from './home/site-footer'
 import { SiteBar } from './site-pages'
+
+const VENUE_PHOTOS = [
+  { src: '/site/warung.webp', alt: 'homePhotoWarung' },
+  { src: '/site/kedai.webp', alt: 'homePhotoCafe' },
+  { src: '/site/rumah-makan.webp', alt: 'homePhotoRestaurant' },
+] as const
 
 type ScreenId = 'waiter' | 'tv' | 'kitchen' | 'admin'
 
@@ -203,6 +210,23 @@ export function HowItWorksPage() {
           >
             {t('howFlowTitle')}
           </h2>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <DeviceStage className="relative w-full overflow-hidden rounded-md bg-ink">
+              <div inert className="absolute inset-0">
+                <StepTablet />
+              </div>
+            </DeviceStage>
+            <DeviceStage className="relative w-full overflow-hidden rounded-md bg-ink">
+              <div inert className="absolute inset-0">
+                <StepTv />
+              </div>
+            </DeviceStage>
+            <DeviceStage className="relative w-full overflow-hidden rounded-md bg-ink">
+              <div inert className="absolute inset-0">
+                <StepPhone />
+              </div>
+            </DeviceStage>
+          </div>
           <ol className="grid gap-4 md:grid-cols-2">
             {FLOW.map((step, index) => (
               <li
@@ -220,6 +244,17 @@ export function HowItWorksPage() {
               </li>
             ))}
           </ol>
+        </section>
+
+        {/* Full-Width Kitchen Photo */}
+        <section aria-label={t('homePhotoKitchen')}>
+          <img
+            src="/site/kitchen.webp"
+            width={2000}
+            height={1249}
+            alt={t('homePhotoKitchen')}
+            className="h-[34svh] w-full rounded-lg object-cover md:h-[52svh]"
+          />
         </section>
 
         {/* Architecture & Security Pillars */}
@@ -249,6 +284,32 @@ export function HowItWorksPage() {
                 </div>
               )
             })}
+          </div>
+        </section>
+
+        {/* Built for Every Kitchen Photo Grid */}
+        <section aria-labelledby="every-title" className="grid gap-5">
+          <h2
+            id="every-title"
+            className="text-[26px] leading-tight font-medium tracking-[-0.02em] sm:text-[34px]"
+          >
+            {t('homeEveryTitle')}
+          </h2>
+          <p className="max-w-[54ch] text-[16px] leading-relaxed text-ink-soft sm:text-[17px]">
+            {t('homeEveryBody')}
+          </p>
+          <div className="grid gap-3 pt-2 sm:grid-cols-3">
+            {VENUE_PHOTOS.map((photo, index) => (
+              <img
+                key={photo.src}
+                style={delay(index)}
+                src={photo.src}
+                width={800}
+                height={1000}
+                alt={t(photo.alt)}
+                className="rise aspect-[4/5] w-full rounded-md object-cover"
+              />
+            ))}
           </div>
         </section>
 
@@ -404,64 +465,86 @@ function sampleLines(lang: 'en' | 'id') {
       ]
 }
 
-function PreviewWaiter() {
+function StepTablet() {
   const { lang, t } = useI18n()
-  const steps: DictKey[] = ['saved', 'onTv', 'accepted', 'ready']
   return (
-    <div className="grid gap-3 rounded-md bg-wash p-4 text-ink sm:p-5">
-      <Ticket
-        ticketNo={4}
-        where={`${t('table')} 4`}
-        takeaway={false}
-        lines={sampleLines(lang)}
-        orderNote={null}
-        size="paper"
-      />
-      <ol className="grid grid-cols-2 gap-2 text-[13px] leading-tight sm:grid-cols-4">
-        {steps.map((key) => (
-          <li key={key} className="grid gap-1.5">
-            <span aria-hidden className="h-1.5 rounded-full bg-ink" />
-            {t(key)}
-          </li>
-        ))}
-      </ol>
-      <div className="flex min-h-14 items-center justify-between gap-4 rounded-full bg-ink py-2 pr-2 pl-5 text-surface">
-        <SendFace count={3} total={92_000} />
+    <Device kind="tablet" className="rounded-[10px] bg-wash text-ink">
+      <div data-ui className="flex h-full flex-col justify-between gap-3 p-5">
+        <Ticket
+          ticketNo={null}
+          where={`${t('table')} 4`}
+          takeaway={false}
+          lines={sampleLines(lang)}
+          orderNote={null}
+          size="paper"
+        />
+        <div className="flex min-h-16 items-center justify-between gap-4 rounded-full bg-ink py-2 pr-2 pl-6 text-surface">
+          <SendFace count={3} total={92_000} />
+        </div>
       </div>
-    </div>
+    </Device>
   )
 }
 
-function PreviewTv() {
+function StepTv() {
   const { lang, t } = useI18n()
   return (
-    <div className="grid gap-3 rounded-md bg-ink-raised p-4 text-surface sm:p-5">
-      <div className="flex flex-wrap items-center justify-between gap-2 text-[14px] font-medium">
-        <span className="flex items-center gap-2">
-          <span aria-hidden className="size-2.5 rounded-full bg-tonal" />
-          {t('laneNew')}
-        </span>
-        <span className="grid size-7 place-items-center rounded-full bg-surface text-[13px] font-semibold text-ink tabular-nums">
-          2
-        </span>
+    <Device kind="tv" className="bg-ink-raised text-surface">
+      <div data-ui className="grid gap-3 p-5">
+        <p className="flex items-center justify-between text-[15px] font-medium">
+          <span className="flex items-center gap-2">
+            <span aria-hidden className="size-2 rounded-full bg-tonal" />
+            {t('laneNew')}
+          </span>
+          <span className="grid size-7 place-items-center rounded-full bg-surface text-[13px] font-semibold text-ink">
+            2
+          </span>
+        </p>
+        <div className="grid grid-cols-2 items-start gap-3">
+          <Ticket
+            ticketNo={3}
+            where={`${t('table')} 9`}
+            takeaway={false}
+            lines={
+              lang === 'id'
+                ? [
+                    line('s', 3, 'Sate Ayam'),
+                    line('n', 1, 'Nasi Goreng Kampung'),
+                  ]
+                : [
+                    line('s', 3, 'Chicken Satay'),
+                    line('n', 1, 'Kampung Fried Rice'),
+                  ]
+            }
+            orderNote={null}
+            size="paper"
+            aside={<Age since={0} now={195_000} />}
+          />
+          <Ticket
+            ticketNo={4}
+            where={`${t('table')} 4`}
+            takeaway={false}
+            lines={sampleLines(lang)}
+            orderNote={null}
+            size="paper"
+            aside={<Age since={0} now={42_000} />}
+          />
+        </div>
       </div>
-      <div className="grid items-start gap-3 sm:grid-cols-2">
-        <Ticket
-          ticketNo={3}
-          where={`${t('table')} 9`}
-          takeaway={false}
-          lines={
-            lang === 'id'
-              ? [line('s', 3, 'Sate Ayam'), line('n', 1, 'Nasi Goreng Kampung')]
-              : [
-                  line('s', 3, 'Chicken Satay'),
-                  line('n', 1, 'Kampung Fried Rice'),
-                ]
-          }
-          orderNote={null}
-          size="paper"
-          aside={<Age since={0} now={195_000} />}
-        />
+    </Device>
+  )
+}
+
+function StepPhone() {
+  const { lang, t } = useI18n()
+  const steps: DictKey[] = ['saved', 'onTv', 'accepted', 'ready']
+  return (
+    <Device kind="phone" className="rounded-[29px] bg-wash text-ink">
+      <span
+        aria-hidden
+        className="absolute top-0 left-1/2 h-[23px] w-[57%] -translate-x-1/2 rounded-b-[16px] bg-ink"
+      />
+      <div data-ui className="grid gap-3 px-3 pt-10">
         <Ticket
           ticketNo={4}
           where={`${t('table')} 4`}
@@ -469,37 +552,67 @@ function PreviewTv() {
           lines={sampleLines(lang)}
           orderNote={null}
           size="paper"
-          aside={<Age since={0} now={42_000} />}
+          tonalHeader
+          aside={
+            <span className="shrink-0 rounded-full bg-surface px-3 py-1 text-[13px] font-semibold">
+              {t('ready')}
+            </span>
+          }
         />
+        <ol className="grid grid-cols-4 gap-1.5 text-[13px] leading-tight">
+          {steps.map((key) => (
+            <li key={key} className="grid gap-1.5">
+              <span aria-hidden className="h-1.5 rounded-full bg-ink" />
+              {t(key)}
+            </li>
+          ))}
+        </ol>
+        <p className="mt-3 text-[13px] font-semibold text-ink-soft">
+          {t('lanePreparing')}
+        </p>
+        <Ticket
+          ticketNo={3}
+          where={`${t('table')} 9`}
+          takeaway={false}
+          lines={[line('s', 3, lang === 'id' ? 'Sate Ayam' : 'Chicken Satay')]}
+          orderNote={null}
+          size="paper"
+        />
+        <span className="flex min-h-12 items-center justify-center rounded-full bg-ink text-[15px] font-semibold text-surface">
+          {t('markReady')}
+        </span>
       </div>
-    </div>
+    </Device>
+  )
+}
+
+function PreviewWaiter() {
+  return (
+    <DeviceStage className="relative w-full overflow-hidden rounded-md bg-ink-raised">
+      <div inert className="absolute inset-0">
+        <StepTablet />
+      </div>
+    </DeviceStage>
+  )
+}
+
+function PreviewTv() {
+  return (
+    <DeviceStage className="relative w-full overflow-hidden rounded-md bg-ink-raised">
+      <div inert className="absolute inset-0">
+        <StepTv />
+      </div>
+    </DeviceStage>
   )
 }
 
 function PreviewKitchen() {
-  const { lang, t } = useI18n()
   return (
-    <div className="grid gap-3 rounded-md bg-wash p-4 text-ink sm:p-5">
-      <div className="flex items-center justify-between text-[14px] font-semibold">
-        <span>{t('lanePreparing')}</span>
-        <span className="rounded-full bg-tonal px-2.5 py-0.5 text-[13px]">
-          A-004
-        </span>
+    <DeviceStage className="relative w-full overflow-hidden rounded-md bg-ink-raised">
+      <div inert className="absolute inset-0">
+        <StepPhone />
       </div>
-      <Ticket
-        ticketNo={4}
-        where={`${t('table')} 4`}
-        takeaway={false}
-        lines={sampleLines(lang)}
-        orderNote={null}
-        size="paper"
-        tonalHeader
-        aside={<Age since={0} now={110_000} />}
-      />
-      <div className="flex min-h-12 items-center justify-center rounded-full bg-ink text-[15px] font-semibold text-surface">
-        {t('markReady')}
-      </div>
-    </div>
+    </DeviceStage>
   )
 }
 

@@ -67,7 +67,6 @@ test('a new owner signs up and creates their own kitchen', async ({
   await expect(
     page.getByRole('button', { name: 'Continue with Google' }),
   ).toBeVisible()
-  await expect(page.getByText('Security check passed')).toBeVisible()
   await settle(page)
   await expectAccessible(page, 'sign-in 1280')
   await page.screenshot({

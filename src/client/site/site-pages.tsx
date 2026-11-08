@@ -1,4 +1,4 @@
-import { Check, ExternalLink, Plus, ShieldCheck, X } from 'lucide-react'
+import { ExternalLink, Plus, X } from 'lucide-react'
 import {
   type ReactNode,
   type SubmitEvent,
@@ -282,24 +282,11 @@ export function SignInPage() {
                 autoFocus
               />
 
-              {authConfig?.turnstileSiteKey ? (
-                <div ref={turnstileRef} className="min-h-[65px]" />
-              ) : (
-                <div className="flex items-center justify-between gap-2 rounded-sm border border-line bg-surface px-3.5 py-2.5 text-[13px]">
-                  <span className="flex items-center gap-2 font-medium">
-                    <span
-                      aria-hidden
-                      className="grid size-5 shrink-0 place-items-center rounded-full bg-ink text-surface"
-                    >
-                      <Check size={13} strokeWidth={3} />
-                    </span>
-                    {t('cfSecurityPassed')}
-                  </span>
-                  <span className="flex items-center gap-1 text-[12px] text-ink-soft">
-                    <ShieldCheck size={15} aria-hidden />
-                    {t('cfProtected')}
-                  </span>
-                </div>
+              {authConfig?.turnstileSiteKey && (
+                <div
+                  ref={turnstileRef}
+                  className="flex min-h-[65px] justify-center"
+                />
               )}
 
               <Button

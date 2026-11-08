@@ -19,7 +19,8 @@
   ],
   "vars": {
     "BASE_HOST": "layardapur.web.id",
-    "EMAIL_FROM": "masuk@layardapur.web.id"
+    "EMAIL_FROM": "masuk@layardapur.web.id",
+    "TURNSTILE_SITE_KEY": "0x4AAAAAAF4X3oIzlwi0XInV"
   },
   "send_email": [{ "name": "EMAIL" }],
   "observability": {

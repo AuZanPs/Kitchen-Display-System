@@ -78,7 +78,10 @@ site.get('/api/site/auth/config', (c) =>
     googleEnabled: Boolean(
       c.env.GOOGLE_CLIENT_ID && c.env.GOOGLE_CLIENT_SECRET,
     ),
-    turnstileSiteKey: c.env.TURNSTILE_SITE_KEY || null,
+    turnstileSiteKey:
+      c.env.ENVIRONMENT === 'development'
+        ? null
+        : c.env.TURNSTILE_SITE_KEY || null,
   }),
 )
 
