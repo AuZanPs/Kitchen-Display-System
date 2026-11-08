@@ -20,8 +20,14 @@ import { WaiterPage } from './waiter/waiter-page'
 /** The site's front page, the console, or (on a dapur) each device's own screen. */
 function Home() {
   const place = usePlace()
+  const { hash } = useLocation()
   if (place === null) return null
-  if (place === 'site') return <SiteHome />
+  if (place === 'site') {
+    if (hash === '#cara-kerja' || hash === '#how-it-works') {
+      return <Navigate to="/how-it-works" replace />
+    }
+    return <SiteHome />
+  }
   if (place === 'console') return <Navigate to="/super" replace />
   return <VenueHome />
 }

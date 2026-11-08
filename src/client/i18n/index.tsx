@@ -17,7 +17,7 @@ export const LANGS = ['en', 'id'] as const
 export type Lang = (typeof LANGS)[number]
 
 const DICTS: Record<Lang, Dict> = { en, id }
-const STORAGE_KEY = 'kds_lang'
+const STORAGE_KEY = 'kds_lang_v2'
 const langSchema = z.enum(LANGS)
 
 function storedLang(): Lang {
